@@ -54,16 +54,28 @@ Prefer landing each stage as its own visible milestone rather than building seve
 
 ## Build, run, test
 
-The Unity project still has no scenes or scripts, so there is no build yet. Day-to-day work happens inside the Unity Editor (open the repo root as a Unity project from Hub). Useful CLI invocations when needed:
+Day-to-day work happens inside the Unity Editor (open the repo root as a Unity project from Hub). No player build target is configured yet — that's a Stage 7 concern.
+
+Useful CLI invocations:
 
 ```powershell
 # Open the project in the editor (interactive)
 & "C:\Program Files\Unity\Hub\Editor\6000.4.8f1\Editor\Unity.exe" -projectPath "D:\Development\doom"
 
-# Headless: run EditMode + PlayMode tests once Unity Test Framework is in use
+# Headless: run EditMode tests (Unity Test Framework, NUnit-style)
 & "C:\Program Files\Unity\Hub\Editor\6000.4.8f1\Editor\Unity.exe" `
     -batchmode -nographics -projectPath "D:\Development\doom" `
-    -runTests -testPlatform EditMode -logFile - -quit
+    -runTests -testPlatform EditMode `
+    -testResults "D:\Development\doom\Logs\test-results.xml" `
+    -logFile "D:\Development\doom\Logs\test-run.log"
+
+# Headless: execute the WAD dump menu without GUI
+& "C:\Program Files\Unity\Hub\Editor\6000.4.8f1\Editor\Unity.exe" `
+    -batchmode -nographics -projectPath "D:\Development\doom" `
+    -executeMethod Doom.Wad.Editor.WadInspectorMenu.DumpFreedoom1 `
+    -logFile "D:\Development\doom\Logs\dump.log" -quit
 ```
 
-There are no tests, scenes, or build targets configured yet — extend this section as those land.
+**Test CLI gotcha:** `-runTests` controls its own exit; do NOT add `-quit` with it (Unity exits before the runner starts). Per-test PASS/FAIL only lands in the `-testResults` XML, not the editor log. Use `-quit` only with `-executeMethod` or pure-compile runs.
+
+The current test suite is 30 EditMode tests covering the WAD reader (4 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticWadBuilder`-built blobs).
