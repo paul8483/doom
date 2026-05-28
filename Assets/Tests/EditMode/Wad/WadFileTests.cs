@@ -68,5 +68,80 @@ namespace Doom.Wad.Tests
             Assert.That(wad.Directory[0].Name, Is.EqualTo("F"));
             Assert.That(wad.Directory[0].Name.Length, Is.EqualTo(1));
         }
+
+        [Test]
+        public void Reads_lump_data_by_name()
+        {
+            var payload = new byte[] { 10, 20, 30, 40 };
+            var bytes = SyntheticWadBuilder.Build("IWAD", new[]
+            {
+                new SyntheticWadBuilder.Lump("OTHER", new byte[] { 99 }),
+                new SyntheticWadBuilder.Lump("PLAYPAL", payload),
+            });
+
+            using var wad = new WadFile(new MemoryStream(bytes), ownsStream: true);
+            var data = wad.ReadLump("PLAYPAL");
+
+            Assert.That(data, Is.EqualTo(payload));
+        }
+
+        [Test]
+        public void Reads_lump_data_by_index()
+        {
+            var bytes = SyntheticWadBuilder.Build("IWAD", new[]
+            {
+                new SyntheticWadBuilder.Lump("A", new byte[] { 1 }),
+                new SyntheticWadBuilder.Lump("B", new byte[] { 2, 3 }),
+            });
+
+            using var wad = new WadFile(new MemoryStream(bytes), ownsStream: true);
+
+            Assert.That(wad.ReadLump(0), Is.EqualTo(new byte[] { 1 }));
+            Assert.That(wad.ReadLump(1), Is.EqualTo(new byte[] { 2, 3 }));
+        }
+
+        [Test]
+        public void FindLump_returns_minus_one_for_missing()
+        {
+            var bytes = SyntheticWadBuilder.Build("IWAD", new[]
+            {
+                new SyntheticWadBuilder.Lump("A", new byte[0]),
+            });
+
+            using var wad = new WadFile(new MemoryStream(bytes), ownsStream: true);
+
+            Assert.That(wad.FindLump("NOSUCH"), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void ReadLump_by_name_throws_on_missing()
+        {
+            var bytes = SyntheticWadBuilder.Build("IWAD", new[]
+            {
+                new SyntheticWadBuilder.Lump("A", new byte[0]),
+            });
+
+            using var wad = new WadFile(new MemoryStream(bytes), ownsStream: true);
+
+            Assert.Throws<System.Collections.Generic.KeyNotFoundException>(
+                () => wad.ReadLump("NOSUCH"));
+        }
+
+        [Test]
+        public void FindLump_returns_first_match_for_duplicate_names()
+        {
+            // Real WADs have duplicated names (F_START/F_END markers, map sub-lumps).
+            // FindLump returns the index of the FIRST occurrence.
+            var bytes = SyntheticWadBuilder.Build("IWAD", new[]
+            {
+                new SyntheticWadBuilder.Lump("DUP", new byte[] { 1 }),
+                new SyntheticWadBuilder.Lump("DUP", new byte[] { 2 }),
+            });
+
+            using var wad = new WadFile(new MemoryStream(bytes), ownsStream: true);
+
+            Assert.That(wad.FindLump("DUP"), Is.EqualTo(0));
+            Assert.That(wad.ReadLump("DUP"), Is.EqualTo(new byte[] { 1 }));
+        }
     }
 }

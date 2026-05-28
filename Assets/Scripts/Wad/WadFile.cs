@@ -66,6 +66,44 @@ namespace Doom.Wad
             Directory = entries;
         }
 
+        public int FindLump(string name)
+        {
+            for (int i = 0; i < Directory.Count; i++)
+            {
+                if (Directory[i].Name == name) return i;
+            }
+            return -1;
+        }
+
+        public byte[] ReadLump(string name)
+        {
+            int idx = FindLump(name);
+            if (idx < 0)
+            {
+                throw new System.Collections.Generic.KeyNotFoundException(
+                    $"Lump '{name}' not found in WAD");
+            }
+            return ReadLump(idx);
+        }
+
+        public byte[] ReadLump(int index)
+        {
+            var entry = Directory[index];
+            if (entry.Size == 0) return System.Array.Empty<byte>();
+
+            stream.Position = entry.Offset;
+            var buf = new byte[entry.Size];
+            int read = 0;
+            while (read < buf.Length)
+            {
+                int n = stream.Read(buf, read, buf.Length - read);
+                if (n <= 0) throw new EndOfStreamException(
+                    $"Truncated lump '{entry.Name}': expected {buf.Length} bytes, got {read}");
+                read += n;
+            }
+            return buf;
+        }
+
         public void Dispose()
         {
             reader.Dispose();
