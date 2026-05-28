@@ -83,6 +83,12 @@ namespace Doom.Wad
             Directory = entries;
         }
 
+        public static WadFile Open(string path)
+        {
+            var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return new WadFile(fs, ownsStream: true);
+        }
+
         public int FindLump(string name)
         {
             for (int i = 0; i < Directory.Count; i++)

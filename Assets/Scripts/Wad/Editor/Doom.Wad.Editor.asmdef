@@ -1,0 +1,14 @@
+{
+    "name": "Doom.Wad.Editor",
+    "rootNamespace": "Doom.Wad.Editor",
+    "references": ["Doom.Wad"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
