@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Doom.Wad.Tests
 {
-    internal static class SyntheticWadBuilder
+    public static class SyntheticWadBuilder
     {
         public readonly struct Lump
         {

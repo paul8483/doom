@@ -1,0 +1,14 @@
+{
+    "name": "Doom.Map",
+    "rootNamespace": "Doom.Map",
+    "references": ["Doom.Wad"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
