@@ -143,5 +143,38 @@ namespace Doom.Wad.Tests
             Assert.That(wad.FindLump("DUP"), Is.EqualTo(0));
             Assert.That(wad.ReadLump("DUP"), Is.EqualTo(new byte[] { 1 }));
         }
+
+        [Test]
+        public void Rejects_unknown_signature()
+        {
+            // 12-byte buffer with a non-WAD signature "XXXX", numLumps=0, dirOffset=0.
+            var bytes = new byte[12];
+            System.Text.Encoding.ASCII.GetBytes("XXXX", 0, 4, bytes, 0);
+
+            Assert.Throws<InvalidDataException>(
+                () => new WadFile(new MemoryStream(bytes), ownsStream: true));
+        }
+
+        [Test]
+        public void Rejects_file_too_short_for_header()
+        {
+            var bytes = new byte[8]; // < 12 bytes
+
+            Assert.Throws<EndOfStreamException>(
+                () => new WadFile(new MemoryStream(bytes), ownsStream: true));
+        }
+
+        [Test]
+        public void Rejects_negative_lump_count()
+        {
+            var ms = new MemoryStream();
+            var w = new BinaryWriter(ms);
+            w.Write(System.Text.Encoding.ASCII.GetBytes("IWAD"));
+            w.Write(-1);   // numLumps
+            w.Write(12);   // dirOffset
+
+            Assert.Throws<InvalidDataException>(
+                () => new WadFile(ms, ownsStream: true));
+        }
     }
 }

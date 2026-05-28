@@ -51,6 +51,23 @@ namespace Doom.Wad
             var sig = Encoding.ASCII.GetString(reader.ReadBytes(4));
             var numLumps = reader.ReadInt32();
             var dirOffset = reader.ReadInt32();
+
+            if (sig != "IWAD" && sig != "PWAD")
+            {
+                throw new InvalidDataException(
+                    $"Not a WAD file: signature is '{sig}', expected 'IWAD' or 'PWAD'");
+            }
+            if (numLumps < 0)
+            {
+                throw new InvalidDataException(
+                    $"Invalid WAD: negative lump count {numLumps}");
+            }
+            if (dirOffset < 12 || dirOffset > stream.Length)
+            {
+                throw new InvalidDataException(
+                    $"Invalid WAD: directory offset {dirOffset} out of range");
+            }
+
             Header = new WadHeader(sig, numLumps, dirOffset);
 
             stream.Position = dirOffset;
