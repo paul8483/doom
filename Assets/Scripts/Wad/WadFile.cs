@@ -137,4 +137,32 @@ namespace Doom.Wad
             return Encoding.ASCII.GetString(raw, 0, end);
         }
     }
+
+    public static class WadMapNames
+    {
+        // ExMy: x ∈ 1..4, y ∈ 1..9
+        // MAPxx: xx ∈ 01..32
+        public static bool IsMapMarker(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+
+            if (name.Length == 4 && name[0] == 'E' && name[2] == 'M')
+            {
+                int episode = name[1] - '0';
+                int map = name[3] - '0';
+                return episode >= 1 && episode <= 4 && map >= 1 && map <= 9;
+            }
+
+            if (name.Length == 5 && name[0] == 'M' && name[1] == 'A' && name[2] == 'P')
+            {
+                int hi = name[3] - '0';
+                int lo = name[4] - '0';
+                if (hi < 0 || hi > 9 || lo < 0 || lo > 9) return false;
+                int n = hi * 10 + lo;
+                return n >= 1 && n <= 32;
+            }
+
+            return false;
+        }
+    }
 }

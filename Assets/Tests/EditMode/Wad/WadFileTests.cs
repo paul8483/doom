@@ -176,5 +176,24 @@ namespace Doom.Wad.Tests
             Assert.Throws<InvalidDataException>(
                 () => new WadFile(ms, ownsStream: true));
         }
+
+        [TestCase("E1M1", true)]
+        [TestCase("E4M9", true)]
+        [TestCase("E2M5", true)]
+        [TestCase("MAP01", true)]
+        [TestCase("MAP32", true)]
+        [TestCase("VERTEXES", false)]
+        [TestCase("PLAYPAL", false)]
+        [TestCase("E0M1", false)]     // episode 0 doesn't exist
+        [TestCase("E5M1", false)]     // original DOOM only has 4 episodes
+        [TestCase("E1M0", false)]     // maps are numbered from 1
+        [TestCase("MAP00", false)]
+        [TestCase("MAP33", false)]
+        [TestCase("", false)]
+        [TestCase("THINGS", false)]
+        public void Detects_map_marker_names(string name, bool expected)
+        {
+            Assert.That(WadMapNames.IsMapMarker(name), Is.EqualTo(expected));
+        }
     }
 }
