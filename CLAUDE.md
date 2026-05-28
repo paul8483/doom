@@ -4,9 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Stage 0 of the plan is done: Unity project scaffolded at the repo root, Git initialized (default branch `main`), Freedoom Phase 1 placed under `Assets/StreamingAssets/wads/freedoom1.wad`. No gameplay code exists yet — Stage 1 (WAD reader) is the next concrete work.
+Stages 0 and 1 of the plan are done:
 
-The plan is in `docs/doom-unity-remake-plan.md` (written in Russian).
+- **Stage 0:** Unity project scaffolded at the repo root, Git initialized (branch `main`), Freedoom Phase 1 placed under `Assets/StreamingAssets/wads/freedoom1.wad`.
+- **Stage 1:** WAD reader implemented in `Assets/Scripts/Wad/` (asmdef `Doom.Wad`, `noEngineReferences: true`). Public surface: `WadFile.Open(path)`, `Header`, `Directory`, `FindLump`, `ReadLump`, plus `WadMapNames.IsMapMarker`. Editor menu `Tools > Doom > Dump freedoom1.wad` confirms it reads the bundled WAD end-to-end. 30 EditMode tests (unit + integration) pass via Unity Test Framework.
+
+The plan is in `docs/doom-unity-remake-plan.md` (written in Russian); Stage 1's detailed plan is in `docs/stage-1-wad-reader-plan.md`. Stage 2 (grey block-out geometry of one map) is the next concrete work.
 
 ## What this project is
 
@@ -36,7 +39,10 @@ Prefer landing each stage as its own visible milestone rather than building seve
 ## Project layout
 
 - `Assets/` — Unity assets (scripts, scenes, meshes — once we write them)
+- `Assets/Scripts/Wad/` — WAD parser. Pure C# under asmdef `Doom.Wad` with `noEngineReferences: true` (the parser must not depend on `UnityEngine` — see architectural rules above).
+- `Assets/Scripts/Wad/Editor/` — Editor-only tools (asmdef `Doom.Wad.Editor`, `includePlatforms: ["Editor"]`). Currently houses `WadInspectorMenu` (`Tools > Doom > Dump freedoom1.wad`).
 - `Assets/StreamingAssets/wads/` — WAD files, copied verbatim into builds. **WADs live here, not in regular `Assets/`**, because anything else under `Assets/` goes through Unity's importer, which would try to interpret the binary as some asset type. `StreamingAssets` is the one Unity folder that ships files unchanged and is reachable at runtime via `Application.streamingAssetsPath`.
+- `Assets/Tests/EditMode/Wad/` — NUnit EditMode tests (asmdef `Doom.Wad.Tests`). Unit tests use a `SyntheticWadBuilder`; integration tests run against `freedoom1.wad`.
 - `Packages/`, `ProjectSettings/`, `UserSettings/` — Unity project metadata (committed; `UserSettings/` ignored per gitignore).
 - `Library/`, `Temp/`, `Logs/`, `obj/` — Unity-generated, gitignored.
 - `docs/` — design docs, including the stage-by-stage plan.
