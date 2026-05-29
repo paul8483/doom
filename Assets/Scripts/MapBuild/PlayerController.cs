@@ -19,6 +19,7 @@ namespace Doom.MapBuild
         [Header("Look")]
         [SerializeField] float mouseSensitivity = 0.1f;  // degrees per pixel
         [SerializeField] float pitchLimit = 85f;
+        [Tooltip("Child transform at eye height; pitch is applied here. Wired by MapLoader.")]
         [SerializeField] Transform cameraPivot;
 
         InputAction moveAction;
@@ -82,9 +83,9 @@ namespace Doom.MapBuild
 
         void ApplyLook()
         {
-            if (cameraPivot == null) return;
             Vector2 look = lookAction.ReadValue<Vector2>() * mouseSensitivity;
-            transform.Rotate(0f, look.x, 0f);
+            transform.Rotate(0f, look.x, 0f);             // yaw always applies
+            if (cameraPivot == null) return;              // pitch needs the pivot
             pitch = Mathf.Clamp(pitch - look.y, -pitchLimit, pitchLimit);
             cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
@@ -95,6 +96,7 @@ namespace Doom.MapBuild
             bool sprint = sprintAction.IsPressed();
             float speed = sprint ? runSpeed : walkSpeed;
 
+            // Diagonal movement intentionally un-normalized (matches original DOOM).
             Vector3 horizontal = (transform.forward * move.y + transform.right * move.x) * speed;
 
             if (cc.isGrounded && verticalVelocity < 0f)
