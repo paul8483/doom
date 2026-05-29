@@ -49,7 +49,7 @@ Prefer landing each stage as its own visible milestone rather than building seve
 - `Assets/Scripts/Wad/` — WAD parser. Pure C# under asmdef `Doom.Wad` with `noEngineReferences: true` (the parser must not depend on `UnityEngine` — see architectural rules above).
 - `Assets/Scripts/Wad/Editor/` — Editor-only tools (asmdef `Doom.Wad.Editor`, `includePlatforms: ["Editor"]`). Currently houses `WadInspectorMenu` (`Tools > Doom > Dump freedoom1.wad`).
 - `Assets/StreamingAssets/wads/` — WAD files, copied verbatim into builds. **WADs live here, not in regular `Assets/`**, because anything else under `Assets/` goes through Unity's importer, which would try to interpret the binary as some asset type. `StreamingAssets` is the one Unity folder that ships files unchanged and is reachable at runtime via `Application.streamingAssetsPath`.
-- `Assets/Tests/EditMode/Map/` — NUnit EditMode tests for the Map/MapBuild pipeline (asmdef `Doom.Map.Tests`). 32 unit tests + 5 freedoom1.wad integration tests.
+- `Assets/Tests/EditMode/Map/` — NUnit EditMode tests for the Map/MapBuild pipeline (asmdef `Doom.Map.Tests`): unit tests on `SyntheticMapBuilder`-built lumps plus `freedoom1.wad` integration/regression coverage (see the test-suite breakdown under "Build, run, test").
 - `Assets/Tests/EditMode/Wad/` — NUnit EditMode tests (asmdef `Doom.Wad.Tests`). Unit tests use a `SyntheticWadBuilder`; integration tests run against `freedoom1.wad`.
 - `Assets/Tests/PlayMode/` — Unity PlayMode tests (asmdef `Doom.Stage3.PlayTests`). Runs in Play context; required for verifying `CharacterController` + collider integration. Run WITHOUT `-nographics` (PhysX needs a real/null gfx device for collision callbacks).
 - `Assets/ThirdParty/LibTessDotNet/` — vendored LibTessDotNet v1.1.15 sources (SGI Free Software License B 2.0). Asmdef `LibTessDotNet` with `noEngineReferences: true`, `autoReferenced: false`.
@@ -95,7 +95,8 @@ Useful CLI invocations:
 
 **Test CLI gotcha:** `-runTests` controls its own exit; do NOT add `-quit` with it (Unity exits before the runner starts). Per-test PASS/FAIL only lands in the `-testResults` XML, not the editor log. Use `-quit` only with `-executeMethod` or pure-compile runs.
 
-The current test suite is 71 EditMode + 1 PlayMode tests:
+The current test suite is 73 EditMode + 1 PlayMode tests:
 - 30 from Stage 1 (WAD reader): 4 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticWadBuilder`-built blobs.
 - 32 from Stage 2 (Map pipeline): 5 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticMapBuilder`-built lumps.
 - 9 from Stage 3 EditMode (Player): THINGS parsing (+2), THINGS as required lump in Load (+2), worldScale plumbing (+4), Freedoom Player-1-start integration (+1), plus 1 PlayMode test asserting the player lands on E1M1's floor.
+- 2 geometry-robustness regressions on `freedoom1.wad` E1M1: `SectorPolygonBuilder` must produce simple (non-self-intersecting) sector rings, and `MapGeometryBuilder` output must contain no degenerate (zero-area) triangles. These pin the fixes for self-intersecting sector contours (greedy chaining → angular face-tracing) and zero-area wall quads.
