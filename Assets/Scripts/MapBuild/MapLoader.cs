@@ -135,7 +135,7 @@ namespace Doom.MapBuild
             float topY = b.max.y + Mathf.Max(b.size.x, b.size.z);
             cam.transform.position = new Vector3(center.x, topY, center.z);
             cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            cam.farClipPlane  = Mathf.Max(cam.farClipPlane, topY * 3f);
+            cam.farClipPlane  = Mathf.Max(cam.farClipPlane, Mathf.Abs(topY) * 3f + 1000f);
             cam.nearClipPlane = 0.1f;
         }
 
