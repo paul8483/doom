@@ -77,13 +77,86 @@ namespace Doom.Map
         }
     }
 
-    public static class MapData
+    public sealed class MapData
     {
+        // ── Instance properties ────────────────────────────────────────────────
+        public string   Name     { get; }
+        public Vertex[] Vertexes { get; }
+        public LineDef[] LineDefs { get; }
+        public SideDef[] SideDefs { get; }
+        public Sector[]  Sectors  { get; }
+
+        // ── Instance constructor ───────────────────────────────────────────────
+        public MapData(string name,
+                       Vertex[] vertexes, LineDef[] linedefs,
+                       SideDef[] sidedefs, Sector[] sectors)
+        {
+            Name     = name;
+            Vertexes = vertexes;
+            LineDefs = linedefs;
+            SideDefs = sidedefs;
+            Sectors  = sectors;
+        }
+
+        // ── Static factory ─────────────────────────────────────────────────────
+        public static MapData Load(Doom.Wad.WadFile wad, string mapName)
+        {
+            int markerIdx = wad.FindLump(mapName);
+            if (markerIdx < 0 || !Doom.Wad.WadMapNames.IsMapMarker(mapName))
+            {
+                throw new System.Collections.Generic.KeyNotFoundException(
+                    $"Map '{mapName}' not found in WAD (or not a valid map name)");
+            }
+
+            // Search for the 4 required lumps in the window [markerIdx+1, markerIdx+10].
+            // Canonical order: THINGS, LINEDEFS, SIDEDEFS, VERTEXES, SEGS,
+            // SSECTORS, NODES, SECTORS, REJECT, BLOCKMAP.
+            // We search by name to avoid strict ordering dependence.
+            const int Window = 10;
+            int end = System.Math.Min(markerIdx + Window, wad.Directory.Count - 1);
+
+            byte[] vertexBytes = null, lineBytes = null, sideBytes = null, sectorBytes = null;
+            for (int i = markerIdx + 1; i <= end; i++)
+            {
+                // Stop if we hit the next map marker — this map's window is over.
+                if (Doom.Wad.WadMapNames.IsMapMarker(wad.Directory[i].Name)) break;
+                switch (wad.Directory[i].Name)
+                {
+                    case "VERTEXES": vertexBytes = wad.ReadLump(i); break;
+                    case "LINEDEFS": lineBytes   = wad.ReadLump(i); break;
+                    case "SIDEDEFS": sideBytes   = wad.ReadLump(i); break;
+                    case "SECTORS":  sectorBytes = wad.ReadLump(i); break;
+                }
+            }
+
+            RequireLump(mapName, "VERTEXES", vertexBytes);
+            RequireLump(mapName, "LINEDEFS", lineBytes);
+            RequireLump(mapName, "SIDEDEFS", sideBytes);
+            RequireLump(mapName, "SECTORS",  sectorBytes);
+
+            return new MapData(
+                mapName,
+                ParseVertexes(vertexBytes),
+                ParseLineDefs(lineBytes),
+                ParseSideDefs(sideBytes),
+                ParseSectors(sectorBytes));
+        }
+
+        // ── Static helper ──────────────────────────────────────────────────────
+        private static void RequireLump(string mapName, string lumpName, byte[] bytes)
+        {
+            if (bytes == null)
+                throw new InvalidDataException(
+                    $"Map '{mapName}' missing required lump '{lumpName}'");
+        }
+
+        // ── Size constants ─────────────────────────────────────────────────────
         private const int VertexSize  = 4;
         private const int LineDefSize = 14;
         private const int SideDefSize = 30;
         private const int SectorSize  = 26;
 
+        // ── Static parsers ─────────────────────────────────────────────────────
         public static Vertex[] ParseVertexes(byte[] bytes)
         {
             if (bytes == null) return Array.Empty<Vertex>();
@@ -190,6 +263,7 @@ namespace Doom.Map
             return sectors;
         }
 
+        // ── ReadName8 ──────────────────────────────────────────────────────────
         private static string ReadName8(BinaryReader r)
         {
             var raw = r.ReadBytes(8);
