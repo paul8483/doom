@@ -33,6 +33,14 @@ namespace Doom.Map.Tests
             Assert.That(map.SideDefs.Length, Is.EqualTo(4));
             Assert.That(map.Sectors.Length, Is.EqualTo(1));
             Assert.That(map.Name, Is.EqualTo("E1M1"));
+
+            // Field-value assertions — catch lump-swap bugs
+            Assert.That(map.Vertexes[0].X, Is.EqualTo((short)0));
+            Assert.That(map.Vertexes[1].X, Is.EqualTo((short)64));
+            Assert.That(map.LineDefs[0].V1, Is.EqualTo(0));
+            Assert.That(map.LineDefs[0].V2, Is.EqualTo(1));
+            Assert.That(map.Sectors[0].FloorHeight, Is.EqualTo((short)0));
+            Assert.That(map.Sectors[0].CeilingHeight, Is.EqualTo((short)128));
         }
 
         [Test]
@@ -63,24 +71,24 @@ namespace Doom.Map.Tests
                 () => Doom.Map.MapData.Load(wad, "PLAYPAL"));
         }
 
-        [Test]
-        public void Throws_when_required_lump_missing()
+        [TestCase("VERTEXES")]
+        [TestCase("LINEDEFS")]
+        [TestCase("SIDEDEFS")]
+        [TestCase("SECTORS")]
+        public void Throws_when_required_lump_missing(string missingLump)
         {
-            // маркер есть, VERTEXES — нет
             var wadBytes = SyntheticMapBuilder.BuildMapWad(
                 "E1M1",
-                vertexes: null,
-                linedefs: SyntheticMapBuilder.BuildLineDefs((0, 1, 0, 0, 0, 0, 0xFFFF)),
-                sidedefs: SyntheticMapBuilder.BuildSideDefs(
-                    (0, 0, "-", "-", "W", 0)),
-                sectors: SyntheticMapBuilder.BuildSectors(
-                    (0, 128, "F", "F", 0, 0, 0)));
+                vertexes:  missingLump == "VERTEXES"  ? null : SyntheticMapBuilder.BuildVertexes((0, 0), (64, 0)),
+                linedefs:  missingLump == "LINEDEFS"  ? null : SyntheticMapBuilder.BuildLineDefs((0, 1, 0, 0, 0, 0, 0xFFFF)),
+                sidedefs:  missingLump == "SIDEDEFS"  ? null : SyntheticMapBuilder.BuildSideDefs((0, 0, "-", "-", "W", 0)),
+                sectors:   missingLump == "SECTORS"   ? null : SyntheticMapBuilder.BuildSectors((0, 128, "F", "F", 0, 0, 0)));
 
             using var wad = new WadFile(new MemoryStream(wadBytes), ownsStream: true);
 
             var ex = Assert.Throws<InvalidDataException>(
                 () => Doom.Map.MapData.Load(wad, "E1M1"));
-            StringAssert.Contains("VERTEXES", ex.Message);
+            StringAssert.Contains(missingLump, ex.Message);
         }
     }
 }

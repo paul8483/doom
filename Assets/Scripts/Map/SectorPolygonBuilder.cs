@@ -107,6 +107,14 @@ namespace Doom.Map
                 AddInc(inc, all[i].b, i);
             }
 
+            // Detect T-junctions: a vertex with degree > 2 means more than two edges meet
+            // there, which breaks simple Eulerian-circuit chaining.
+            foreach (var kv in inc)
+            {
+                if (kv.Value.Count > 2)
+                    MapLog.Warning($"Sector {sectorIdx}: T-junction at vertex {kv.Key} (degree {kv.Value.Count})");
+            }
+
             var used = new bool[all.Count];
             var loops = new List<List<int>>();
 
@@ -115,10 +123,10 @@ namespace Doom.Map
                 if (used[start]) continue;
 
                 var loop = new List<int>();
-                int prevVertex = all[start].a;
+                int startVertex = all[start].a;
                 int currentVertex = all[start].b;
                 used[start] = true;
-                loop.Add(prevVertex);
+                loop.Add(startVertex);
 
                 bool closed = false;
                 while (true)
@@ -138,7 +146,6 @@ namespace Doom.Map
                     used[nextEdge] = true;
                     var e = all[nextEdge];
                     int nextVertex = (e.a == currentVertex) ? e.b : e.a;
-                    prevVertex = currentVertex;
                     currentVertex = nextVertex;
                 }
 
@@ -152,9 +159,6 @@ namespace Doom.Map
                     return SectorPolygon.Invalid(sectorIdx);
                 }
             }
-
-            if (loops.Count == 0)
-                return SectorPolygon.Invalid(sectorIdx);
 
             // Классификация: максимальный по |area| — outer; остальные — holes.
             int outerIdx = 0;
