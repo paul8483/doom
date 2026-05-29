@@ -3,7 +3,6 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
-using Doom.MapBuild;
 
 namespace Doom.Stage3.PlayTests
 {
@@ -14,6 +13,9 @@ namespace Doom.Stage3.PlayTests
         {
             // Always restore real-time stepping so other tests are unaffected.
             Time.captureDeltaTime = 0f;
+            // LogAssert.ignoreFailingMessages is a global static; reset it so it
+            // doesn't leak into future PlayMode tests.
+            LogAssert.ignoreFailingMessages = false;
         }
 
         [UnityTest]
@@ -40,7 +42,7 @@ namespace Doom.Stage3.PlayTests
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
 
             // Wait for the scene to load, MapLoader.Start to run, and the build to
-            // finish (≈60 frames = ~1s of stepped time gives plenty of headroom).
+            // finish (≈90 frames ≈ 1.5s of stepped time gives plenty of headroom).
             for (int i = 0; i < 90; i++) yield return null;
 
             var player = GameObject.Find("Player");
