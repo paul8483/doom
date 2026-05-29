@@ -124,6 +124,7 @@ namespace Doom.Map
 
                 var loop = new List<int>();
                 int startVertex = all[start].a;
+                int previousVertex = all[start].a;
                 int currentVertex = all[start].b;
                 used[start] = true;
                 loop.Add(startVertex);
@@ -131,7 +132,7 @@ namespace Doom.Map
                 bool closed = false;
                 while (true)
                 {
-                    if (currentVertex == all[start].a)
+                    if (currentVertex == startVertex)
                     {
                         // Дошли до начальной вершины — loop замкнут.
                         closed = true;
@@ -139,13 +140,20 @@ namespace Doom.Map
                     }
                     loop.Add(currentVertex);
 
-                    // Найти следующее неиспользованное ребро инцидентное currentVertex.
-                    int nextEdge = FindNextEdge(inc, used, currentVertex);
+                    // Следующее ребро выбираем ПО УГЛУ (face-tracing): из всех
+                    // неиспользованных рёбер при currentVertex берём то, что идёт
+                    // сразу по часовой стрелке от направления «назад» (на
+                    // previousVertex). На вершинах степени >2 (T-junction) это
+                    // разводит контуры на простые непересекающиеся циклы, тогда
+                    // как «первое попавшееся ребро» сворачивало не туда.
+                    int nextEdge = FindNextEdgeAngular(
+                        inc, used, all, map.Vertexes, currentVertex, previousVertex);
                     if (nextEdge < 0) break; // тупик — контур открыт
 
                     used[nextEdge] = true;
                     var e = all[nextEdge];
                     int nextVertex = (e.a == currentVertex) ? e.b : e.a;
+                    previousVertex = currentVertex;
                     currentVertex = nextVertex;
                 }
 
@@ -159,6 +167,13 @@ namespace Doom.Map
                     return SectorPolygon.Invalid(sectorIdx);
                 }
             }
+
+            // Отбрасываем вырожденные циклы (спуры от удвоенных рёбер
+            // self-referencing-линий и пр.): <3 вершин или почти нулевая площадь.
+            loops.RemoveAll(l => l.Count < 3 ||
+                                 System.Math.Abs(SignedArea(map.Vertexes, l)) < 1.0);
+            if (loops.Count == 0)
+                return SectorPolygon.Invalid(sectorIdx);
 
             // Классификация: максимальный по |area| — outer; остальные — holes.
             int outerIdx = 0;
@@ -199,16 +214,38 @@ namespace Doom.Map
             l.Add(edgeIdx);
         }
 
-        private static int FindNextEdge(Dictionary<int, List<int>> inc, bool[] used,
-                                        int atVertex)
+        // Face-tracing выбор следующего ребра: пришли в atVertex со стороны
+        // fromVertex; среди неиспользованных инцидентных рёбер берём то, что
+        // первым встречается при вращении ПО ЧАСОВОЙ СТРЕЛКЕ от направления
+        // «назад» (atVertex→fromVertex). Так обход идёт по границе грани и не
+        // пересекает сам себя даже при степени вершины >2.
+        private static int FindNextEdgeAngular(
+            Dictionary<int, List<int>> inc, bool[] used, List<(int a, int b)> all,
+            Vertex[] verts, int atVertex, int fromVertex)
         {
             if (!inc.TryGetValue(atVertex, out var candidates)) return -1;
+
+            double ax = verts[atVertex].X, ay = verts[atVertex].Y;
+            double thetaBack = System.Math.Atan2(verts[fromVertex].Y - ay,
+                                                 verts[fromVertex].X - ax);
+            const double TwoPi = 2.0 * System.Math.PI;
+
+            int best = -1;
+            double bestGap = double.MaxValue;
             for (int i = 0; i < candidates.Count; i++)
             {
                 int idx = candidates[i];
-                if (!used[idx]) return idx;
+                if (used[idx]) continue;
+                var e = all[idx];
+                int w = (e.a == atVertex) ? e.b : e.a;
+                double thetaW = System.Math.Atan2(verts[w].Y - ay, verts[w].X - ax);
+                // Зазор по часовой стрелке от thetaBack к thetaW, нормированный в (0, 2π].
+                double gap = thetaBack - thetaW;
+                gap %= TwoPi;
+                if (gap <= 0) gap += TwoPi;
+                if (gap < bestGap) { bestGap = gap; best = idx; }
             }
-            return -1;
+            return best;
         }
 
         private static double SignedArea(Vertex[] verts, IReadOnlyList<int> ring)
