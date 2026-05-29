@@ -65,16 +65,31 @@ namespace Doom.Map.Tests
             return ms.ToArray();
         }
 
+        public static byte[] BuildThings(params (short x, short y,
+                                                  ushort angle, ushort type, ushort flags)[] things)
+        {
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+            foreach (var t in things)
+            {
+                w.Write(t.x); w.Write(t.y);
+                w.Write(t.angle); w.Write(t.type); w.Write(t.flags);
+            }
+            return ms.ToArray();
+        }
+
         /// Собрать WAD с маркером карты + любыми переданными лампами карты.
         /// Маркер должен идти первым; остальные лампы — после.
         public static byte[] BuildMapWad(string mapName,
             byte[] vertexes = null, byte[] linedefs = null,
-            byte[] sidedefs = null, byte[] sectors = null)
+            byte[] sidedefs = null, byte[] sectors = null,
+            byte[] things = null)
         {
             var lumps = new List<SyntheticWadBuilder.Lump>
             {
                 new SyntheticWadBuilder.Lump(mapName, new byte[0]),
             };
+            if (things   != null) lumps.Add(new SyntheticWadBuilder.Lump("THINGS",   things));
             if (linedefs != null) lumps.Add(new SyntheticWadBuilder.Lump("LINEDEFS", linedefs));
             if (sidedefs != null) lumps.Add(new SyntheticWadBuilder.Lump("SIDEDEFS", sidedefs));
             if (vertexes != null) lumps.Add(new SyntheticWadBuilder.Lump("VERTEXES", vertexes));

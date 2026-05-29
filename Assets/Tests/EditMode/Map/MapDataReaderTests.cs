@@ -130,5 +130,50 @@ namespace Doom.Map.Tests
             Assert.That(sectors[1].Special, Is.EqualTo(9));
             Assert.That(sectors[1].Tag, Is.EqualTo(12));
         }
+
+        [Test]
+        public void Parses_things_into_records()
+        {
+            var bytes = SyntheticMapBuilder.BuildThings(
+                (x: 100, y: 200, angle: 90, type: 1, flags: 0x07),
+                (x: -50, y: 300, angle: 270, type: 3004, flags: 0x10));
+
+            var things = MapData.ParseThings(bytes);
+
+            Assert.That(things.Length, Is.EqualTo(2));
+            Assert.That(things[0].X, Is.EqualTo((short)100));
+            Assert.That(things[0].Y, Is.EqualTo((short)200));
+            Assert.That(things[0].Angle, Is.EqualTo(90));
+            Assert.That(things[0].Type, Is.EqualTo(1));
+            Assert.That(things[0].Flags, Is.EqualTo(0x07));
+            Assert.That(things[1].X, Is.EqualTo((short)-50));
+            Assert.That(things[1].Type, Is.EqualTo(3004));
+        }
+
+        [Test]
+        public void Things_lump_size_not_multiple_of_10_is_warning_not_throw()
+        {
+            // 10 bytes = one valid record, +3 trailing bytes — ignored
+            var bytes = new byte[13];
+            bytes[0] = 5; bytes[1] = 0;
+            bytes[2] = 0; bytes[3] = 0;
+            bytes[4] = 0; bytes[5] = 0;
+            bytes[6] = 1; bytes[7] = 0;
+            bytes[8] = 0; bytes[9] = 0;
+            bytes[10] = 0xAB; bytes[11] = 0xCD; bytes[12] = 0xEF;
+
+            string captured = null;
+            System.Action<string> handler = m => captured = m;
+            MapLog.WarningHandler += handler;
+            try
+            {
+                var things = MapData.ParseThings(bytes);
+                Assert.That(captured, Does.Contain("THINGS"));
+                Assert.That(things.Length, Is.EqualTo(1));
+                Assert.That(things[0].X, Is.EqualTo((short)5));
+                Assert.That(things[0].Type, Is.EqualTo(1));
+            }
+            finally { MapLog.WarningHandler -= handler; }
+        }
     }
 }

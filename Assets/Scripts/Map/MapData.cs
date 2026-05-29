@@ -77,6 +77,20 @@ namespace Doom.Map
         }
     }
 
+    public readonly struct Thing
+    {
+        public readonly short X;
+        public readonly short Y;
+        public readonly ushort Angle;
+        public readonly ushort Type;
+        public readonly ushort Flags;
+
+        public Thing(short x, short y, ushort angle, ushort type, ushort flags)
+        {
+            X = x; Y = y; Angle = angle; Type = type; Flags = flags;
+        }
+    }
+
     public sealed class MapData
     {
         // ── Instance properties ────────────────────────────────────────────────
@@ -155,6 +169,7 @@ namespace Doom.Map
         private const int LineDefSize = 14;
         private const int SideDefSize = 30;
         private const int SectorSize  = 26;
+        private const int ThingSize   = 10;
 
         // ── Static parsers ─────────────────────────────────────────────────────
         public static Vertex[] ParseVertexes(byte[] bytes)
@@ -261,6 +276,31 @@ namespace Doom.Map
                                         light, special, tag);
             }
             return sectors;
+        }
+
+        public static Thing[] ParseThings(byte[] bytes)
+        {
+            if (bytes == null) return Array.Empty<Thing>();
+            int count = bytes.Length / ThingSize;
+            if (bytes.Length % ThingSize != 0)
+            {
+                MapLog.Warning(
+                    $"THINGS: размер {bytes.Length} не кратен {ThingSize}, " +
+                    $"читаем первые {count} записей");
+            }
+            var things = new Thing[count];
+            using var ms = new MemoryStream(bytes);
+            using var r = new BinaryReader(ms);
+            for (int i = 0; i < count; i++)
+            {
+                short x = r.ReadInt16();
+                short y = r.ReadInt16();
+                ushort angle = r.ReadUInt16();
+                ushort type  = r.ReadUInt16();
+                ushort flags = r.ReadUInt16();
+                things[i] = new Thing(x, y, angle, type, flags);
+            }
+            return things;
         }
 
         // ── ReadName8 ──────────────────────────────────────────────────────────
