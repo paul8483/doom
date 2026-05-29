@@ -123,6 +123,11 @@ namespace Doom.Map.Tests
             Assert.That(sectors[0].CeilingFlat, Is.EqualTo("F_SKY1"));
             Assert.That(sectors[0].LightLevel, Is.EqualTo(192));
             Assert.That(sectors[1].FloorHeight, Is.EqualTo((short)-16));
+            Assert.That(sectors[1].CeilingHeight, Is.EqualTo((short)64));
+            Assert.That(sectors[1].FloorFlat, Is.EqualTo("BLOOD1"));
+            Assert.That(sectors[1].CeilingFlat, Is.EqualTo("CEIL1"));
+            Assert.That(sectors[1].LightLevel, Is.EqualTo(96));
+            Assert.That(sectors[1].Special, Is.EqualTo(9));
             Assert.That(sectors[1].Tag, Is.EqualTo(12));
         }
     }

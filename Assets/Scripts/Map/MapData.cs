@@ -141,9 +141,11 @@ namespace Doom.Map
             if (bytes == null) return Array.Empty<SideDef>();
             int count = bytes.Length / SideDefSize;
             if (bytes.Length % SideDefSize != 0)
+            {
                 MapLog.Warning(
                     $"SIDEDEFS: размер {bytes.Length} не кратен {SideDefSize}, " +
                     $"читаем первые {count} записей");
+            }
             var sides = new SideDef[count];
             using var ms = new MemoryStream(bytes);
             using var r = new BinaryReader(ms);
@@ -165,9 +167,11 @@ namespace Doom.Map
             if (bytes == null) return Array.Empty<Sector>();
             int count = bytes.Length / SectorSize;
             if (bytes.Length % SectorSize != 0)
+            {
                 MapLog.Warning(
                     $"SECTORS: размер {bytes.Length} не кратен {SectorSize}, " +
                     $"читаем первые {count} записей");
+            }
             var sectors = new Sector[count];
             using var ms = new MemoryStream(bytes);
             using var r = new BinaryReader(ms);
