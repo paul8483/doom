@@ -14,12 +14,12 @@ namespace Doom.MapBuild
         [Tooltip("Map name (ExMy for DOOM 1, MAPxx for DOOM 2)")]
         [SerializeField] string mapName = "E1M1";
 
+        [Tooltip("DOOM unit × worldScale = Unity meter. 1/32 → player ~1.75m")]
+        [SerializeField] float worldScale = 1f / 32f;
+
         [SerializeField] Material floorMaterial;
         [SerializeField] Material ceilingMaterial;
         [SerializeField] Material wallMaterial;
-
-        [Tooltip("After loading, move Main Camera to look down at map center")]
-        [SerializeField] bool autoFitCamera = true;
 
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Runs after scene load; creates a MapLoader if none exists in the scene,
@@ -69,12 +69,12 @@ namespace Doom.MapBuild
             var map = MapData.Load(wad, mapName);
             Debug.Log($"MapLoader: loaded {map.Name} — " +
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
-                      $"{map.Sectors.Length} sectors");
+                      $"{map.Sectors.Length} sectors, {map.Things.Length} things");
 
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
 
-            var meshes = MapGeometryBuilder.Build(map);
+            var meshes = MapGeometryBuilder.Build(map, worldScale);
             Bounds? bounds = null;
             int builtSectors = 0;
             foreach (var sm in meshes)
@@ -89,7 +89,63 @@ namespace Doom.MapBuild
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
 
-            if (autoFitCamera && bounds.HasValue) FitCamera(bounds.Value);
+            SpawnPlayer(map, bounds);
+        }
+
+        // ── Player spawn ──────────────────────────────────────────────────────
+        void SpawnPlayer(MapData map, Bounds? bounds)
+        {
+            Thing? start = null;
+            foreach (var t in map.Things)
+            {
+                if (t.Type == 1) { start = t; break; }
+            }
+            Vector3 pos;
+            float yaw;
+            if (start.HasValue)
+            {
+                pos = new Vector3(start.Value.X * worldScale,
+                                  (bounds?.max.y ?? 0f) + 5f,
+                                  start.Value.Y * worldScale);
+                yaw = 90f - start.Value.Angle;
+            }
+            else
+            {
+                Debug.LogWarning("MapLoader: no Player 1 start in THINGS; spawning at (0, top, 0)");
+                pos = new Vector3(0f, (bounds?.max.y ?? 0f) + 5f, 0f);
+                yaw = 0f;
+            }
+
+            var existingMain = Camera.main;
+            if (existingMain != null && existingMain.gameObject.GetComponent<PlayerController>() == null)
+            {
+                Destroy(existingMain.gameObject);
+            }
+
+            var player = new GameObject("Player");
+            player.transform.SetParent(transform, worldPositionStays: false);
+            player.transform.position = pos;
+            player.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+            var cc = player.AddComponent<CharacterController>();
+            cc.height = 56f * worldScale;
+            cc.radius = 16f * worldScale;
+            cc.stepOffset = 24f * worldScale;
+            cc.slopeLimit = 45f;
+            cc.center = new Vector3(0f, cc.height * 0.5f, 0f);
+
+            var cameraGO = new GameObject("PlayerCamera");
+            cameraGO.transform.SetParent(player.transform, worldPositionStays: false);
+            cameraGO.transform.localPosition = new Vector3(0f, 41f * worldScale, 0f);
+            cameraGO.tag = "MainCamera";
+            var cam = cameraGO.AddComponent<Camera>();
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 2000f;
+            cam.fieldOfView = 75f;
+            cameraGO.AddComponent<AudioListener>();
+
+            var pc = player.AddComponent<PlayerController>();
+            pc.SetCameraPivot(cameraGO.transform);
         }
 
         void AddChild(GameObject parent, string name, MeshData data,
@@ -126,18 +182,6 @@ namespace Doom.MapBuild
         }
 
         static Bounds Combine(Bounds a, Bounds b) { a.Encapsulate(b); return a; }
-
-        void FitCamera(Bounds b)
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-            var center = b.center;
-            float topY = b.max.y + Mathf.Max(b.size.x, b.size.z);
-            cam.transform.position = new Vector3(center.x, topY, center.z);
-            cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            cam.farClipPlane  = Mathf.Max(cam.farClipPlane, Mathf.Abs(topY) * 3f + 1000f);
-            cam.nearClipPlane = 0.1f;
-        }
 
         void OnWarning(string msg) => Debug.LogWarning($"[Doom.Map] {msg}");
         void OnError(string msg)   => Debug.LogError  ($"[Doom.Map] {msg}");

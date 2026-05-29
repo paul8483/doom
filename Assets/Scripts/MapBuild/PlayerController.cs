@@ -56,6 +56,8 @@ namespace Doom.MapBuild
             playerMap?.Dispose();
         }
 
+        public void SetCameraPivot(Transform pivot) => cameraPivot = pivot;
+
         void BuildInputActions()
         {
             playerMap = new InputActionMap("Player");
