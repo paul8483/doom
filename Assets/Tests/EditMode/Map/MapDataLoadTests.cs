@@ -11,6 +11,7 @@ namespace Doom.Map.Tests
         {
             var wadBytes = SyntheticMapBuilder.BuildMapWad(
                 "E1M1",
+                things: SyntheticMapBuilder.BuildThings((0, 0, 0, 1, 0)),
                 vertexes: SyntheticMapBuilder.BuildVertexes((0, 0), (64, 0), (64, 64), (0, 64)),
                 linedefs: SyntheticMapBuilder.BuildLineDefs(
                     (0, 1, 0, 0, 0, 0, 0xFFFF),
@@ -71,6 +72,7 @@ namespace Doom.Map.Tests
                 () => Doom.Map.MapData.Load(wad, "PLAYPAL"));
         }
 
+        [TestCase("THINGS")]
         [TestCase("VERTEXES")]
         [TestCase("LINEDEFS")]
         [TestCase("SIDEDEFS")]
@@ -79,6 +81,7 @@ namespace Doom.Map.Tests
         {
             var wadBytes = SyntheticMapBuilder.BuildMapWad(
                 "E1M1",
+                things:    missingLump == "THINGS"    ? null : SyntheticMapBuilder.BuildThings((0, 0, 0, 1, 0)),
                 vertexes:  missingLump == "VERTEXES"  ? null : SyntheticMapBuilder.BuildVertexes((0, 0), (64, 0)),
                 linedefs:  missingLump == "LINEDEFS"  ? null : SyntheticMapBuilder.BuildLineDefs((0, 1, 0, 0, 0, 0, 0xFFFF)),
                 sidedefs:  missingLump == "SIDEDEFS"  ? null : SyntheticMapBuilder.BuildSideDefs((0, 0, "-", "-", "W", 0)),
@@ -89,6 +92,30 @@ namespace Doom.Map.Tests
             var ex = Assert.Throws<InvalidDataException>(
                 () => Doom.Map.MapData.Load(wad, "E1M1"));
             StringAssert.Contains(missingLump, ex.Message);
+        }
+
+        [Test]
+        public void Loaded_map_exposes_things_from_THINGS_lump()
+        {
+            var wadBytes = SyntheticMapBuilder.BuildMapWad("E1M1",
+                things:   SyntheticMapBuilder.BuildThings((100, 200, 0, 1, 7)),
+                vertexes: SyntheticMapBuilder.BuildVertexes((0, 0), (64, 0), (64, 64), (0, 64)),
+                linedefs: SyntheticMapBuilder.BuildLineDefs(
+                    (0, 1, 0, 0, 0, 0, 0xFFFF),
+                    (1, 2, 0, 0, 0, 1, 0xFFFF),
+                    (2, 3, 0, 0, 0, 2, 0xFFFF),
+                    (3, 0, 0, 0, 0, 3, 0xFFFF)),
+                sidedefs: SyntheticMapBuilder.BuildSideDefs(
+                    (0, 0, "-", "-", "W", 0), (0, 0, "-", "-", "W", 0),
+                    (0, 0, "-", "-", "W", 0), (0, 0, "-", "-", "W", 0)),
+                sectors:  SyntheticMapBuilder.BuildSectors((0, 128, "F", "F", 0, 0, 0)));
+
+            using var wad = new WadFile(new MemoryStream(wadBytes), ownsStream: true);
+            var map = Doom.Map.MapData.Load(wad, "E1M1");
+
+            Assert.That(map.Things.Length, Is.EqualTo(1));
+            Assert.That(map.Things[0].Type, Is.EqualTo(1));
+            Assert.That(map.Things[0].X, Is.EqualTo((short)100));
         }
     }
 }

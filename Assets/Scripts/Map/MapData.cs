@@ -99,17 +99,20 @@ namespace Doom.Map
         public LineDef[] LineDefs { get; }
         public SideDef[] SideDefs { get; }
         public Sector[]  Sectors  { get; }
+        public Thing[]   Things   { get; }
 
         // ── Instance constructor ───────────────────────────────────────────────
         public MapData(string name,
                        Vertex[] vertexes, LineDef[] linedefs,
-                       SideDef[] sidedefs, Sector[] sectors)
+                       SideDef[] sidedefs, Sector[] sectors,
+                       Thing[] things)
         {
             Name     = name;
             Vertexes = vertexes;
             LineDefs = linedefs;
             SideDefs = sidedefs;
             Sectors  = sectors;
+            Things   = things;
         }
 
         // ── Static factory ─────────────────────────────────────────────────────
@@ -129,13 +132,15 @@ namespace Doom.Map
             const int Window = 10;
             int end = System.Math.Min(markerIdx + Window, wad.Directory.Count - 1);
 
-            byte[] vertexBytes = null, lineBytes = null, sideBytes = null, sectorBytes = null;
+            byte[] vertexBytes = null, lineBytes = null, sideBytes = null,
+                   sectorBytes = null, thingBytes = null;
             for (int i = markerIdx + 1; i <= end; i++)
             {
                 // Stop if we hit the next map marker — this map's window is over.
                 if (Doom.Wad.WadMapNames.IsMapMarker(wad.Directory[i].Name)) break;
                 switch (wad.Directory[i].Name)
                 {
+                    case "THINGS":   thingBytes  = wad.ReadLump(i); break;
                     case "VERTEXES": vertexBytes = wad.ReadLump(i); break;
                     case "LINEDEFS": lineBytes   = wad.ReadLump(i); break;
                     case "SIDEDEFS": sideBytes   = wad.ReadLump(i); break;
@@ -143,6 +148,7 @@ namespace Doom.Map
                 }
             }
 
+            RequireLump(mapName, "THINGS",   thingBytes);
             RequireLump(mapName, "VERTEXES", vertexBytes);
             RequireLump(mapName, "LINEDEFS", lineBytes);
             RequireLump(mapName, "SIDEDEFS", sideBytes);
@@ -153,7 +159,8 @@ namespace Doom.Map
                 ParseVertexes(vertexBytes),
                 ParseLineDefs(lineBytes),
                 ParseSideDefs(sideBytes),
-                ParseSectors(sectorBytes));
+                ParseSectors(sectorBytes),
+                ParseThings(thingBytes));
         }
 
         // ── Static helper ──────────────────────────────────────────────────────

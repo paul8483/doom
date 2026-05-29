@@ -11,7 +11,7 @@ namespace Doom.Map.Tests
             var lines = new[] { new LineDef(0, 1, 0, 0, 0, 0, -1) };
             var sides = new[] { new SideDef(0,0,"-","-","W",0) };
             var sectors = new[] { new Sector(0, 128, "F", "F", 0, 0, 0) };
-            var map = new MapData("T", verts, lines, sides, sectors);
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             var walls = WallMeshBuilder.BuildForSector(map, 0);
 
@@ -41,7 +41,7 @@ namespace Doom.Map.Tests
                 new Sector(0, 128, "F", "F", 0, 0, 0),
                 new Sector(0, 128, "F", "F", 0, 0, 0),
             };
-            var map = new MapData("T", verts, lines, sides, sectors);
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             var wallsA = WallMeshBuilder.BuildForSector(map, 0);
             var wallsB = WallMeshBuilder.BuildForSector(map, 1);
@@ -67,7 +67,7 @@ namespace Doom.Map.Tests
                 new Sector(0, 128, "F", "F", 0, 0, 0),
                 new Sector(32, 128, "F", "F", 0, 0, 0),
             };
-            var map = new MapData("T", verts, lines, sides, sectors);
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             var wallsA = WallMeshBuilder.BuildForSector(map, 0);
             var wallsB = WallMeshBuilder.BuildForSector(map, 1);
@@ -99,7 +99,7 @@ namespace Doom.Map.Tests
                 new Sector(32, 128, "F", "F", 0, 0, 0),  // sector 0: higher floor
                 new Sector(0,  128, "F", "F", 0, 0, 0),  // sector 1: lower floor
             };
-            var map = new MapData("T", verts, lines, sides, sectors);
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             // sector 0 (on front): neighbor floor (0) < own floor (32) — no lower step, 0 quads
             var wallsFront = WallMeshBuilder.BuildForSector(map, 0);

@@ -24,7 +24,7 @@ namespace Doom.Map.Tests
                 new SideDef(0,0,"-","-","W",0), new SideDef(0,0,"-","-","W",0),
             };
             var sectors = new[] { new Sector(0, 128, "F", "F", 0, 0, 0) };
-            return new MapData("TEST", verts, lines, sides, sectors);
+            return new MapData("TEST", verts, lines, sides, sectors, System.Array.Empty<Thing>());
         }
 
         [Test]
@@ -66,7 +66,8 @@ namespace Doom.Map.Tests
                 new MapData("T", System.Array.Empty<Vertex>(),
                             System.Array.Empty<LineDef>(),
                             System.Array.Empty<SideDef>(),
-                            new[] { new Sector(0, 128, "F", "F", 0, 0, 0) }),
+                            new[] { new Sector(0, 128, "F", "F", 0, 0, 0) },
+                            System.Array.Empty<Thing>()),
                 SectorPolygon.Invalid(0));
             Assert.That(floor.IsEmpty, Is.True);
         }

@@ -28,7 +28,7 @@ namespace Doom.Map.Tests
                 new SideDef(0, 0, "-", "-", "W", 0),
             };
             var sectors = new[] { new Sector(0, 128, "F", "F", 0, 0, 0) };
-            return new MapData("TEST", verts, lines, sides, sectors);
+            return new MapData("TEST", verts, lines, sides, sectors, System.Array.Empty<Thing>());
         }
 
         [Test]
@@ -92,7 +92,7 @@ namespace Doom.Map.Tests
                 new Sector(0, 128, "F", "F", 0, 0, 0),
                 new Sector(0, 128, "F", "F", 0, 0, 0),
             };
-            var map = new MapData("TEST", verts, lines, sides, sectors);
+            var map = new MapData("TEST", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             var polys = SectorPolygonBuilder.Build(map);
 
@@ -151,7 +151,7 @@ namespace Doom.Map.Tests
                 new Sector(0, 128, "F", "F", 0, 0, 0),
                 new Sector(0, 0, "F", "F", 0, 0, 0),  // pillar — потолок и пол совпадают
             };
-            var map = new MapData("TEST", verts, lines, sides, sectors);
+            var map = new MapData("TEST", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             var polys = SectorPolygonBuilder.Build(map);
 
@@ -183,7 +183,7 @@ namespace Doom.Map.Tests
                 new SideDef(0,0,"-","-","W",0), new SideDef(0,0,"-","-","W",0),
             };
             var sectors = new[] { new Sector(0, 128, "F", "F", 0, 0, 0) };
-            var map = new MapData("TEST", verts, lines, sides, sectors);
+            var map = new MapData("TEST", verts, lines, sides, sectors, System.Array.Empty<Thing>());
 
             string warning = null;
             System.Action<string> handler = m => warning = m;
