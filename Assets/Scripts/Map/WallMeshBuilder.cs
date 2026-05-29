@@ -46,9 +46,9 @@ namespace Doom.Map
 
                 // Two-sided: вычисляем сосед
                 int otherSec = -1;
-                if (onFront && ld.BackSideIdx >= 0)
+                if (onFront && ld.BackSideIdx >= 0 && ld.BackSideIdx < map.SideDefs.Length)
                     otherSec = map.SideDefs[ld.BackSideIdx].SectorIdx;
-                else if (onBack && ld.FrontSideIdx >= 0)
+                else if (onBack && ld.FrontSideIdx >= 0 && ld.FrontSideIdx < map.SideDefs.Length)
                     otherSec = map.SideDefs[ld.FrontSideIdx].SectorIdx;
                 if (otherSec < 0 || otherSec >= map.Sectors.Length) continue;
                 var other = map.Sectors[otherSec];
