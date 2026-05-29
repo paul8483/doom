@@ -17,7 +17,7 @@ namespace Doom.Map
 
             try
             {
-                var tess = new Tess();
+                var tess = new Tess { NoEmptyPolygons = true };
 
                 AddContour(tess, map.Vertexes, poly.Outer);
                 foreach (var hole in poly.Holes)
@@ -57,6 +57,7 @@ namespace Doom.Map
         private static void AddContour(Tess tess, Vertex[] mapVerts,
                                        System.Collections.Generic.IReadOnlyList<int> ring)
         {
+            if (ring == null || ring.Count < 3) return;
             var arr = new ContourVertex[ring.Count];
             for (int i = 0; i < ring.Count; i++)
             {
