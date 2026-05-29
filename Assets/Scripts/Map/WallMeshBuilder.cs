@@ -85,6 +85,14 @@ namespace Doom.Map
         {
             float ax = a.X * worldScale, az = a.Y * worldScale;
             float bx = b.X * worldScale, bz = b.Y * worldScale;
+
+            // Вырожденный квад (нулевая высота — закрытый сектор floor==ceiling —
+            // или нулевая длина при совпавших вершинах) невидим и ломает
+            // MeshCollider (PhysX "cleaning the mesh failed"). Не эмитим его.
+            float dx = bx - ax, dz = bz - az;
+            if (System.Math.Abs(yHigh - yLow) <= 1e-6f || (dx * dx + dz * dz) <= 1e-12f)
+                return;
+
             // a, b — DOOM XY. Unity: X = a.X, Z = a.Y.
             // Квад с углами (a, low), (b, low), (b, high), (a, high).
             // Нормаль: front sidedef справа от a→b. Чтобы нормаль смотрела в front-sector —

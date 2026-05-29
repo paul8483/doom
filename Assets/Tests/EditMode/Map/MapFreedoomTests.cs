@@ -137,6 +137,47 @@ namespace Doom.Map.Tests
         }
 
         [Test]
+        public void E1M1_geometry_has_no_degenerate_triangles()
+        {
+            // Вырожденные (нулевой 3D-площади) треугольники ломают MeshCollider
+            // (PhysX "cleaning the mesh failed"). У стен это квады нулевой высоты
+            // (закрытые секторы: floor==ceiling) или нулевой длины (совпавшие
+            // вершины) — их нельзя эмитить.
+            using var wad = WadFile.Open(FreedoomPath);
+            var map = MapData.Load(wad, "E1M1");
+            var meshes = MapGeometryBuilder.Build(map);
+
+            int fl = 0, ce = 0, wa = 0;
+            foreach (var sm in meshes)
+            {
+                fl += DegenerateTriCount(sm.Floor);
+                ce += DegenerateTriCount(sm.Ceiling);
+                wa += DegenerateTriCount(sm.Walls);
+            }
+            Assert.That(fl + ce + wa, Is.EqualTo(0),
+                $"Вырожденных треугольников: floor={fl} ceiling={ce} walls={wa}");
+        }
+
+        private static int DegenerateTriCount(MeshData m)
+        {
+            int n = 0;
+            var v = m.Vertices;
+            var t = m.Triangles;
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                var a = v[t[i]];
+                var b = v[t[i + 1]];
+                var c = v[t[i + 2]];
+                double ux = b.X - a.X, uy = b.Y - a.Y, uz = b.Z - a.Z;
+                double vx = c.X - a.X, vy = c.Y - a.Y, vz = c.Z - a.Z;
+                double cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+                double area = 0.5 * System.Math.Sqrt(cx * cx + cy * cy + cz * cz);
+                if (area < 1e-3) n++;
+            }
+            return n;
+        }
+
+        [Test]
         public void Loads_other_E1Mx_maps_without_throwing()
         {
             using var wad = WadFile.Open(FreedoomPath);
