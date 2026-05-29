@@ -125,7 +125,7 @@ namespace Doom.Map
                     $"Map '{mapName}' not found in WAD (or not a valid map name)");
             }
 
-            // Search for the 4 required lumps in the window [markerIdx+1, markerIdx+10].
+            // Search for the 5 required lumps in the window [markerIdx+1, markerIdx+10].
             // Canonical order: THINGS, LINEDEFS, SIDEDEFS, VERTEXES, SEGS,
             // SSECTORS, NODES, SECTORS, REJECT, BLOCKMAP.
             // We search by name to avoid strict ordering dependence.

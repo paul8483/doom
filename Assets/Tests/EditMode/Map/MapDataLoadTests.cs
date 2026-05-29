@@ -7,7 +7,7 @@ namespace Doom.Map.Tests
     public class MapDataLoadTests
     {
         [Test]
-        public void Loads_map_with_all_four_lumps()
+        public void Loads_map_with_all_five_lumps()
         {
             var wadBytes = SyntheticMapBuilder.BuildMapWad(
                 "E1M1",
@@ -33,6 +33,7 @@ namespace Doom.Map.Tests
             Assert.That(map.LineDefs.Length, Is.EqualTo(4));
             Assert.That(map.SideDefs.Length, Is.EqualTo(4));
             Assert.That(map.Sectors.Length, Is.EqualTo(1));
+            Assert.That(map.Things.Length, Is.EqualTo(1));
             Assert.That(map.Name, Is.EqualTo("E1M1"));
 
             // Field-value assertions — catch lump-swap bugs

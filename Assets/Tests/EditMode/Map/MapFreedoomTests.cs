@@ -23,6 +23,24 @@ namespace Doom.Map.Tests
             Assert.That(map.LineDefs.Length, Is.GreaterThan(100));
             Assert.That(map.SideDefs.Length, Is.GreaterThan(100));
             Assert.That(map.Sectors.Length, Is.GreaterThan(10));
+            Assert.That(map.Things.Length, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void E1M1_has_player_start_in_things()
+        {
+            using var wad = WadFile.Open(FreedoomPath);
+            var map = MapData.Load(wad, "E1M1");
+
+            Assert.That(map.Things.Length, Is.GreaterThan(0),
+                "E1M1 должна содержать THINGS");
+            int playerStartCount = 0;
+            foreach (var t in map.Things)
+            {
+                if (t.Type == 1) playerStartCount++;
+            }
+            Assert.That(playerStartCount, Is.EqualTo(1),
+                "E1M1 содержит ровно один Player 1 start");
         }
 
         [Test]
