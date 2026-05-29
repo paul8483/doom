@@ -4,14 +4,18 @@ namespace Doom.Map
 {
     public static class SectorTriangulator
     {
-        public static MeshData TriangulateFloor(MapData map, SectorPolygon poly)
-            => Triangulate(map, poly, map.Sectors[poly.SectorIdx].FloorHeight, flipWinding: true);
+        public static MeshData TriangulateFloor(MapData map, SectorPolygon poly, float worldScale = 1f)
+            => Triangulate(map, poly,
+                           map.Sectors[poly.SectorIdx].FloorHeight * worldScale,
+                           worldScale, flipWinding: true);
 
-        public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly)
-            => Triangulate(map, poly, map.Sectors[poly.SectorIdx].CeilingHeight, flipWinding: false);
+        public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly, float worldScale = 1f)
+            => Triangulate(map, poly,
+                           map.Sectors[poly.SectorIdx].CeilingHeight * worldScale,
+                           worldScale, flipWinding: false);
 
         private static MeshData Triangulate(MapData map, SectorPolygon poly,
-                                            float yHeight, bool flipWinding)
+                                            float yHeight, float worldScale, bool flipWinding)
         {
             if (!poly.IsValid) return MeshData.Empty;
 
@@ -32,7 +36,7 @@ namespace Doom.Map
                 {
                     var p = tess.Vertices[i].Position;
                     // DOOM (X, Y) -> Unity (X, Z), Y = height
-                    verts[i] = new Float3(p.X, yHeight, p.Y);
+                    verts[i] = new Float3(p.X * worldScale, yHeight, p.Y * worldScale);
                 }
                 var tris = new int[tc * 3];
                 for (int t = 0; t < tc; t++)

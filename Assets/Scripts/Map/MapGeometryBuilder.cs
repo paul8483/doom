@@ -21,15 +21,15 @@ namespace Doom.Map
 
     public static class MapGeometryBuilder
     {
-        public static SectorMeshes[] Build(MapData map)
+        public static SectorMeshes[] Build(MapData map, float worldScale = 1f)
         {
             var polys = SectorPolygonBuilder.Build(map);
             var result = new SectorMeshes[map.Sectors.Length];
             for (int s = 0; s < map.Sectors.Length; s++)
             {
-                var floor   = SectorTriangulator.TriangulateFloor(map, polys[s]);
-                var ceiling = SectorTriangulator.TriangulateCeiling(map, polys[s]);
-                var walls   = WallMeshBuilder.BuildForSector(map, s);
+                var floor   = SectorTriangulator.TriangulateFloor(map, polys[s], worldScale);
+                var ceiling = SectorTriangulator.TriangulateCeiling(map, polys[s], worldScale);
+                var walls   = WallMeshBuilder.BuildForSector(map, s, worldScale);
                 result[s] = new SectorMeshes(s, floor, ceiling, walls);
             }
             return result;

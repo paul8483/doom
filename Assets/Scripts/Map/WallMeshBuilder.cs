@@ -10,7 +10,7 @@ namespace Doom.Map
         /// - two-sided: lower-step (если соседский пол выше нашего)
         ///              + upper-step (если соседский потолок ниже нашего)
         ///              middle (текстуры в Stage 4 — пропускаем)
-        public static MeshData BuildForSector(MapData map, int sectorIdx)
+        public static MeshData BuildForSector(MapData map, int sectorIdx, float worldScale = 1f)
         {
             var verts = new List<Float3>();
             var tris  = new List<int>();
@@ -38,7 +38,9 @@ namespace Doom.Map
                 {
                     if (onFront)
                         EmitQuad(verts, tris,
-                                 v1, v2, sec.FloorHeight, sec.CeilingHeight,
+                                 v1, v2,
+                                 sec.FloorHeight * worldScale, sec.CeilingHeight * worldScale,
+                                 worldScale,
                                  facingFront: true);
                     // Back-сторона на one-sided не бывает по дефиниции — игнорируем
                     continue;
@@ -57,14 +59,18 @@ namespace Doom.Map
                 if (other.FloorHeight > sec.FloorHeight)
                 {
                     EmitQuad(verts, tris,
-                             v1, v2, sec.FloorHeight, other.FloorHeight,
+                             v1, v2,
+                             sec.FloorHeight * worldScale, other.FloorHeight * worldScale,
+                             worldScale,
                              facingFront: onFront);
                 }
                 // Upper step: соседский потолок ниже нашего → стена от other.Ceiling до sec.Ceiling
                 if (other.CeilingHeight < sec.CeilingHeight)
                 {
                     EmitQuad(verts, tris,
-                             v1, v2, other.CeilingHeight, sec.CeilingHeight,
+                             v1, v2,
+                             other.CeilingHeight * worldScale, sec.CeilingHeight * worldScale,
+                             worldScale,
                              facingFront: onFront);
                 }
             }
@@ -74,8 +80,11 @@ namespace Doom.Map
 
         private static void EmitQuad(List<Float3> verts, List<int> tris,
                                      Vertex a, Vertex b, float yLow, float yHigh,
+                                     float worldScale,
                                      bool facingFront)
         {
+            float ax = a.X * worldScale, az = a.Y * worldScale;
+            float bx = b.X * worldScale, bz = b.Y * worldScale;
             // a, b — DOOM XY. Unity: X = a.X, Z = a.Y.
             // Квад с углами (a, low), (b, low), (b, high), (a, high).
             // Нормаль: front sidedef справа от a→b. Чтобы нормаль смотрела в front-sector —
@@ -87,17 +96,17 @@ namespace Doom.Map
             int baseIdx = verts.Count;
             if (facingFront)
             {
-                verts.Add(new Float3(b.X, yLow,  b.Y));
-                verts.Add(new Float3(a.X, yLow,  a.Y));
-                verts.Add(new Float3(a.X, yHigh, a.Y));
-                verts.Add(new Float3(b.X, yHigh, b.Y));
+                verts.Add(new Float3(bx, yLow,  bz));
+                verts.Add(new Float3(ax, yLow,  az));
+                verts.Add(new Float3(ax, yHigh, az));
+                verts.Add(new Float3(bx, yHigh, bz));
             }
             else
             {
-                verts.Add(new Float3(a.X, yLow,  a.Y));
-                verts.Add(new Float3(b.X, yLow,  b.Y));
-                verts.Add(new Float3(b.X, yHigh, b.Y));
-                verts.Add(new Float3(a.X, yHigh, a.Y));
+                verts.Add(new Float3(ax, yLow,  az));
+                verts.Add(new Float3(bx, yLow,  bz));
+                verts.Add(new Float3(bx, yHigh, bz));
+                verts.Add(new Float3(ax, yHigh, az));
             }
             tris.Add(baseIdx + 0); tris.Add(baseIdx + 2); tris.Add(baseIdx + 1);
             tris.Add(baseIdx + 0); tris.Add(baseIdx + 3); tris.Add(baseIdx + 2);
