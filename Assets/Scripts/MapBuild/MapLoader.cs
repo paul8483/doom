@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Doom.Wad;
 using Doom.Map;
 
@@ -22,10 +23,23 @@ namespace Doom.MapBuild
         [SerializeField] Material wallMaterial;
 
         // ── Auto-bootstrap ────────────────────────────────────────────────────
-        // Runs after scene load; creates a MapLoader if none exists in the scene,
-        // so "hit Play" works even when the scene has no pre-wired MapLoader GO.
+        // Creates a MapLoader if none exists in the scene, so "hit Play" works
+        // even when the scene has no pre-wired MapLoader GO. Runs once after the
+        // initial scene load AND on every subsequent scene load — the latter so
+        // that loading the preview scene at runtime (e.g. via SceneManager.LoadScene
+        // in a PlayMode test) re-bootstraps, since RuntimeInitializeOnLoadMethod
+        // fires only once and would otherwise miss runtime scene swaps.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoBootstrap()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            EnsureLoader();
+        }
+
+        static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => EnsureLoader();
+
+        static void EnsureLoader()
         {
             if (FindAnyObjectByType<MapLoader>() != null) return;
             var go = new GameObject("MapLoader (auto)");
