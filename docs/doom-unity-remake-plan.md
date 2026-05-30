@@ -40,7 +40,7 @@ DOOM-уровень — двумерная карта, где высоту за�
 - [x] Реализовать метод «достать ламп по имени».
 - [x] Все числа читаются как little-endian через `BinaryReader`.
 
-**Результат этапа:** консольный вывод списка всех лампов и карт, содержащихся в WAD. Доступен через меню `Tools > Doom > Dump freedoom1.wad` (на Freedoom v0.13.0: 3163 ламп, 36 карт `E1M1..E4M9`). Подробный план реализации — `docs/superpowers/specs/stage-1-wad-reader-plan.md`.
+**Результат этапа:** консольный вывод списка всех лампов и карт, содержащихся в WAD. Доступен через меню `Tools > Doom > Dump freedoom1.wad` (на Freedoom v0.13.0: 3163 ламп, 36 карт `E1M1..E4M9`). Подробный план реализации — `docs/superpowers/specs/2026-05-28-wad-reader-design.md`.
 
 ---
 
@@ -53,7 +53,7 @@ DOOM-уровень — двумерная карта, где высоту за�
 - [x] Построить стены: для односторонних линий — квад от пола до потолка; для двусторонних — нижнюю и верхнюю перемычки там, где высоты соседних секторов различаются.
 - [x] Сгенерировать меши Unity и разместить на сцене (`Stage2_MapPreview.unity`, runtime через `MapLoader`).
 
-**Результат этапа:** `MapLoader` на сцене `Stage2_MapPreview` строит карту E1M1 (или любой другой ExMy) в Play mode; видна серая геометрия с разделёнными по секторам полом, потолком и стенами. Pipeline покрыт 62 EditMode-тестами, включая интеграцию на freedoom1.wad (≥90% секторов замыкаются). Подробный план реализации — `docs/superpowers/specs/stage-2-geometry-plan.md`.
+**Результат этапа:** `MapLoader` на сцене `Stage2_MapPreview` строит карту E1M1 (или любой другой ExMy) в Play mode; видна серая геометрия с разделёнными по секторам полом, потолком и стенами. Pipeline покрыт 62 EditMode-тестами, включая интеграцию на freedoom1.wad (≥90% секторов замыкаются). Подробный план реализации — `docs/superpowers/specs/2026-05-28-geometry-design.md`.
 
 ---
 
@@ -65,7 +65,7 @@ DOOM-уровень — двумерная карта, где высоту за�
 - [x] Настроить управление от первого лица (мышь + клавиши) через новый Input System.
 - [x] Использовать `CharacterController` и меш-коллайдеры на геометрии для столкновений.
 
-**Результат этапа:** `MapLoader` автоматически спавнит игрока в Player 1 Start (`Thing.Type == 1`) на сцене `Stage2_MapPreview`; WASD + мышь + Shift для бега. `CharacterController` (1.75 м × 0.5 м) использует `MeshCollider`-ы Stage 2 для столкновений; gravity = -9.81 m/s² работает естественно благодаря `worldScale = 1/32`. Покрыт 71 EditMode + 1 PlayMode тестом. Подробный план реализации — `docs/superpowers/specs/stage-3-player-plan.md`.
+**Результат этапа:** `MapLoader` автоматически спавнит игрока в Player 1 Start (`Thing.Type == 1`) на сцене `Stage2_MapPreview`; WASD + мышь + Shift для бега. `CharacterController` (1.75 м × 0.5 м) использует `MeshCollider`-ы Stage 2 для столкновений; gravity = -9.81 m/s² работает естественно благодаря `worldScale = 1/32`. Покрыт 71 EditMode + 1 PlayMode тестом. Подробный план реализации — `docs/superpowers/specs/2026-05-29-player-design.md`.
 
 ---
 
