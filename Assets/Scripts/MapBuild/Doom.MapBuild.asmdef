@@ -1,7 +1,7 @@
 {
     "name": "Doom.MapBuild",
     "rootNamespace": "Doom.MapBuild",
-    "references": ["Doom.Wad", "Doom.Map", "Doom.Graphics", "Unity.InputSystem", "Doom.Things"],
+    "references": ["Doom.Wad", "Doom.Map", "Doom.Graphics", "Unity.InputSystem", "Doom.Things", "Doom.Specials"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
