@@ -23,6 +23,11 @@ namespace Doom.MapBuild
         [SerializeField] Material ceilingMaterial;
         [SerializeField] Material wallMaterial;
 
+        // Runtime sector-geometry registry (in-place rebuild on height changes).
+        // Set during Build(); consumed by SectorMover/LineActivator in later tasks.
+        public SectorGeometry Geometry { get; private set; }
+        public RuntimeSectorHeights RuntimeHeights { get; private set; }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -93,7 +98,15 @@ namespace Doom.MapBuild
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
 
-            var meshes = MapGeometryBuilder.Build(map, worldScale, textures);
+            // Build geometry with the RUNTIME heights so the initial build and any
+            // later in-place rebuilds share ONE height source. RuntimeSectorHeights
+            // initializes to the WAD heights and round-trips them exactly, so the
+            // initial output is identical to the static-heights build.
+            var runtimeHeights = new RuntimeSectorHeights(map);
+            var polys = SectorPolygonBuilder.Build(map);
+            var meshes = MapGeometryBuilder.Build(map, worldScale, textures, runtimeHeights);
+
+            var sectorRoots = new Transform[map.Sectors.Length];
             Bounds? bounds = null;
             int builtSectors = 0;
             foreach (var sm in meshes)
@@ -101,23 +114,17 @@ namespace Doom.MapBuild
                 if (!sm.HasAnyGeometry) continue;
                 var go = new GameObject($"Sector_{sm.SectorIdx}");
                 go.transform.SetParent(root.transform, worldPositionStays: false);
-                AddChild(go, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
-                         ColliderMode.Render, ref bounds);
-                if (!sm.Ceiling.IsEmpty)
-                    AddChild(go, "Ceiling", sm.Ceiling, cache.GetMaterial(sm.CeilingFlat, false),
-                             ColliderMode.None, ref bounds);
-
-                int wi = 0;
-                foreach (var ws in sm.Walls)
-                {
-                    if (ws.Mesh.IsEmpty) continue;
-                    AddChild(go, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
-                             cache.GetMaterial(ws.Texture, ws.Masked),
-                             ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, ref bounds);
-                }
+                sectorRoots[sm.SectorIdx] = go.transform;
+                PopulateSectorRoot(go.transform, sm, cache, worldScale, ref bounds);
                 builtSectors++;
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
+
+            RuntimeHeights = runtimeHeights;
+            // `cache` (TextureCache) supplies materials; `textures` (TextureSet) is
+            // the ITextureSizeSource for wall-UV sizing — same source used by Build().
+            Geometry = new SectorGeometry(map, polys, runtimeHeights, worldScale,
+                                          cache, textures, sectorRoots);
 
             SpawnPlayer(map, bounds);
 
@@ -196,13 +203,53 @@ namespace Doom.MapBuild
 
         enum ColliderMode { None, Render, ThickWall }
 
-        void AddChild(GameObject parent, string name, MeshData data,
-                      Material material, ColliderMode collider, ref Bounds? bounds)
+        // ── Shared sector-root population (initial build AND in-place rebuild) ─────
+
+        /// Re-create the Floor/Ceiling/Wall child GameObjects under `sectorRoot`
+        /// from `sm`, clearing any existing children first. Used by SectorGeometry
+        /// to rebuild a sector in place when its runtime heights change. The static
+        /// build path calls PopulateSectorRoot directly (children already empty).
+        public static void RebuildSectorGameObjects(Transform sectorRoot, SectorMeshes sm,
+                                                    TextureCache cache, float worldScale)
+        {
+            if (sectorRoot == null) return;
+            // Clear existing Floor/Ceiling/Wall children.
+            for (int i = sectorRoot.childCount - 1; i >= 0; i--)
+                Destroy(sectorRoot.GetChild(i).gameObject);
+            Bounds? ignore = null;
+            PopulateSectorRoot(sectorRoot, sm, cache, worldScale, ref ignore);
+        }
+
+        /// Build the Floor/Ceiling/Wall child GameObjects for one sector under
+        /// `sectorRoot`. Shared by the initial Build() loop and RebuildSectorGameObjects
+        /// so both paths produce identical GameObjects/meshes/colliders.
+        static void PopulateSectorRoot(Transform sectorRoot, SectorMeshes sm,
+                                       TextureCache cache, float worldScale, ref Bounds? bounds)
+        {
+            AddChild(sectorRoot, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
+                     ColliderMode.Render, worldScale, ref bounds);
+            if (!sm.Ceiling.IsEmpty)
+                AddChild(sectorRoot, "Ceiling", sm.Ceiling, cache.GetMaterial(sm.CeilingFlat, false),
+                         ColliderMode.None, worldScale, ref bounds);
+
+            int wi = 0;
+            foreach (var ws in sm.Walls)
+            {
+                if (ws.Mesh.IsEmpty) continue;
+                AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
+                         cache.GetMaterial(ws.Texture, ws.Masked),
+                         ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, worldScale, ref bounds);
+            }
+        }
+
+        static void AddChild(Transform parent, string name, MeshData data,
+                             Material material, ColliderMode collider, float worldScale,
+                             ref Bounds? bounds)
         {
             if (data == null || data.IsEmpty) return;
 
             var child = new GameObject(name);
-            child.transform.SetParent(parent.transform, worldPositionStays: false);
+            child.transform.SetParent(parent, worldPositionStays: false);
 
             var mesh = new Mesh();
             mesh.name = $"{parent.name}/{name}";
