@@ -27,6 +27,7 @@ namespace Doom.MapBuild
         public int SpawnAll(MapData map, Transform parent, float fallbackY)
         {
             int count = 0;
+            int floorMisses = 0;
             foreach (var t in map.Things)
             {
                 if (IsSpawnPoint(t.Type)) continue;
@@ -38,7 +39,8 @@ namespace Doom.MapBuild
 
                 float feetY = fallbackY;
                 float ceilY = fallbackY + def.Height * worldScale;
-                ResolveVertical(x, z, fallbackY, ceiling, def, ref feetY, ref ceilY);
+                if (!ResolveVertical(x, z, fallbackY, ceiling, def, ref feetY, ref ceilY))
+                    floorMisses++;
 
                 var go = new GameObject($"Thing_{t.Type}_{def.Sprite}",
                     typeof(MeshFilter), typeof(MeshRenderer));
@@ -67,26 +69,49 @@ namespace Doom.MapBuild
                 }
                 count++;
             }
+            if (floorMisses > 0)
+                Debug.LogWarning($"ThingSpawner: {floorMisses}/{count} things found no floor " +
+                                 $"underneath (placed at fallback Y={fallbackY:0.00})");
             return count;
         }
 
-        // Raycast from high above (or below) the XZ to find floor / ceiling Y.
-        void ResolveVertical(float x, float z, float fallbackY, bool ceiling,
+        // Find floor (and, for hanging things, ceiling) Y under the XZ.
+        // Returns true if a floor surface was found.
+        bool ResolveVertical(float x, float z, float fallbackY, bool ceiling,
                              ThingDef def, ref float feetY, ref float ceilY)
         {
             const float Far = 10000f;
             Vector3 fromAbove = new Vector3(x, fallbackY + Far, z);
-            if (Physics.Raycast(fromAbove, Vector3.down, out var hitFloor, 2f * Far, worldMask))
-                feetY = hitFloor.point.y;
+
+            // Pick the FLOOR specifically. A plain raycast against all colliders
+            // returns the nearest surface from the top — often a wall's floor-to-
+            // ceiling slab — which would lift the thing to ceiling/sky height
+            // (floating). Floor GameObjects are named "Floor" by MapLoader; walls
+            // ("Wall_*") and the player capsule are ignored. With multiple floor
+            // hits (overlapping geometry) we take the highest.
+            var hits = Physics.RaycastAll(fromAbove, Vector3.down, 2f * Far, worldMask);
+            bool found = false;
+            float floorY = float.NegativeInfinity;
+            foreach (var h in hits)
+            {
+                if (h.collider.gameObject.name != "Floor") continue;
+                if (h.point.y > floorY) { floorY = h.point.y; found = true; }
+            }
+            if (found) feetY = floorY;
 
             if (ceiling)
             {
+                // Ceilings have no collider; the up-ray hits the surrounding wall
+                // tops, which sit at the sector's ceiling height — good enough to
+                // hang from. Fall back to feet + height if nothing is hit.
                 Vector3 fromBelow = new Vector3(x, feetY, z);
                 if (Physics.Raycast(fromBelow, Vector3.up, out var hitCeil, 2f * Far, worldMask))
                     ceilY = hitCeil.point.y;
                 else
                     ceilY = feetY + def.Height * worldScale;
             }
+
+            return found;
         }
     }
 }
