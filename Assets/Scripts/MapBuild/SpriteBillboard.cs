@@ -19,8 +19,7 @@ namespace Doom.MapBuild
         MeshFilter meshFilter;
         MeshRenderer meshRenderer;
         Transform cam;
-        int currentLumpRotation = -1;
-        bool currentMirror;
+        readonly Vector3[] quadVerts = new Vector3[4];
 
         public void Init(SpriteCache cache, string sprite, int frame, float worldScale,
                          float doomAngleDeg, bool spawnCeiling, float ceilingY)
@@ -70,16 +69,7 @@ namespace Doom.MapBuild
             }
             meshRenderer.enabled = true;
 
-            if (rotIndex != currentLumpRotation || sm.Mirrored != currentMirror)
-            {
-                meshRenderer.sharedMaterial = sm.Material;
-                currentLumpRotation = rotIndex;
-                currentMirror = sm.Mirrored;
-            }
-            else
-            {
-                meshRenderer.sharedMaterial = sm.Material;
-            }
+            meshRenderer.sharedMaterial = sm.Material;
 
             ApplyQuadTransform(sm);
         }
@@ -112,12 +102,11 @@ namespace Doom.MapBuild
             }
 
             float halfW = w * 0.5f * mirror;
-            var verts = new Vector3[4];
-            verts[0] = new Vector3(-halfW + xCenterOffset, bottomY, 0f);
-            verts[1] = new Vector3( halfW + xCenterOffset, bottomY, 0f);
-            verts[2] = new Vector3( halfW + xCenterOffset, topY,    0f);
-            verts[3] = new Vector3(-halfW + xCenterOffset, topY,    0f);
-            mesh.vertices = verts;
+            quadVerts[0] = new Vector3(-halfW + xCenterOffset, bottomY, 0f);
+            quadVerts[1] = new Vector3( halfW + xCenterOffset, bottomY, 0f);
+            quadVerts[2] = new Vector3( halfW + xCenterOffset, topY,    0f);
+            quadVerts[3] = new Vector3(-halfW + xCenterOffset, topY,    0f);
+            mesh.vertices = quadVerts;
             mesh.RecalculateBounds();
         }
 
