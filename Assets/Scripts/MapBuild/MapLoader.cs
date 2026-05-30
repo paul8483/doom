@@ -199,6 +199,12 @@ namespace Doom.MapBuild
 
             var pc = player.AddComponent<PlayerController>();
             pc.SetCameraPivot(cameraGO.transform);
+
+            // Trigger handling lives on the player so transform.position tracks it
+            // for Walk detection. Init with the runtime height/geometry registries
+            // (set just before SpawnPlayer) and the player's camera transform.
+            var activator = player.AddComponent<LineActivator>();
+            activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform);
         }
 
         enum ColliderMode { None, Render, ThickWall }
@@ -236,17 +242,22 @@ namespace Doom.MapBuild
             foreach (var ws in sm.Walls)
             {
                 if (ws.Mesh.IsEmpty) continue;
-                AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
+                var wall = AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
                          cache.GetMaterial(ws.Texture, ws.Masked),
                          ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, worldScale, ref bounds);
+                // Tag the wall with its sector so the Use-raycast can resolve the
+                // linedef (LineActivator narrows by sector, then nearest segment).
+                // Re-created on every rebuild because this is the shared build path.
+                if (wall != null && !ws.Masked)
+                    wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
             }
         }
 
-        static void AddChild(Transform parent, string name, MeshData data,
+        static GameObject AddChild(Transform parent, string name, MeshData data,
                              Material material, ColliderMode collider, float worldScale,
                              ref Bounds? bounds)
         {
-            if (data == null || data.IsEmpty) return;
+            if (data == null || data.IsEmpty) return null;
 
             var child = new GameObject(name);
             child.transform.SetParent(parent, worldPositionStays: false);
@@ -303,6 +314,7 @@ namespace Doom.MapBuild
 
             var b = mesh.bounds;
             bounds = bounds.HasValue ? Combine(bounds.Value, b) : b;
+            return child;
         }
 
         static Bounds Combine(Bounds a, Bounds b) { a.Encapsulate(b); return a; }

@@ -25,8 +25,10 @@ namespace Doom.MapBuild
         InputAction moveAction;
         InputAction lookAction;
         InputAction sprintAction;
+        InputAction useAction;
         InputActionMap playerMap;
 
+        LineActivator activator;
         CharacterController cc;
         float pitch;
         float verticalVelocity;
@@ -53,6 +55,7 @@ namespace Doom.MapBuild
 
         void OnDestroy()
         {
+            if (useAction != null) useAction.performed -= OnUse;
             playerMap?.Dispose();
         }
 
@@ -75,6 +78,19 @@ namespace Doom.MapBuild
 
             sprintAction = playerMap.AddAction("Sprint",
                 InputActionType.Button, "<Keyboard>/leftShift");
+
+            useAction = playerMap.AddAction("Use",
+                InputActionType.Button, "<Keyboard>/e");
+            useAction.AddBinding("<Gamepad>/buttonWest");
+            useAction.performed += OnUse;
+        }
+
+        // LineActivator is added to the Player by MapLoader AFTER this controller's
+        // Awake/BuildInputActions, so resolve it lazily on first Use.
+        void OnUse(InputAction.CallbackContext _)
+        {
+            if (activator == null) activator = GetComponent<LineActivator>();
+            if (activator != null) activator.TryUse();
         }
 
         void Update()
