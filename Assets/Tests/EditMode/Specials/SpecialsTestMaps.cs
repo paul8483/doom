@@ -30,16 +30,64 @@ namespace Doom.Specials.Tests
                 });
         }
 
+        /// Index of the shared two-sided linedef in the fixed two-square layout.
+        /// The builder emits the three left-square outer edges first (indices 0..2),
+        /// then the shared edge v1↔v4 (index 3, front → sector 0, back → sector 1),
+        /// then the three right-square outer edges.
+        public const int DoorLineIndex = 3;
+
+        /// Index of the lift sector in <see cref="LiftSetup"/> (the back-side sector).
+        public const int LiftSector = 1;
+
+        /// Two adjacent sectors sharing one two-sided line. Sector 0 is the room
+        /// (floor 0, ceiling 128). Sector 1 is the DOOR sector on the BACK side of
+        /// the shared line, sitting closed: ceiling == floor (0, 0).
+        public static MapData DoorSetup()
+        {
+            return Build(
+                sectors: new[]
+                {
+                    new SectorSpec(0, 128),  // sector 0 — room
+                    new SectorSpec(0, 0),    // sector 1 — closed door (ceil == floor)
+                });
+        }
+
+        /// Two adjacent sectors sharing one two-sided line. The lift sector
+        /// (index <see cref="LiftSector"/> = 1) has floor 64; its neighbor
+        /// (sector 0) has floor 0. So LowestNeighborFloor of the lift == 0.
+        public static MapData LiftSetup()
+        {
+            return Build(
+                sectors: new[]
+                {
+                    new SectorSpec(0, 128),   // sector 0 — neighbor, floor 0
+                    new SectorSpec(64, 128),  // sector 1 — lift, floor 64
+                });
+        }
+
+        /// Two adjacent sectors BOTH carrying <paramref name="tag"/>, so
+        /// FindTaggedSectors(tag) returns {0, 1}.
+        public static MapData TwoTaggedSectors(int tag)
+        {
+            return Build(
+                sectors: new[]
+                {
+                    new SectorSpec(0, 128, (ushort)tag),
+                    new SectorSpec(0, 128, (ushort)tag),
+                });
+        }
+
         // ── Internal extensible builder ────────────────────────────────────────
         // Constructs the fixed two-square layout, parameterized only by the per-sector
-        // heights. Later tasks (A4) extend this file with additional named setups that
-        // can layer specials/tags onto the same geometry.
+        // heights and tags. The named setups above layer specials/tags onto the same
+        // geometry.
 
         private readonly struct SectorSpec
         {
             public readonly short Floor;
             public readonly short Ceil;
-            public SectorSpec(short floor, short ceil) { Floor = floor; Ceil = ceil; }
+            public readonly ushort Tag;
+            public SectorSpec(short floor, short ceil, ushort tag = 0) { Floor = floor; Ceil = ceil; Tag = tag; }
         }
 
         private static MapData Build(SectorSpec[] sectors)
@@ -47,6 +95,7 @@ namespace Doom.Specials.Tests
             // Exactly two sectors for the shared-edge layout.
             short f0 = sectors[0].Floor, c0 = sectors[0].Ceil;
             short f1 = sectors[1].Floor, c1 = sectors[1].Ceil;
+            ushort t0 = sectors[0].Tag, t1 = sectors[1].Tag;
 
             const ushort NONE = 0xFFFF;
 
@@ -81,8 +130,8 @@ namespace Doom.Specials.Tests
                     (0, 0, "-", "-", "WALL01", 1),  // side 6 → sector 1
                     (0, 0, "-", "-", "WALL01", 1)), // side 7 → sector 1
                 sectors: SyntheticMapBuilder.BuildSectors(
-                    (f0, c0, "FLAT01", "FLAT01", 192, 0, 0),
-                    (f1, c1, "FLAT01", "FLAT01", 192, 0, 0)));
+                    (f0, c0, "FLAT01", "FLAT01", 192, 0, t0),
+                    (f1, c1, "FLAT01", "FLAT01", 192, 0, t1)));
 
             using var wad = new WadFile(new MemoryStream(wadBytes), ownsStream: true);
             return MapData.Load(wad, "MAP01");
