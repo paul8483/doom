@@ -1,0 +1,14 @@
+{
+    "name": "Doom.Graphics",
+    "rootNamespace": "Doom.Graphics",
+    "references": ["Doom.Wad"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
