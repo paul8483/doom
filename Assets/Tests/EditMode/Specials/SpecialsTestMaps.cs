@@ -1,5 +1,6 @@
 using System.IO;
 using Doom.Map;
+using Doom.Map.Tests;
 using Doom.Wad;
 
 namespace Doom.Specials.Tests
