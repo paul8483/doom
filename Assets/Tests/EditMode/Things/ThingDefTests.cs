@@ -14,6 +14,8 @@ namespace Doom.Things.Tests
             Assert.That(d.Has(ThingFlags.SpawnCeiling), Is.False);
             Assert.That(d.Sprite, Is.EqualTo("BAR1"));
             Assert.That((d.Radius, d.Height), Is.EqualTo((10, 42)));
+            Assert.That(d.DoomEdNum, Is.EqualTo(2035));
+            Assert.That(d.Frame, Is.EqualTo(0));
         }
     }
 }
