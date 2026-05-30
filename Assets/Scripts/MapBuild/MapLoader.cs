@@ -96,9 +96,9 @@ namespace Doom.MapBuild
                 if (!sm.HasAnyGeometry) continue;
                 var go = new GameObject($"Sector_{sm.SectorIdx}");
                 go.transform.SetParent(root.transform, worldPositionStays: false);
-                AddChild(go, "Floor",   sm.Floor,   floorMaterial,   ref bounds);
-                AddChild(go, "Ceiling", sm.Ceiling, ceilingMaterial, ref bounds);
-                AddChild(go, "Walls",   sm.Walls,   wallMaterial,    ref bounds);
+                AddChild(go, "Floor",   sm.Floor,   floorMaterial,   ColliderMode.Render,    ref bounds);
+                AddChild(go, "Ceiling", sm.Ceiling, ceilingMaterial, ColliderMode.None,      ref bounds);
+                AddChild(go, "Walls",   sm.Walls,   wallMaterial,    ColliderMode.ThickWall, ref bounds);
                 builtSectors++;
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
@@ -142,15 +142,21 @@ namespace Doom.MapBuild
             player.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
             var cc = player.AddComponent<CharacterController>();
+            // Полная высота DOOM-игрока (56 юнитов). Заклинивание о потолок снято
+            // тем, что потолкам не навешивается коллайдер (см. AddChild), а не
+            // укорачиванием капсулы.
             cc.height = 56f * worldScale;
             cc.radius = 16f * worldScale;
             cc.stepOffset = 24f * worldScale;
             cc.slopeLimit = 45f;
+            // 0 (а не дефолтные 0.001 м), иначе у угла стены остаточный сдвиг за
+            // кадр падает ниже порога, обнуляется, и игрока «прилипает» к углу.
+            cc.minMoveDistance = 0f;
             cc.center = new Vector3(0f, cc.height * 0.5f, 0f);
 
             var cameraGO = new GameObject("PlayerCamera");
             cameraGO.transform.SetParent(player.transform, worldPositionStays: false);
-            cameraGO.transform.localPosition = new Vector3(0f, 41f * worldScale, 0f);
+            cameraGO.transform.localPosition = new Vector3(0f, 41f * worldScale, 0f);  // DOOM eye height
             cameraGO.tag = "MainCamera";
             var cam = cameraGO.AddComponent<Camera>();
             cam.nearClipPlane = 0.05f;
@@ -162,8 +168,10 @@ namespace Doom.MapBuild
             pc.SetCameraPivot(cameraGO.transform);
         }
 
+        enum ColliderMode { None, Render, ThickWall }
+
         void AddChild(GameObject parent, string name, MeshData data,
-                      Material material, ref Bounds? bounds)
+                      Material material, ColliderMode collider, ref Bounds? bounds)
         {
             if (data == null || data.IsEmpty) return;
 
@@ -189,13 +197,64 @@ namespace Doom.MapBuild
 
             child.AddComponent<MeshFilter>().sharedMesh   = mesh;
             child.AddComponent<MeshRenderer>().sharedMaterial = material;
-            child.AddComponent<MeshCollider>().sharedMesh  = mesh;
+            // Потолки (None): коллайдера нет — в DOOM коллизия 2D, потолок не
+            //   блокирует ходьбу (краш-потолки — Stage 6); с 3D-капсулой потолок
+            //   упирался бы в макушку и клинил игрока в низких секторах.
+            // Пол (Render): плоский меш годится как коллайдер.
+            // Стены (ThickWall): объёмный коллайдер. Тонкий одинарный квад
+            //   позволяет капсуле протиснуться сквозь и застрять ВНУТРИ узкой
+            //   колонны (капсула шире зазора → её зажимает между противоположными
+            //   гранями, нет направления выхода). Толстая плита это исключает.
+            if (collider == ColliderMode.Render)
+                child.AddComponent<MeshCollider>().sharedMesh = mesh;
+            else if (collider == ColliderMode.ThickWall)
+                child.AddComponent<MeshCollider>().sharedMesh =
+                    BuildThickColliderMesh(data, 4f * worldScale);
 
             var b = mesh.bounds;
             bounds = bounds.HasValue ? Combine(bounds.Value, b) : b;
         }
 
         static Bounds Combine(Bounds a, Bounds b) { a.Encapsulate(b); return a; }
+
+        // Объёмный коллайдер из тонкого стенового меша: каждый треугольник
+        // выдавливается на ±thickness/2 вдоль своей нормали (центрировано — не
+        // зависит от направления обхода). Капсула не может пройти сквозь плиту и
+        // застрять внутри тонкой колонны. Рендер-меш остаётся плоским.
+        static Mesh BuildThickColliderMesh(MeshData data, float thickness)
+        {
+            var v = data.Vertices;
+            var t = data.Triangles;
+            float h = thickness * 0.5f;
+            var verts = new System.Collections.Generic.List<Vector3>(t.Length * 2);
+            var tris  = new System.Collections.Generic.List<int>(t.Length * 8);
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                Vector3 a = ToVec(v[t[i]]);
+                Vector3 b = ToVec(v[t[i + 1]]);
+                Vector3 c = ToVec(v[t[i + 2]]);
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (n.sqrMagnitude < 1e-12f) continue; // вырожденный — пропускаем
+                n = n.normalized * h;
+                int bi = verts.Count;
+                verts.Add(a - n); verts.Add(b - n); verts.Add(c - n);  // 0,1,2 (back)
+                verts.Add(a + n); verts.Add(b + n); verts.Add(c + n);  // 3,4,5 (front)
+                tris.Add(bi + 3); tris.Add(bi + 4); tris.Add(bi + 5);  // front
+                tris.Add(bi + 0); tris.Add(bi + 2); tris.Add(bi + 1);  // back
+                tris.Add(bi + 0); tris.Add(bi + 1); tris.Add(bi + 4); tris.Add(bi + 0); tris.Add(bi + 4); tris.Add(bi + 3);
+                tris.Add(bi + 1); tris.Add(bi + 2); tris.Add(bi + 5); tris.Add(bi + 1); tris.Add(bi + 5); tris.Add(bi + 4);
+                tris.Add(bi + 2); tris.Add(bi + 0); tris.Add(bi + 3); tris.Add(bi + 2); tris.Add(bi + 3); tris.Add(bi + 5);
+            }
+            var m = new Mesh();
+            m.indexFormat = verts.Count > 65535
+                ? UnityEngine.Rendering.IndexFormat.UInt32
+                : UnityEngine.Rendering.IndexFormat.UInt16;
+            m.SetVertices(verts);
+            m.SetTriangles(tris, 0);
+            return m;
+        }
+
+        static Vector3 ToVec(Float3 p) => new Vector3(p.X, p.Y, p.Z);
 
         void OnWarning(string msg) => Debug.LogWarning($"[Doom.Map] {msg}");
         void OnError(string msg)   => Debug.LogError  ($"[Doom.Map] {msg}");
