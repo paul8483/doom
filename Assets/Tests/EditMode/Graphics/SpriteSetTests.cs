@@ -74,6 +74,8 @@ namespace Doom.Graphics.Tests
             var set = SpriteSet.Load(wad);
             Assert.That(set.TryGet("NONE", 0, 0, out _), Is.False);
             Assert.That(set.TryGet("TROO", 5, 0, out _), Is.False);
+            Assert.That(set.TryGet("TROO", 0, -1, out _), Is.False);
+            Assert.That(set.TryGet("TROO", 0, 8, out _), Is.False);
         }
     }
 }

@@ -42,6 +42,7 @@ namespace Doom.Graphics
                 if (!inside) continue;
                 if (name.Length < 6) continue; // not a sprite name
 
+                name = name.ToUpperInvariant(); // normalize: TryGet matches uppercased
                 set.Register(name.Substring(0, 4), name[4], name[5], i, mirrored: false);
                 if (name.Length >= 8)
                     set.Register(name.Substring(0, 4), name[6], name[7], i, mirrored: true);
