@@ -1,0 +1,22 @@
+{
+    "name": "Doom.Specials.Tests",
+    "rootNamespace": "Doom.Specials.Tests",
+    "references": [
+        "Doom.Specials",
+        "Doom.Map",
+        "Doom.Map.Tests",
+        "Doom.Wad",
+        "Doom.Wad.Tests",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

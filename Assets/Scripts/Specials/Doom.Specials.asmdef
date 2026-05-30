@@ -1,0 +1,14 @@
+{
+    "name": "Doom.Specials",
+    "rootNamespace": "Doom.Specials",
+    "references": ["Doom.Map"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
