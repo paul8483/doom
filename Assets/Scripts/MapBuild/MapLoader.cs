@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Doom.Wad;
 using Doom.Map;
+using Doom.Graphics;
 
 namespace Doom.MapBuild
 {
@@ -85,10 +86,14 @@ namespace Doom.MapBuild
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
                       $"{map.Sectors.Length} sectors, {map.Things.Length} things");
 
+            var palette  = new Palette(wad.ReadLump("PLAYPAL"));
+            var textures = TextureSet.Load(wad);
+            var cache    = new TextureCache(wad, textures, palette);
+
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
 
-            var meshes = MapGeometryBuilder.Build(map, worldScale);
+            var meshes = MapGeometryBuilder.Build(map, worldScale, textures);
             Bounds? bounds = null;
             int builtSectors = 0;
             foreach (var sm in meshes)
@@ -96,10 +101,20 @@ namespace Doom.MapBuild
                 if (!sm.HasAnyGeometry) continue;
                 var go = new GameObject($"Sector_{sm.SectorIdx}");
                 go.transform.SetParent(root.transform, worldPositionStays: false);
-                AddChild(go, "Floor",   sm.Floor,   floorMaterial,   ColliderMode.Render, ref bounds);
-                AddChild(go, "Ceiling", sm.Ceiling, ceilingMaterial, ColliderMode.None,   ref bounds);
-                for (int wi = 0; wi < sm.Walls.Count; wi++)
-                    AddChild(go, $"Walls_{wi}", sm.Walls[wi].Mesh, wallMaterial, ColliderMode.ThickWall, ref bounds);
+                AddChild(go, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
+                         ColliderMode.Render, ref bounds);
+                if (!sm.Ceiling.IsEmpty)
+                    AddChild(go, "Ceiling", sm.Ceiling, cache.GetMaterial(sm.CeilingFlat, false),
+                             ColliderMode.None, ref bounds);
+
+                int wi = 0;
+                foreach (var ws in sm.Walls)
+                {
+                    if (ws.Mesh.IsEmpty) continue;
+                    AddChild(go, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
+                             cache.GetMaterial(ws.Texture, ws.Masked),
+                             ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, ref bounds);
+                }
                 builtSectors++;
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
@@ -193,6 +208,23 @@ namespace Doom.MapBuild
                     data.Vertices[i].Z);
             mesh.vertices  = unityVerts;
             mesh.triangles = data.Triangles;
+
+            if (data.Uv.Length == data.Vertices.Length)
+            {
+                var uvs = new Vector2[data.Uv.Length];
+                for (int i = 0; i < uvs.Length; i++)
+                    uvs[i] = new Vector2(data.Uv[i].X, data.Uv[i].Y);
+                mesh.uv = uvs;
+            }
+
+            if (data.Colors.Length == data.Vertices.Length)
+            {
+                var colors = new Color[data.Colors.Length];
+                for (int i = 0; i < colors.Length; i++)
+                    colors[i] = new Color(data.Colors[i].X, data.Colors[i].Y, data.Colors[i].Z, 1f);
+                mesh.colors = colors;
+            }
+
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
 
