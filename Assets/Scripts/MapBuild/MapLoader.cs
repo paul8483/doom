@@ -120,6 +120,16 @@ namespace Doom.MapBuild
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
 
             SpawnPlayer(map, bounds);
+
+            // ── Sprites (Stage 5) ─────────────────────────────────────────────
+            var spriteSet = SpriteSet.Load(wad);
+            var spriteCache = new SpriteCache(wad, spriteSet, palette);
+            var thingsRoot = new GameObject("Things");
+            thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
+            float fallbackY = bounds?.min.y ?? 0f;
+            int spawned = new ThingSpawner(spriteCache, worldScale)
+                .SpawnAll(map, thingsRoot.transform, fallbackY);
+            Debug.Log($"MapLoader: spawned {spawned} sprite things");
         }
 
         // ── Player spawn ──────────────────────────────────────────────────────

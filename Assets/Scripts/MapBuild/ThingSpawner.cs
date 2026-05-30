@@ -1,0 +1,84 @@
+using UnityEngine;
+using Doom.Map;
+using Doom.Things;
+
+namespace Doom.MapBuild
+{
+    /// Turns MapData.Things into billboard GameObjects under a parent. Player and
+    /// deathmatch starts are skipped. Vertical placement is by raycast against the
+    /// already-built sector colliders (down for floor things, up for ceiling things).
+    public sealed class ThingSpawner
+    {
+        readonly SpriteCache cache;
+        readonly float worldScale;
+        readonly int worldMask;
+
+        public ThingSpawner(SpriteCache cache, float worldScale)
+        {
+            this.cache = cache;
+            this.worldScale = worldScale;
+            this.worldMask = ~0; // all layers; map geometry is on Default
+        }
+
+        // Player starts 1–4, deathmatch start 11 — spawn points, not objects.
+        static bool IsSpawnPoint(int type)
+            => type >= 1 && type <= 4 || type == 11;
+
+        public int SpawnAll(MapData map, Transform parent, float fallbackY)
+        {
+            int count = 0;
+            foreach (var t in map.Things)
+            {
+                if (IsSpawnPoint(t.Type)) continue;
+                if (!ThingTable.TryGet(t.Type, out var def)) continue;
+
+                float x = t.X * worldScale;
+                float z = t.Y * worldScale;
+                bool ceiling = def.Has(ThingFlags.SpawnCeiling);
+
+                float feetY = fallbackY;
+                float ceilY = fallbackY + def.Height * worldScale;
+                ResolveVertical(x, z, fallbackY, ceiling, def, ref feetY, ref ceilY);
+
+                var go = new GameObject($"Thing_{t.Type}_{def.Sprite}");
+                go.transform.SetParent(parent, worldPositionStays: false);
+                go.transform.position = new Vector3(x, feetY, z);
+
+                var bb = go.AddComponent<SpriteBillboard>();
+                bb.Init(cache, def.Sprite, def.Frame, worldScale,
+                        doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
+
+                if (def.Has(ThingFlags.Solid))
+                {
+                    var col = go.AddComponent<CapsuleCollider>();
+                    float r = def.Radius * worldScale;
+                    float h = Mathf.Max(def.Height * worldScale, 2f * r);
+                    col.radius = r;
+                    col.height = h;
+                    col.center = new Vector3(0f, h * 0.5f, 0f);
+                }
+                count++;
+            }
+            return count;
+        }
+
+        // Raycast from high above (or below) the XZ to find floor / ceiling Y.
+        void ResolveVertical(float x, float z, float fallbackY, bool ceiling,
+                             ThingDef def, ref float feetY, ref float ceilY)
+        {
+            const float Far = 10000f;
+            Vector3 fromAbove = new Vector3(x, fallbackY + Far, z);
+            if (Physics.Raycast(fromAbove, Vector3.down, out var hitFloor, 2f * Far, worldMask))
+                feetY = hitFloor.point.y;
+
+            if (ceiling)
+            {
+                Vector3 fromBelow = new Vector3(x, feetY, z);
+                if (Physics.Raycast(fromBelow, Vector3.up, out var hitCeil, 2f * Far, worldMask))
+                    ceilY = hitCeil.point.y;
+                else
+                    ceilY = feetY + def.Height * worldScale;
+            }
+        }
+    }
+}
