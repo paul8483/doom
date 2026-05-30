@@ -21,12 +21,16 @@ namespace Doom.Map
         }
 
         public static IReadOnlyList<WallSection> BuildForSector(
-            MapData map, int sectorIdx, ITextureSizeSource sizes, float worldScale = 1f)
+            MapData map, int sectorIdx, ITextureSizeSource sizes, float worldScale = 1f,
+            ISectorHeights h = null)
         {
+            h ??= new StaticSectorHeights(map);
             var opaque = new Dictionary<string, Bucket>();
             var masked = new Dictionary<string, Bucket>();
             var sec = map.Sectors[sectorIdx];
             float light = sec.LightLevel / 255f;
+            int secFloor = h.FloorHeight(sectorIdx);
+            int secCeil = h.CeilingHeight(sectorIdx);
 
             for (int i = 0; i < map.LineDefs.Length; i++)
             {
@@ -49,9 +53,9 @@ namespace Doom.Map
                     // One-sided: middle texture spans floor..ceiling.
                     if (onFront)
                         EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
-                                 v1, v2, sec.FloorHeight, sec.CeilingHeight,
+                                 v1, v2, secFloor, secCeil,
                                  side.MiddleTexture, WallPart.OneSidedMiddle,
-                                 sec.FloorHeight, sec.CeilingHeight, facingFront: true, isMasked: false);
+                                 secFloor, secCeil, facingFront: true, isMasked: false);
                     continue;
                 }
 
@@ -62,27 +66,28 @@ namespace Doom.Map
                 else if (onBack && ld.FrontSideIdx >= 0 && ld.FrontSideIdx < map.SideDefs.Length)
                     otherSec = map.SideDefs[ld.FrontSideIdx].SectorIdx;
                 if (otherSec < 0 || otherSec >= map.Sectors.Length) continue;
-                var other = map.Sectors[otherSec];
+                int otherFloor = h.FloorHeight(otherSec);
+                int otherCeil = h.CeilingHeight(otherSec);
 
                 // Lower step: neighbour floor higher than ours.
-                if (other.FloorHeight > sec.FloorHeight && HasTex(side.LowerTexture))
+                if (otherFloor > secFloor && HasTex(side.LowerTexture))
                     EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
-                             v1, v2, sec.FloorHeight, other.FloorHeight,
+                             v1, v2, secFloor, otherFloor,
                              side.LowerTexture, WallPart.Lower,
-                             sec.FloorHeight, sec.CeilingHeight, facingFront: onFront, isMasked: false);
+                             secFloor, secCeil, facingFront: onFront, isMasked: false);
 
                 // Upper step: neighbour ceiling lower than ours.
-                if (other.CeilingHeight < sec.CeilingHeight && HasTex(side.UpperTexture))
+                if (otherCeil < secCeil && HasTex(side.UpperTexture))
                     EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
-                             v1, v2, other.CeilingHeight, sec.CeilingHeight,
+                             v1, v2, otherCeil, secCeil,
                              side.UpperTexture, WallPart.Upper,
-                             sec.FloorHeight, sec.CeilingHeight, facingFront: onFront, isMasked: false);
+                             secFloor, secCeil, facingFront: onFront, isMasked: false);
 
                 // Middle (grating): clipped to the shared gap, not vertically tiled.
                 if (HasTex(side.MiddleTexture))
                 {
-                    int gapLow = System.Math.Max(sec.FloorHeight, other.FloorHeight);
-                    int gapHigh = System.Math.Min(sec.CeilingHeight, other.CeilingHeight);
+                    int gapLow = System.Math.Max(secFloor, otherFloor);
+                    int gapHigh = System.Math.Min(secCeil, otherCeil);
                     if (gapHigh > gapLow)
                         EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
                                  v1, v2, gapLow, gapHigh,

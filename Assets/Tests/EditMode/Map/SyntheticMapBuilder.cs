@@ -97,6 +97,36 @@ namespace Doom.Map.Tests
             return SyntheticWadBuilder.Build("IWAD", (IReadOnlyList<SyntheticWadBuilder.Lump>)lumps);
         }
 
+        /// One 64x64 square sector with 4 one-sided linedefs, built directly as a
+        /// MapData (no WAD round-trip). Floor/ceiling heights are parameterised so
+        /// runtime-height rebuild tests can compare against overrides.
+        public static MapData SingleSquareSector(int floor = 0, int ceil = 128)
+        {
+            var verts = new[]
+            {
+                new Vertex(0, 0), new Vertex(64, 0),
+                new Vertex(64, 64), new Vertex(0, 64),
+            };
+            var lines = new[]
+            {
+                new LineDef(0, 1, 0, 0, 0, 0, -1),
+                new LineDef(1, 2, 0, 0, 0, 1, -1),
+                new LineDef(2, 3, 0, 0, 0, 2, -1),
+                new LineDef(3, 0, 0, 0, 0, 3, -1),
+            };
+            var sides = new[]
+            {
+                new SideDef(0, 0, "-", "-", "W", 0), new SideDef(0, 0, "-", "-", "W", 0),
+                new SideDef(0, 0, "-", "-", "W", 0), new SideDef(0, 0, "-", "-", "W", 0),
+            };
+            var sectors = new[]
+            {
+                new Sector((short)floor, (short)ceil, "F", "F", 0, 0, 0),
+            };
+            return new MapData("TEST", verts, lines, sides, sectors,
+                               System.Array.Empty<Thing>());
+        }
+
         private static byte[] EncodeName8(string name)
         {
             var buf = new byte[8];

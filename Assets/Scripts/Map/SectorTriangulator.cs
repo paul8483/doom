@@ -6,19 +6,23 @@ namespace Doom.Map
     {
         public const string SkyFlat = "F_SKY1";
 
-        public static MeshData TriangulateFloor(MapData map, SectorPolygon poly, float worldScale = 1f)
+        public static MeshData TriangulateFloor(MapData map, SectorPolygon poly,
+                                                ISectorHeights h = null, float worldScale = 1f)
         {
+            h ??= new StaticSectorHeights(map);
             var sec = map.Sectors[poly.SectorIdx];
-            return Triangulate(map, poly, sec.FloorHeight * worldScale,
+            return Triangulate(map, poly, h.FloorHeight(poly.SectorIdx) * worldScale,
                                worldScale, flipWinding: true, sec.LightLevel);
         }
 
-        public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly, float worldScale = 1f)
+        public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly,
+                                                  ISectorHeights h = null, float worldScale = 1f)
         {
+            h ??= new StaticSectorHeights(map);
             var sec = map.Sectors[poly.SectorIdx];
             // Sky ceilings are not rendered (Stage 4 defers real sky).
             if (sec.CeilingFlat == SkyFlat) return MeshData.Empty;
-            return Triangulate(map, poly, sec.CeilingHeight * worldScale,
+            return Triangulate(map, poly, h.CeilingHeight(poly.SectorIdx) * worldScale,
                                worldScale, flipWinding: false, sec.LightLevel);
         }
 

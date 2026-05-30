@@ -45,21 +45,48 @@ namespace Doom.Map
         }
 
         public static SectorMeshes[] Build(MapData map, float worldScale = 1f,
-                                           ITextureSizeSource sizes = null)
+                                           ITextureSizeSource sizes = null,
+                                           ISectorHeights heights = null)
         {
             sizes ??= new FallbackSizes();
+            heights ??= new StaticSectorHeights(map);
             var polys = SectorPolygonBuilder.Build(map);
             var result = new SectorMeshes[map.Sectors.Length];
             for (int s = 0; s < map.Sectors.Length; s++)
-            {
-                var sec = map.Sectors[s];
-                var floor   = SectorTriangulator.TriangulateFloor(map, polys[s], worldScale);
-                var ceiling = SectorTriangulator.TriangulateCeiling(map, polys[s], worldScale);
-                var walls   = WallMeshBuilder.BuildForSector(map, s, sizes, worldScale);
-                result[s] = new SectorMeshes(s, floor, ceiling,
-                                             sec.FloorFlat, sec.CeilingFlat, walls);
-            }
+                result[s] = BuildOne(map, s, polys[s], heights, worldScale, sizes);
             return result;
+        }
+
+        /// Rebuild a single sector's meshes at the given runtime heights.
+        public static SectorMeshes RebuildSector(MapData map, int sectorIdx, ISectorHeights heights,
+                                                 float worldScale, ITextureSizeSource sizes)
+        {
+            sizes ??= new FallbackSizes();
+            heights ??= new StaticSectorHeights(map);
+            var poly = SectorPolygonBuilder.Build(map)[sectorIdx];
+            return BuildOne(map, sectorIdx, poly, heights, worldScale, sizes);
+        }
+
+        /// Rebuild a single sector's meshes at the given runtime heights, reusing a
+        /// pre-built polygon (skips the per-call SectorPolygonBuilder pass).
+        public static SectorMeshes RebuildSector(MapData map, int sectorIdx, SectorPolygon poly,
+                                                 ISectorHeights heights, float worldScale,
+                                                 ITextureSizeSource sizes)
+        {
+            sizes ??= new FallbackSizes();
+            heights ??= new StaticSectorHeights(map);
+            return BuildOne(map, sectorIdx, poly, heights, worldScale, sizes);
+        }
+
+        private static SectorMeshes BuildOne(MapData map, int s, SectorPolygon poly,
+                                             ISectorHeights heights, float worldScale,
+                                             ITextureSizeSource sizes)
+        {
+            var sec = map.Sectors[s];
+            var floor   = SectorTriangulator.TriangulateFloor(map, poly, heights, worldScale);
+            var ceiling = SectorTriangulator.TriangulateCeiling(map, poly, heights, worldScale);
+            var walls   = WallMeshBuilder.BuildForSector(map, s, sizes, worldScale, heights);
+            return new SectorMeshes(s, floor, ceiling, sec.FloorFlat, sec.CeilingFlat, walls);
         }
     }
 }
