@@ -34,6 +34,11 @@ namespace Doom.MapBuild
             lastPos = transform.position;
         }
 
+        /// Test hook: directly activate a linedef as if pushed (Stage 6a PlayMode tests).
+        public void ActivateLineForTest(int lineIndex) => Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
+        /// Test hook: read the live (raw DOOM-unit) ceiling height of a sector.
+        public float GetSectorCeilForTest(int sector) => heights.CeilRaw(sector);
+
         /// Called when the player presses Use. Raycasts forward into a wall.
         public void TryUse()
         {
