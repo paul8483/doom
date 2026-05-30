@@ -32,8 +32,12 @@ namespace Doom.MapBuild
             this.spawnCeiling = spawnCeiling;
             this.ceilingY = ceilingY;
 
-            meshFilter = gameObject.GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
-            meshRenderer = gameObject.GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
+            meshFilter = gameObject.GetComponent<MeshFilter>();
+            if (meshFilter == null)
+                meshFilter = gameObject.AddComponent<MeshFilter>();
+            meshRenderer = gameObject.GetComponent<MeshRenderer>();
+            if (meshRenderer == null)
+                meshRenderer = gameObject.AddComponent<MeshRenderer>();
             meshFilter.sharedMesh = UnitQuad();
         }
 

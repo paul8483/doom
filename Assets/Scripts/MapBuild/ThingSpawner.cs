@@ -40,13 +40,21 @@ namespace Doom.MapBuild
                 float ceilY = fallbackY + def.Height * worldScale;
                 ResolveVertical(x, z, fallbackY, ceiling, def, ref feetY, ref ceilY);
 
-                var go = new GameObject($"Thing_{t.Type}_{def.Sprite}");
+                var go = new GameObject($"Thing_{t.Type}_{def.Sprite}",
+                    typeof(MeshFilter), typeof(MeshRenderer));
                 go.transform.SetParent(parent, worldPositionStays: false);
                 go.transform.position = new Vector3(x, feetY, z);
 
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
+
+                // Pre-warm the cache for all 8 rotations while the WAD is still open.
+                // SpriteCache.Get is lazy and reads from the WAD on first access; by the
+                // time LateUpdate runs, MapLoader's `using var wad` has disposed the stream.
+                // Fetching all rotations now bakes them into the in-memory material cache.
+                for (int rot = 0; rot < 8; rot++)
+                    cache.Get(def.Sprite, def.Frame, rot);
 
                 if (def.Has(ThingFlags.Solid))
                 {
