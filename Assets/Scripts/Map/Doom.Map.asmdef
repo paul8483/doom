@@ -1,7 +1,7 @@
 {
     "name": "Doom.Map",
     "rootNamespace": "Doom.Map",
-    "references": ["Doom.Wad", "LibTessDotNet"],
+    "references": ["Doom.Wad", "Doom.Graphics", "LibTessDotNet"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
