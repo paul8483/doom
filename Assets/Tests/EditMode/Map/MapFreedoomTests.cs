@@ -82,7 +82,8 @@ namespace Doom.Map.Tests
             {
                 totalTris += sm.Floor.Triangles.Length / 3;
                 totalTris += sm.Ceiling.Triangles.Length / 3;
-                totalTris += sm.Walls.Triangles.Length / 3;
+                foreach (var w in sm.Walls)
+                    totalTris += w.Mesh.Triangles.Length / 3;
             }
             Assert.That(totalTris, Is.GreaterThan(1000),
                 "E1M1 должна давать тысячи треугольников");
@@ -152,7 +153,8 @@ namespace Doom.Map.Tests
             {
                 fl += DegenerateTriCount(sm.Floor);
                 ce += DegenerateTriCount(sm.Ceiling);
-                wa += DegenerateTriCount(sm.Walls);
+                foreach (var w in sm.Walls)
+                    wa += DegenerateTriCount(w.Mesh);
             }
             Assert.That(fl + ce + wa, Is.EqualTo(0),
                 $"Вырожденных треугольников: floor={fl} ceiling={ce} walls={wa}");

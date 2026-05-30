@@ -1,52 +1,61 @@
 using System.Collections.Generic;
+using Doom.Graphics;
 
 namespace Doom.Map
 {
+    /// Builds wall geometry for a sector, grouped into one WallSection per texture
+    /// (so the glue assigns one material each), with UV (pegging-aware) and
+    /// per-vertex sector light. Two-sided middle textures become masked sections.
     public static class WallMeshBuilder
     {
-        /// Собирает все стены, видимые из данного сектора:
-        /// - для каждой смежной линии смотрим, с какой стороны мы находимся (front/back)
-        /// - one-sided: один квад от floor до ceiling нашего сектора
-        /// - two-sided: lower-step (если соседский пол выше нашего)
-        ///              + upper-step (если соседский потолок ниже нашего)
-        ///              middle (текстуры в Stage 4 — пропускаем)
-        public static MeshData BuildForSector(MapData map, int sectorIdx, float worldScale = 1f)
+        private const ushort FlagLowerUnpegged = 0x0008;
+        private const ushort FlagUpperUnpegged = 0x0010;
+
+        // Accumulates geometry per (texture, masked) bucket.
+        private sealed class Bucket
         {
-            var verts = new List<Float3>();
-            var tris  = new List<int>();
+            public readonly List<Float3> V = new();
+            public readonly List<int> T = new();
+            public readonly List<Float2> Uv = new();
+            public readonly List<Float3> C = new();
+        }
+
+        public static IReadOnlyList<WallSection> BuildForSector(
+            MapData map, int sectorIdx, ITextureSizeSource sizes, float worldScale = 1f)
+        {
+            var opaque = new Dictionary<string, Bucket>();
+            var masked = new Dictionary<string, Bucket>();
             var sec = map.Sectors[sectorIdx];
+            float light = sec.LightLevel / 255f;
 
             for (int i = 0; i < map.LineDefs.Length; i++)
             {
                 var ld = map.LineDefs[i];
                 if (!IsValidVertex(map, ld.V1) || !IsValidVertex(map, ld.V2)) continue;
 
-                bool onFront = ld.FrontSideIdx >= 0 &&
-                               ld.FrontSideIdx < map.SideDefs.Length &&
+                bool onFront = ld.FrontSideIdx >= 0 && ld.FrontSideIdx < map.SideDefs.Length &&
                                map.SideDefs[ld.FrontSideIdx].SectorIdx == sectorIdx;
-                bool onBack  = ld.BackSideIdx  >= 0 &&
-                               ld.BackSideIdx  < map.SideDefs.Length &&
+                bool onBack  = ld.BackSideIdx >= 0 && ld.BackSideIdx < map.SideDefs.Length &&
                                map.SideDefs[ld.BackSideIdx].SectorIdx == sectorIdx;
-
                 if (!onFront && !onBack) continue;
 
+                int sideIdx = onFront ? ld.FrontSideIdx : ld.BackSideIdx;
+                var side = map.SideDefs[sideIdx];
                 var v1 = map.Vertexes[ld.V1];
                 var v2 = map.Vertexes[ld.V2];
 
-                // One-sided: одна сторона = один квад во весь объём своего сектора
                 if (!ld.IsTwoSided)
                 {
+                    // One-sided: middle texture spans floor..ceiling.
                     if (onFront)
-                        EmitQuad(verts, tris,
-                                 v1, v2,
-                                 sec.FloorHeight * worldScale, sec.CeilingHeight * worldScale,
-                                 worldScale,
-                                 facingFront: true);
-                    // Back-сторона на one-sided не бывает по дефиниции — игнорируем
+                        EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                                 v1, v2, sec.FloorHeight, sec.CeilingHeight,
+                                 side.MiddleTexture, WallPart.OneSidedMiddle,
+                                 sec.FloorHeight, sec.CeilingHeight, facingFront: true, isMasked: false);
                     continue;
                 }
 
-                // Two-sided: вычисляем сосед
+                // Two-sided: find neighbour.
                 int otherSec = -1;
                 if (onFront && ld.BackSideIdx >= 0 && ld.BackSideIdx < map.SideDefs.Length)
                     otherSec = map.SideDefs[ld.BackSideIdx].SectorIdx;
@@ -55,69 +64,133 @@ namespace Doom.Map
                 if (otherSec < 0 || otherSec >= map.Sectors.Length) continue;
                 var other = map.Sectors[otherSec];
 
-                // Lower step: соседский пол выше нашего → стена от sec.Floor до other.Floor
-                if (other.FloorHeight > sec.FloorHeight)
+                // Lower step: neighbour floor higher than ours.
+                if (other.FloorHeight > sec.FloorHeight && HasTex(side.LowerTexture))
+                    EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                             v1, v2, sec.FloorHeight, other.FloorHeight,
+                             side.LowerTexture, WallPart.Lower,
+                             sec.FloorHeight, sec.CeilingHeight, facingFront: onFront, isMasked: false);
+
+                // Upper step: neighbour ceiling lower than ours.
+                if (other.CeilingHeight < sec.CeilingHeight && HasTex(side.UpperTexture))
+                    EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                             v1, v2, other.CeilingHeight, sec.CeilingHeight,
+                             side.UpperTexture, WallPart.Upper,
+                             sec.FloorHeight, sec.CeilingHeight, facingFront: onFront, isMasked: false);
+
+                // Middle (grating): clipped to the shared gap, not vertically tiled.
+                if (HasTex(side.MiddleTexture))
                 {
-                    EmitQuad(verts, tris,
-                             v1, v2,
-                             sec.FloorHeight * worldScale, other.FloorHeight * worldScale,
-                             worldScale,
-                             facingFront: onFront);
-                }
-                // Upper step: соседский потолок ниже нашего → стена от other.Ceiling до sec.Ceiling
-                if (other.CeilingHeight < sec.CeilingHeight)
-                {
-                    EmitQuad(verts, tris,
-                             v1, v2,
-                             other.CeilingHeight * worldScale, sec.CeilingHeight * worldScale,
-                             worldScale,
-                             facingFront: onFront);
+                    int gapLow = System.Math.Max(sec.FloorHeight, other.FloorHeight);
+                    int gapHigh = System.Math.Min(sec.CeilingHeight, other.CeilingHeight);
+                    if (gapHigh > gapLow)
+                        EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                                 v1, v2, gapLow, gapHigh,
+                                 side.MiddleTexture, WallPart.TwoSidedMiddle,
+                                 gapLow, gapHigh, facingFront: onFront, isMasked: true);
                 }
             }
 
-            return new MeshData(verts.ToArray(), tris.ToArray());
+            var result = new List<WallSection>();
+            foreach (var kv in opaque) result.Add(ToSection(kv.Key, false, kv.Value));
+            foreach (var kv in masked) result.Add(ToSection(kv.Key, true, kv.Value));
+            return result;
         }
 
-        private static void EmitQuad(List<Float3> verts, List<int> tris,
-                                     Vertex a, Vertex b, float yLow, float yHigh,
-                                     float worldScale,
-                                     bool facingFront)
+        private enum WallPart { OneSidedMiddle, Upper, Lower, TwoSidedMiddle }
+
+        private static WallSection ToSection(string tex, bool masked, Bucket b)
+            => new WallSection(tex, masked,
+                   new MeshData(b.V.ToArray(), b.T.ToArray(), b.Uv.ToArray(), b.C.ToArray()));
+
+        private static bool HasTex(string t) => !string.IsNullOrEmpty(t) && t != "-";
+
+        private static void EmitQuad(
+            Dictionary<string, Bucket> opaque, Dictionary<string, Bucket> masked,
+            ITextureSizeSource sizes, ushort flags, SideDef side, float light, float worldScale,
+            Vertex a, Vertex b, int yLowDoom, int yHighDoom,
+            string texture, WallPart part, int regionLowDoom, int regionHighDoom,
+            bool facingFront, bool isMasked)
         {
+            float dx = (b.X - a.X), dz = (b.Y - a.Y);
+            float lenDoom = (float)System.Math.Sqrt(dx * dx + dz * dz);
+            if (System.Math.Abs(yHighDoom - yLowDoom) < 1e-4f || lenDoom < 1e-4f) return; // degenerate
+
+            sizes.TryGetSize(texture, out int texW, out int texH);
+            if (texW <= 0) texW = 64;
+            if (texH <= 0) texH = 128;
+
+            // Horizontal U at the two endpoints (DOOM units), with X offset.
+            float u0 = (0f + side.TextureXOffset) / texW;
+            float u1 = (lenDoom + side.TextureXOffset) / texW;
+
+            // Vertical: choose the DOOM Y that the texture's TOP row maps to.
+            float texTopY = VerticalTopY(part, flags, yLowDoom, yHighDoom,
+                                         regionLowDoom, regionHighDoom, texH);
+            texTopY += side.TextureYOffset; // positive Y offset shifts texture down in DOOM space
+
+            // v = (texTopY - vertexDoomY) / texH  -> top of texture at texTopY
+            float vLow = (texTopY - yLowDoom) / texH;
+            float vHigh = (texTopY - yHighDoom) / texH;
+
+            float yLow = yLowDoom * worldScale;
+            float yHigh = yHighDoom * worldScale;
             float ax = a.X * worldScale, az = a.Y * worldScale;
             float bx = b.X * worldScale, bz = b.Y * worldScale;
 
-            // Вырожденный квад (нулевая высота — закрытый сектор floor==ceiling —
-            // или нулевая длина при совпавших вершинах) невидим и ломает
-            // MeshCollider (PhysX "cleaning the mesh failed"). Не эмитим его.
-            float dx = bx - ax, dz = bz - az;
-            if (System.Math.Abs(yHigh - yLow) <= 1e-6f || (dx * dx + dz * dz) <= 1e-12f)
-                return;
+            var bucket = GetBucket(isMasked ? masked : opaque, texture);
+            int baseIdx = bucket.V.Count;
 
-            // a, b — DOOM XY. Unity: X = a.X, Z = a.Y.
-            // Квад с углами (a, low), (b, low), (b, high), (a, high).
-            // Нормаль: front sidedef справа от a→b. Чтобы нормаль смотрела в front-sector —
-            // обходим против часовой при взгляде со стороны front'а.
-            // Для facingFront=true: видна со стороны front (справа от a→b) — порядок CCW из (+normal):
-            //   (b,low), (a,low), (a,high), (b,high)
-            // Для facingFront=false (стена принадлежит back-сектору): противоположный порядок:
-            //   (a,low), (b,low), (b,high), (a,high)
-            int baseIdx = verts.Count;
+            // Winding mirrors the Stage 2 convention (front sees CCW from +normal).
             if (facingFront)
             {
-                verts.Add(new Float3(bx, yLow,  bz));
-                verts.Add(new Float3(ax, yLow,  az));
-                verts.Add(new Float3(ax, yHigh, az));
-                verts.Add(new Float3(bx, yHigh, bz));
+                bucket.V.Add(new Float3(bx, yLow, bz));  bucket.Uv.Add(new Float2(u1, vLow));
+                bucket.V.Add(new Float3(ax, yLow, az));  bucket.Uv.Add(new Float2(u0, vLow));
+                bucket.V.Add(new Float3(ax, yHigh, az)); bucket.Uv.Add(new Float2(u0, vHigh));
+                bucket.V.Add(new Float3(bx, yHigh, bz)); bucket.Uv.Add(new Float2(u1, vHigh));
             }
             else
             {
-                verts.Add(new Float3(ax, yLow,  az));
-                verts.Add(new Float3(bx, yLow,  bz));
-                verts.Add(new Float3(bx, yHigh, bz));
-                verts.Add(new Float3(ax, yHigh, az));
+                bucket.V.Add(new Float3(ax, yLow, az));  bucket.Uv.Add(new Float2(u0, vLow));
+                bucket.V.Add(new Float3(bx, yLow, bz));  bucket.Uv.Add(new Float2(u1, vLow));
+                bucket.V.Add(new Float3(bx, yHigh, bz)); bucket.Uv.Add(new Float2(u1, vHigh));
+                bucket.V.Add(new Float3(ax, yHigh, az)); bucket.Uv.Add(new Float2(u0, vHigh));
             }
-            tris.Add(baseIdx + 0); tris.Add(baseIdx + 2); tris.Add(baseIdx + 1);
-            tris.Add(baseIdx + 0); tris.Add(baseIdx + 3); tris.Add(baseIdx + 2);
+            for (int k = 0; k < 4; k++) bucket.C.Add(new Float3(light, light, light));
+            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 2); bucket.T.Add(baseIdx + 1);
+            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 3); bucket.T.Add(baseIdx + 2);
+        }
+
+        /// DOOM Y that the texture's top row aligns to, per part + pegging flags.
+        private static float VerticalTopY(WallPart part, ushort flags,
+                                          int yLow, int yHigh, int regionLow, int regionHigh, int texH)
+        {
+            bool lowerUnpegged = (flags & FlagLowerUnpegged) != 0;
+            bool upperUnpegged = (flags & FlagUpperUnpegged) != 0;
+            switch (part)
+            {
+                case WallPart.OneSidedMiddle:
+                    // default top-pegged at ceiling; lower-unpegged pins bottom to floor.
+                    return lowerUnpegged ? (yLow + texH) : yHigh;
+                case WallPart.Upper:
+                    // default: texture top at upper section top (yHigh);
+                    // upper-unpegged also pins to the top here (DOOM aligns upper to ceiling).
+                    return upperUnpegged ? yHigh : (yLow + texH);
+                case WallPart.Lower:
+                    // default top-pegged at the step top (yHigh = neighbour floor);
+                    // lower-unpegged continues from the sector ceiling (regionHigh).
+                    return lowerUnpegged ? regionHigh : yHigh;
+                case WallPart.TwoSidedMiddle:
+                default:
+                    // not tiled: texture top at the gap top.
+                    return yHigh;
+            }
+        }
+
+        private static Bucket GetBucket(Dictionary<string, Bucket> map, string tex)
+        {
+            if (!map.TryGetValue(tex, out var b)) { b = new Bucket(); map[tex] = b; }
+            return b;
         }
 
         private static bool IsValidVertex(MapData map, int idx)

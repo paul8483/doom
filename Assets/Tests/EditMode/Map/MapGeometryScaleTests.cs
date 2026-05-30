@@ -56,18 +56,32 @@ namespace Doom.Map.Tests
             }
         }
 
+        // Local fallback size source for the wall test (every texture 64x128).
+        private sealed class Sizes : Doom.Graphics.ITextureSizeSource
+        {
+            public bool TryGetSize(string name, out int width, out int height)
+            {
+                width = 64; height = 128; return true;
+            }
+        }
+
         [Test]
         public void Wall_at_worldScale_half_halves_vertex_coordinates()
         {
-            var walls = WallMeshBuilder.BuildForSector(Square(), 0, worldScale: 0.5f);
+            var sections = WallMeshBuilder.BuildForSector(Square(), 0, new Sizes(), worldScale: 0.5f);
 
-            Assert.That(walls.Vertices.Length, Is.EqualTo(16));
-            foreach (var v in walls.Vertices)
+            int vertCount = 0;
+            foreach (var s in sections)
             {
-                Assert.That(v.X, Is.InRange(0f, 32f));
-                Assert.That(v.Y, Is.InRange(0f, 64f));
-                Assert.That(v.Z, Is.InRange(0f, 32f));
+                vertCount += s.Mesh.Vertices.Length;
+                foreach (var v in s.Mesh.Vertices)
+                {
+                    Assert.That(v.X, Is.InRange(0f, 32f));
+                    Assert.That(v.Y, Is.InRange(0f, 64f));
+                    Assert.That(v.Z, Is.InRange(0f, 32f));
+                }
             }
+            Assert.That(vertCount, Is.EqualTo(16));
         }
 
         [Test]
