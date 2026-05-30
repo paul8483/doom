@@ -42,8 +42,17 @@ namespace Doom.MapBuild
         public Texture2D GetTexture(string name)
         {
             if (texCache.TryGetValue(name, out var t)) return t;
-            var img = Decode(name);
-            var tex = ToTexture2D(img);
+            Texture2D tex;
+            try
+            {
+                var img = Decode(name);
+                tex = ToTexture2D(img);
+            }
+            catch (System.Exception e)
+            {
+                GraphicsLog.Warning($"TextureCache: failed to load '{name}': {e.Message} — using placeholder");
+                tex = ToTexture2D(Placeholder.Magenta(64, 64));
+            }
             texCache[name] = tex;
             return tex;
         }
@@ -63,14 +72,20 @@ namespace Doom.MapBuild
 
         private Texture2D ToTexture2D(DecodedImage img)
         {
-            var tex = new Texture2D(img.Width, img.Height, TextureFormat.RGBA32, mipChain: true);
+            // Guard: Unity rejects zero-dimension textures; fall back to magenta placeholder.
+            if (img.Width <= 0 || img.Height <= 0)
+                img = Placeholder.Magenta(64, 64);
+
+            int w = img.Width, h = img.Height;
+            // mipChain: false → LoadRawTextureData only needs w*h*4 bytes (base level).
+            // Apply(updateMipmaps: true) generates mip maps from the base level after upload.
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false);
             tex.wrapMode = TextureWrapMode.Repeat;
             tex.filterMode = FilterMode.Point;
             tex.anisoLevel = anisoLevel;
 
             // DecodedImage is top-to-bottom; Unity textures are bottom-to-top.
             // Flip rows so the image displays upright.
-            int w = img.Width, h = img.Height;
             var flipped = new byte[img.Rgba.Length];
             int stride = w * 4;
             for (int y = 0; y < h; y++)
