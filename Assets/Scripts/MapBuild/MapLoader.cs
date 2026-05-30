@@ -96,9 +96,10 @@ namespace Doom.MapBuild
                 if (!sm.HasAnyGeometry) continue;
                 var go = new GameObject($"Sector_{sm.SectorIdx}");
                 go.transform.SetParent(root.transform, worldPositionStays: false);
-                AddChild(go, "Floor",   sm.Floor,   floorMaterial,   ColliderMode.Render,    ref bounds);
-                AddChild(go, "Ceiling", sm.Ceiling, ceilingMaterial, ColliderMode.None,      ref bounds);
-                AddChild(go, "Walls",   sm.Walls,   wallMaterial,    ColliderMode.ThickWall, ref bounds);
+                AddChild(go, "Floor",   sm.Floor,   floorMaterial,   ColliderMode.Render, ref bounds);
+                AddChild(go, "Ceiling", sm.Ceiling, ceilingMaterial, ColliderMode.None,   ref bounds);
+                for (int wi = 0; wi < sm.Walls.Count; wi++)
+                    AddChild(go, $"Walls_{wi}", sm.Walls[wi].Mesh, wallMaterial, ColliderMode.ThickWall, ref bounds);
                 builtSectors++;
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");

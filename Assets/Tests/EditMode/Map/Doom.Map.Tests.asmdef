@@ -4,6 +4,7 @@
     "references": [
         "Doom.Wad",
         "Doom.Map",
+        "Doom.Graphics",
         "Doom.Wad.Tests",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

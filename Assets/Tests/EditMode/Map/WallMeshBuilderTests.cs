@@ -5,7 +5,7 @@ using Doom.Graphics;
 namespace Doom.Map.Tests
 {
     // Minimal ITextureSizeSource that returns 64x128 for every texture name.
-    file sealed class FlatSizes : ITextureSizeSource
+    internal sealed class FlatSizes : ITextureSizeSource
     {
         public bool TryGetSize(string name, out int width, out int height)
         { width = 64; height = 128; return true; }
