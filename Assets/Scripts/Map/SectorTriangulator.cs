@@ -4,18 +4,27 @@ namespace Doom.Map
 {
     public static class SectorTriangulator
     {
+        public const string SkyFlat = "F_SKY1";
+
         public static MeshData TriangulateFloor(MapData map, SectorPolygon poly, float worldScale = 1f)
-            => Triangulate(map, poly,
-                           map.Sectors[poly.SectorIdx].FloorHeight * worldScale,
-                           worldScale, flipWinding: true);
+        {
+            var sec = map.Sectors[poly.SectorIdx];
+            return Triangulate(map, poly, sec.FloorHeight * worldScale,
+                               worldScale, flipWinding: true, sec.LightLevel);
+        }
 
         public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly, float worldScale = 1f)
-            => Triangulate(map, poly,
-                           map.Sectors[poly.SectorIdx].CeilingHeight * worldScale,
-                           worldScale, flipWinding: false);
+        {
+            var sec = map.Sectors[poly.SectorIdx];
+            // Sky ceilings are not rendered (Stage 4 defers real sky).
+            if (sec.CeilingFlat == SkyFlat) return MeshData.Empty;
+            return Triangulate(map, poly, sec.CeilingHeight * worldScale,
+                               worldScale, flipWinding: false, sec.LightLevel);
+        }
 
         private static MeshData Triangulate(MapData map, SectorPolygon poly,
-                                            float yHeight, float worldScale, bool flipWinding)
+                                            float yHeight, float worldScale,
+                                            bool flipWinding, ushort lightLevel)
         {
             if (!poly.IsValid) return MeshData.Empty;
 
@@ -32,11 +41,16 @@ namespace Doom.Map
                 int vc = tess.VertexCount;
                 int tc = tess.ElementCount;
                 var verts = new Float3[vc];
+                var uv = new Float2[vc];
+                var colors = new Float3[vc];
+                float g = lightLevel / 255f;
                 for (int i = 0; i < vc; i++)
                 {
-                    var p = tess.Vertices[i].Position;
-                    // DOOM (X, Y) -> Unity (X, Z), Y = height
+                    var p = tess.Vertices[i].Position; // DOOM X,Y in p.X,p.Y
                     verts[i] = new Float3(p.X * worldScale, yHeight, p.Y * worldScale);
+                    // Flats tile on a fixed 64-unit world grid.
+                    uv[i] = new Float2(p.X / 64f, p.Y / 64f);
+                    colors[i] = new Float3(g, g, g);
                 }
                 var tris = new int[tc * 3];
                 for (int t = 0; t < tc; t++)
@@ -49,7 +63,7 @@ namespace Doom.Map
                     tris[t * 3 + 1] = b;
                     tris[t * 3 + 2] = c;
                 }
-                return new MeshData(verts, tris);
+                return new MeshData(verts, tris, uv, colors);
             }
             catch (System.Exception ex)
             {
