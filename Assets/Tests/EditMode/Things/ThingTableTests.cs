@@ -11,6 +11,7 @@ namespace Doom.Things.Tests
             Assert.That(imp.Sprite, Is.EqualTo("TROO"));
             Assert.That(imp.Has(ThingFlags.Solid), Is.True);
             Assert.That(imp.Has(ThingFlags.Shootable), Is.True);
+            Assert.That(imp.Has(ThingFlags.CountKill), Is.True);
         }
 
         [Test]
@@ -30,6 +31,11 @@ namespace Doom.Things.Tests
         {
             Assert.That(ThingTable.TryGet(49, out var gor), Is.True); // hanging victim
             Assert.That(gor.Has(ThingFlags.SpawnCeiling), Is.True);
+            Assert.That(gor.Has(ThingFlags.Solid), Is.True); // 49 is hanging + solid
+
+            Assert.That(ThingTable.TryGet(59, out var gorNonSolid), Is.True);
+            Assert.That(gorNonSolid.Has(ThingFlags.SpawnCeiling), Is.True);
+            Assert.That(gorNonSolid.Has(ThingFlags.Solid), Is.False);
         }
 
         [Test]
