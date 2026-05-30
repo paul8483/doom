@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Stages 0, 1, 2, and 3 of the plan are done:
+Stages 0, 1, 2, 3, and 4 of the plan are done:
 
 - **Stage 0:** Unity project scaffolded at the repo root, Git initialized (branch `main`), Freedoom Phase 1 placed under `Assets/StreamingAssets/wads/freedoom1.wad`.
 - **Stage 1:** WAD reader implemented in `Assets/Scripts/Wad/` (asmdef `Doom.Wad`, `noEngineReferences: true`). Public surface: `WadFile.Open(path)`, `Header`, `Directory`, `FindLump`, `ReadLump`, plus `WadMapNames.IsMapMarker`. Editor menu `Tools > Doom > Dump freedoom1.wad` confirms it reads the bundled WAD end-to-end. 30 EditMode tests (unit + integration) pass via Unity Test Framework.
 - **Stage 2:** Map geometry pipeline implemented in `Assets/Scripts/Map/` (asmdef `Doom.Map`, `noEngineReferences: true`) and `Assets/Scripts/MapBuild/` (Unity glue). High-level API: `MapData.Load(wad, mapName)` → `MapGeometryBuilder.Build(map)` → per-sector `SectorMeshes`. Triangulation via vendored LibTessDotNet v1.1.15 (`Assets/ThirdParty/LibTessDotNet/`). `MapLoader` MonoBehaviour with auto-bootstrap renders E1M1 grey block-out on Play in `Stage2_MapPreview.unity`. 62 EditMode tests pass including freedoom1.wad integration coverage.
 - **Stage 3:** Player + collisions. `MapLoader` spawns Player from `THINGS` Type 1 at scene start; `PlayerController` MonoBehaviour (`Doom.MapBuild`) uses the new Input System (`com.unity.inputsystem`, hand-built `InputActionMap`) for WASD + mouse-look + Shift-sprint. `worldScale = 1/32` plumbed through `MapGeometryBuilder` so the player is ~1.75 m tall and gravity = -9.81 m/s² works natively. A PlayMode test asserts the player lands on E1M1's floor without falling through.
+- **Stage 4:** Palette and textures. New pure-C# assembly `Doom.Graphics` (`noEngineReferences`) decodes `PLAYPAL`, flats, patches, and `TEXTURE1`/`TEXTURE2`+`PNAMES` into `DecodedImage` (RGBA32). `Doom.Map` gained UV + DOOM pegging, per-sector vertex light, texture-grouped `WallSection`s, two-sided middle quads, and F_SKY1 ceiling skipping. `Doom.MapBuild` adds `TextureCache` (Texture2D Point+mipmap+anisotropic) and two Unlit shaders (`Doom/Unlit`, `Doom/UnlitCutout`); `MapLoader` assigns materials and writes UV + vertex colors. Sky and animation deferred.
 
-The master roadmap is in `docs/doom-unity-remake-plan.md` (written in Russian). Each stage has a paired design spec under `docs/superpowers/specs/` (`YYYY-MM-DD-<topic>-design.md`, the WHAT/WHY) and an implementation plan under `docs/superpowers/plans/` (`YYYY-MM-DD-<topic>.md`, task-by-task HOW): Stage 1 = `2026-05-28-wad-reader`, Stage 2 = `2026-05-28-geometry`, Stage 3 = `2026-05-29-player`, Stage 4 = `2026-05-30-textures` (spec adds the `-design` suffix). Stage 4 (palette and textures) is the next concrete work.
+The master roadmap is in `docs/doom-unity-remake-plan.md` (written in Russian). Each stage has a paired design spec under `docs/superpowers/specs/` (`YYYY-MM-DD-<topic>-design.md`, the WHAT/WHY) and an implementation plan under `docs/superpowers/plans/` (`YYYY-MM-DD-<topic>.md`, task-by-task HOW): Stage 1 = `2026-05-28-wad-reader`, Stage 2 = `2026-05-28-geometry`, Stage 3 = `2026-05-29-player`, Stage 4 = `2026-05-30-textures` (spec adds the `-design` suffix). Stage 5 (sprite objects) is the next concrete work.
 
 ## What this project is
 
@@ -95,8 +96,9 @@ Useful CLI invocations:
 
 **Test CLI gotcha:** `-runTests` controls its own exit; do NOT add `-quit` with it (Unity exits before the runner starts). Per-test PASS/FAIL only lands in the `-testResults` XML, not the editor log. Use `-quit` only with `-executeMethod` or pure-compile runs.
 
-The current test suite is 73 EditMode + 1 PlayMode tests:
+The current test suite is 97 EditMode + 2 PlayMode tests:
 - 30 from Stage 1 (WAD reader): 4 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticWadBuilder`-built blobs.
 - 32 from Stage 2 (Map pipeline): 5 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticMapBuilder`-built lumps.
 - 9 from Stage 3 EditMode (Player): THINGS parsing (+2), THINGS as required lump in Load (+2), worldScale plumbing (+4), Freedoom Player-1-start integration (+1), plus 1 PlayMode test asserting the player lands on E1M1's floor.
 - 2 geometry-robustness regressions on `freedoom1.wad` E1M1: `SectorPolygonBuilder` must produce simple (non-self-intersecting) sector rings, and `MapGeometryBuilder` output must contain no degenerate (zero-area) triangles. These pin the fixes for self-intersecting sector contours (greedy chaining → angular face-tracing) and zero-area wall quads.
+- 24 from Stage 4 (palette & textures): 13 in `Doom.Graphics.Tests` (Palette, Flat, Patch, TextureSet unit tests on `SyntheticGfxBuilder` blobs + `freedoom1.wad` integration) and 11 added to `Doom.Map.Tests` (MeshData UV/Colors, flat UV+light, wall UV+pegging). The 2nd PlayMode test is the textured-E1M1 build smoke test.
