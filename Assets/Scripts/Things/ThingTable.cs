@@ -28,29 +28,29 @@ namespace Doom.Things
             // ── Monsters ──────────────────────────────────────────────────────
             Add(3004, "POSS", 0, 20, 56, Mon);   // zombieman
             Add(9,    "SPOS", 0, 20, 56, Mon);   // shotgun guy
-            Add(65,   "POSS", 0, 20, 56, Mon);   // chaingunner (Freedoom Ph1: no CPOS, use POSS substitute)
+            Add(65,   "CPOS", 0, 20, 56, Mon);   // chaingunner
             Add(3001, "TROO", 0, 20, 56, Mon);   // imp
             Add(3002, "SARG", 0, 30, 56, Mon);   // demon
             Add(58,   "SARG", 0, 30, 56, Mon);   // spectre
             Add(3006, "SKUL", 0, 16, 56, ThingFlags.Solid | ThingFlags.Shootable); // lost soul
             Add(3005, "HEAD", 0, 31, 56, Mon);   // cacodemon
             Add(3003, "BOSS", 0, 24, 64, Mon);   // baron of hell
-            Add(69,   "BOSS", 0, 24, 64, Mon);   // hell knight (Freedoom Ph1: no BOS2, use BOSS substitute)
-            Add(68,   "BOSS", 0, 64, 64, Mon);   // arachnotron (Freedoom Ph1: no BSPI, use BOSS substitute)
-            Add(71,   "HEAD", 0, 31, 56, Mon);   // pain elemental (Freedoom Ph1: no PAIN, use HEAD substitute)
-            Add(66,   "POSS", 0, 20, 56, Mon);   // revenant (Freedoom Ph1: no SKEL, use POSS substitute)
-            Add(67,   "POSS", 0, 48, 64, Mon);   // mancubus (Freedoom Ph1: no FATT, use POSS substitute)
-            Add(64,   "POSS", 0, 20, 56, Mon);   // arch-vile (Freedoom Ph1: no VILE, use POSS substitute)
+            Add(69,   "BOS2", 0, 24, 64, Mon);   // hell knight
+            Add(68,   "BSPI", 0, 64, 64, Mon);   // arachnotron
+            Add(71,   "PAIN", 0, 31, 56, Mon);   // pain elemental
+            Add(66,   "SKEL", 0, 20, 56, Mon);   // revenant
+            Add(67,   "FATT", 0, 48, 64, Mon);   // mancubus
+            Add(64,   "VILE", 0, 20, 56, Mon);   // arch-vile
             Add(7,    "SPID", 0, 128, 100, Mon); // spider mastermind
             Add(16,   "CYBR", 0, 40, 110, Mon);  // cyberdemon
-            Add(88,   "HEAD", 0, 16, 16, ThingFlags.Solid | ThingFlags.Shootable); // boss brain (Freedoom Ph1: no BBRN, use HEAD substitute)
-            Add(84,   "POSS", 0, 20, 56, Mon);   // wolfenstein SS (Freedoom Ph1: no SSWV, use POSS substitute)
-            Add(72,   "PLAY", 0, 16, 72, HangSol); // commander keen (Freedoom Ph1: no KEEN, use PLAY substitute)
+            Add(88,   "BBRN", 0, 16, 16, ThingFlags.Solid | ThingFlags.Shootable); // boss brain
+            Add(84,   "SSWV", 0, 20, 56, Mon);   // wolfenstein SS
+            Add(72,   "KEEN", 0, 16, 72, HangSol); // commander keen (hangs)
 
             // ── Weapons ───────────────────────────────────────────────────────
             Add(2005, "CSAW", 0, 20, 16, None);  // chainsaw
             Add(2001, "SHOT", 0, 20, 16, None);  // shotgun
-            Add(82,   "SHOT", 0, 20, 16, None);  // super shotgun (Freedoom Ph1: no SGN2, use SHOT substitute)
+            Add(82,   "SGN2", 0, 20, 16, None);  // super shotgun
             Add(2002, "MGUN", 0, 20, 16, None);  // chaingun
             Add(2003, "LAUN", 0, 20, 16, None);  // rocket launcher
             Add(2004, "PLAS", 0, 20, 16, None);  // plasma rifle
@@ -81,7 +81,7 @@ namespace Doom.Things
             Add(2025, "SUIT", 0, 20, 16, None);  // radiation suit
             Add(2026, "PMAP", 0, 20, 16, None);  // computer area map
             Add(2045, "PVIS", 0, 20, 16, None);  // light amp visor
-            Add(83,   "SOUL", 0, 20, 16, None);  // megasphere (Freedoom Ph1: no MEGA, use SOUL substitute)
+            Add(83,   "MEGA", 0, 20, 16, None);  // megasphere
 
             // ── Keys ──────────────────────────────────────────────────────────
             Add(5,  "BKEY", 0, 20, 16, None);    // blue keycard
@@ -147,9 +147,9 @@ namespace Doom.Things
             Add(10, "PLAY", 22, 16, 16, None);   // bloody mess (PLAY frame W)
             Add(12, "PLAY", 22, 16, 16, None);   // bloody mess 2
             Add(24, "POL5", 0, 16, 16, None);    // pool of blood and flesh
-            Add(79, "POL5", 0, 16, 16, None);    // pool of blood (Freedoom Ph1: no POB1, use POL5 substitute)
-            Add(80, "POL5", 0, 16, 16, None);    // pool of blood 2 (Freedoom Ph1: no POB2, use POL5 substitute)
-            Add(81, "POL5", 0, 16, 16, None);    // pool of brains (Freedoom Ph1: no BRS1, use POL5 substitute)
+            Add(79, "POB1", 0, 16, 16, None);    // pool of blood
+            Add(80, "POB2", 0, 16, 16, None);    // pool of blood 2
+            Add(81, "BRS1", 0, 16, 16, None);    // pool of brains
 
             return d;
         }
