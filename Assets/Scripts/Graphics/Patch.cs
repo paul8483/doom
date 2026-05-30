@@ -2,11 +2,36 @@ using System.IO;
 
 namespace Doom.Graphics
 {
+    /// Picture-format header: dimensions and DOOM draw offsets.
+    public readonly struct PatchHeader
+    {
+        public readonly int Width;
+        public readonly int Height;
+        public readonly int LeftOffset;
+        public readonly int TopOffset;
+
+        public PatchHeader(int width, int height, int left, int top)
+        {
+            Width = width; Height = height; LeftOffset = left; TopOffset = top;
+        }
+    }
+
     /// DOOM picture (patch) format decoder.
     /// A patch is column-major: width column-pointers, each pointing at a list of posts.
     /// Pixels not covered by any post are transparent (alpha = 0).
     public static class Patch
     {
+        public static PatchHeader ReadHeader(byte[] patchLump)
+        {
+            using var ms = new MemoryStream(patchLump);
+            using var r = new BinaryReader(ms);
+            short width = r.ReadInt16();
+            short height = r.ReadInt16();
+            short left = r.ReadInt16();
+            short top = r.ReadInt16();
+            return new PatchHeader(width, height, left, top);
+        }
+
         public static DecodedImage Decode(byte[] patchLump, Palette palette)
         {
             using var ms = new MemoryStream(patchLump);
