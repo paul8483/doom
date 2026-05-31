@@ -217,6 +217,11 @@ namespace Doom.MapBuild
 
             var death = player.AddComponent<PlayerDeathHandler>();
             death.Init(health, pc, activator, floorDamage, cc, pos, Quaternion.Euler(0f, yaw, 0f));
+
+            // Carry the player smoothly while standing on a moving sector floor
+            // (rising lifts/floors). Acts only when the floor under the player moved.
+            var rider = player.AddComponent<PlayerLiftRider>();
+            rider.Init(cc, worldScale);
         }
 
         enum ColliderMode { None, Render, ThickWall }
