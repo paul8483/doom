@@ -232,8 +232,10 @@ namespace Doom.MapBuild
         static void PopulateSectorRoot(Transform sectorRoot, SectorMeshes sm,
                                        TextureCache cache, float worldScale, ref Bounds? bounds)
         {
-            AddChild(sectorRoot, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
+            var floorGo = AddChild(sectorRoot, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
                      ColliderMode.Render, worldScale, ref bounds);
+            if (floorGo != null)
+                floorGo.AddComponent<SectorRef>().SectorIndex = sm.SectorIdx;
             if (!sm.Ceiling.IsEmpty)
                 AddChild(sectorRoot, "Ceiling", sm.Ceiling, cache.GetMaterial(sm.CeilingFlat, false),
                          ColliderMode.None, worldScale, ref bounds);
