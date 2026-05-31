@@ -54,8 +54,25 @@ namespace Doom.MapBuild
         {
             var root = sectorRoots[s];
             if (root == null) return;
+
+            // Floor and ceiling meshes don't change SHAPE when a sector moves, only
+            // their Y. Translate their GameObjects so the floor MeshCollider persists
+            // across moves (no PhysX re-cook → no ground-contact churn / jitter /
+            // fall-through). The baked mesh carries the WAD-initial absolute Y, so the
+            // local offset is (current − initial) * worldScale.
+            var floorChild = root.Find("Floor");
+            if (floorChild != null)
+                floorChild.localPosition = new Vector3(
+                    0f, (heights.FloorRaw(s) - map.Sectors[s].FloorHeight) * worldScale, 0f);
+
+            var ceilChild = root.Find("Ceiling");
+            if (ceilChild != null)
+                ceilChild.localPosition = new Vector3(
+                    0f, (heights.CeilRaw(s) - map.Sectors[s].CeilingHeight) * worldScale, 0f);
+
+            // Walls genuinely change shape as the gap grows/shrinks → rebuild only them.
             var sm = MapGeometryBuilder.RebuildSector(map, s, polys[s], heights, worldScale, sizes);
-            MapLoader.RebuildSectorGameObjects(root, sm, textures, worldScale);
+            MapLoader.RebuildSectorWalls(root, sm, textures, worldScale);
         }
     }
 }

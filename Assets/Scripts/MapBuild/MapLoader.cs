@@ -224,9 +224,11 @@ namespace Doom.MapBuild
         // ── Shared sector-root population (initial build AND in-place rebuild) ─────
 
         /// Re-create the Floor/Ceiling/Wall child GameObjects under `sectorRoot`
-        /// from `sm`, clearing any existing children first. Used by SectorGeometry
-        /// to rebuild a sector in place when its runtime heights change. The static
-        /// build path calls PopulateSectorRoot directly (children already empty).
+        /// from `sm`, clearing any existing children first. NOTE: no longer called by
+        /// SectorGeometry (runtime rebuilds now translate Floor/Ceiling and use
+        /// RebuildSectorWalls to avoid destroying the persistent floor collider). Kept
+        /// for completeness / potential full-rebuild callers. The static build path
+        /// calls PopulateSectorRoot directly (children already empty).
         public static void RebuildSectorGameObjects(Transform sectorRoot, SectorMeshes sm,
                                                     TextureCache cache, float worldScale)
         {
@@ -236,6 +238,32 @@ namespace Doom.MapBuild
                 Destroy(sectorRoot.GetChild(i).gameObject);
             Bounds? ignore = null;
             PopulateSectorRoot(sectorRoot, sm, cache, worldScale, ref ignore);
+        }
+
+        /// Rebuild ONLY the wall children of a sector in place (Floor/Ceiling persist
+        /// and are repositioned by SectorGeometry via transform). Destroys existing
+        /// "Wall_*" children and recreates them from sm.Walls, mirroring the wall
+        /// logic in PopulateSectorRoot (wi naming, Masked→collider mapping, LineRef).
+        public static void RebuildSectorWalls(Transform sectorRoot, SectorMeshes sm,
+                                              TextureCache cache, float worldScale)
+        {
+            if (sectorRoot == null) return;
+            for (int i = sectorRoot.childCount - 1; i >= 0; i--)
+            {
+                var child = sectorRoot.GetChild(i);
+                if (child.name.StartsWith("Wall_")) Destroy(child.gameObject);
+            }
+            int wi = 0;
+            Bounds? ignore = null;
+            foreach (var ws in sm.Walls)
+            {
+                if (ws.Mesh.IsEmpty) continue;
+                var wall = AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
+                         cache.GetMaterial(ws.Texture, ws.Masked),
+                         ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, worldScale, ref ignore);
+                if (wall != null && !ws.Masked)
+                    wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
+            }
         }
 
         /// Build the Floor/Ceiling/Wall child GameObjects for one sector under
