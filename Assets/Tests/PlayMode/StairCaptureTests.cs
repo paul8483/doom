@@ -79,107 +79,106 @@ namespace Doom.Stage3.PlayTests
             var pc = Object.FindAnyObjectByType<PlayerController>();
             if (pc != null) pc.enabled = false;
 
-            // ── Pick a riser linedef from E1M1 and compute a framing pose ─────────
+            // ── Find a STAIRCASE in E1M1 and compute a far-back eye-level pose ─────
             string path = Path.Combine(Application.streamingAssetsPath, "wads", "freedoom1.wad");
             using var wad = WadFile.Open(path);
             var map = MapData.Load(wad, "E1M1");
 
-            // A "riser" is a two-sided line whose two sectors have different floor
-            // heights by a small upward step (8..32 DOOM units). The riser face is on
-            // the LOWER sector's side; we aim the camera from there.
-            //
-            // Prefer line 7 (ASHWALL, step 8): it sits in the open starting room, which
-            // renders cleanly. Line 13 (MC17, step 24) was tried first but its lower
-            // sector (50) is a degenerate sector whose floor mesh does not render — the
-            // capture showed the riser face with a camera-background void where the
-            // floor should be. The starting-room ASHWALL riser frames reliably.
-            int riserLine = PickRiserLine(map, preferred: 7, minStep: 8, maxStep: 32);
-            Assert.That(riserLine, Is.GreaterThanOrEqualTo(0),
-                "E1M1 should contain a two-sided upward floor step (riser)");
+            // A staircase is a chain of ≥3 sectors with monotonically increasing floor
+            // heights, each pair connected by a two-sided linedef forming a small
+            // upward step (~8..24 DOOM units). FindStaircase returns the chain plus the
+            // riser linedefs between consecutive steps.
+            var stair = FindStaircase(map, minStep: 8, maxStep: 28, minSteps: 3);
+            Assert.That(stair, Is.Not.Null,
+                "E1M1 should contain a run of >=3 sectors with increasing floors (a staircase)");
 
-            var ld = map.LineDefs[riserLine];
+            // The bottom step's riser (first in the chain) anchors our aim. We look UP
+            // the staircase from the lower side so the risers are seen FACE-ON.
+            int bottomLine = stair.RiserLines[0];
+            var ld = map.LineDefs[bottomLine];
+
             int frontSec = map.SideDefs[ld.FrontSideIdx].SectorIdx;
             int backSec  = map.SideDefs[ld.BackSideIdx].SectorIdx;
-            float frontFloor = map.Sectors[frontSec].FloorHeight;
-            float backFloor  = map.Sectors[backSec].FloorHeight;
+            float lowerFloor = Mathf.Min(map.Sectors[frontSec].FloorHeight,
+                                         map.Sectors[backSec].FloorHeight);
+            float topFloor   = map.Sectors[stair.Sectors[stair.Sectors.Count - 1]].FloorHeight;
 
-            // Lower sector = the one with the smaller floor height. The riser is
-            // visible from inside the lower sector.
-            int lowerSec  = frontFloor <= backFloor ? frontSec : backSec;
-            float lowerFloor  = Mathf.Min(frontFloor, backFloor);
-            float upperFloor  = Mathf.Max(frontFloor, backFloor);
-
-            // Vertices of the line (DOOM space).
+            // Aim point: centre of the WHOLE staircase run (midpoint of the bottom riser
+            // line, raised to about the middle of the vertical extent of all the steps).
             var v1 = map.Vertexes[ld.V1];
             var v2 = map.Vertexes[ld.V2];
+            float bx = (v1.X + v2.X) * 0.5f * WorldScale;
+            float bz = (v1.Y + v2.Y) * 0.5f * WorldScale;
 
-            // Midpoint of the line in Unity world XZ.
-            float mx = (v1.X + v2.X) * 0.5f * WorldScale;
-            float mz = (v1.Y + v2.Y) * 0.5f * WorldScale;
-            // Riser mid height = halfway up the step, in Unity Y.
-            float midY = (lowerFloor + upperFloor) * 0.5f * WorldScale;
-            var riserMid = new Vector3(mx, midY, mz);
+            // The look target sits up the run so several step tops + risers are in
+            // frame. Put it ~halfway up the total rise above the bottom floor, and
+            // pushed INTO the staircase along the climb direction so the run fills the
+            // centre of the frame rather than its lower edge.
+            float aimY = (lowerFloor + (topFloor - lowerFloor) * 0.42f) * WorldScale;
 
-            // 2D outward normal of the line (in Unity XZ). Line direction d = (dx,dz);
-            // a perpendicular is (dz, -dx). Choose the sign that points toward the
-            // LOWER sector (so the camera sits in front of the visible riser face).
-            float dx = (v2.X - v1.X) * WorldScale;
-            float dz = (v2.Y - v1.Y) * WorldScale;
-            var nA = new Vector3(dz, 0f, -dx).normalized;
+            // Climb direction (unit, Unity XZ): from the bottom riser midpoint toward the
+            // top riser midpoint. The camera backs off OPPOSITE this (down the stairs).
+            int topLine = stair.RiserLines[stair.RiserLines.Count - 1];
+            var tld = map.LineDefs[topLine];
+            var tv1 = map.Vertexes[tld.V1];
+            var tv2 = map.Vertexes[tld.V2];
+            float tx = (tv1.X + tv2.X) * 0.5f * WorldScale;
+            float tz = (tv1.Y + tv2.Y) * 0.5f * WorldScale;
 
-            // Decide which normal direction points into the lower sector by sampling a
-            // probe point just off the midpoint and finding which sector it lands in.
-            // Robust-enough heuristic: the lower-sector side is the one whose probe is
-            // NOT inside the upper step. We test by nudging along +/-nA a small amount
-            // and checking the floor height under that point via a downward raycast.
-            Vector3 normalToLower = ChooseLowerSideNormal(
-                new Vector3(mx, 0f, mz), nA, lowerFloor * WorldScale, upperFloor * WorldScale);
+            Vector3 climbDir = new Vector3(tx - bx, 0f, tz - bz);
+            if (climbDir.sqrMagnitude < 1e-4f)
+            {
+                // Degenerate (all risers near-collinear midpoints): use the bottom line's
+                // outward normal toward the lower sector instead.
+                float dx = (v2.X - v1.X) * WorldScale;
+                float dz = (v2.Y - v1.Y) * WorldScale;
+                climbDir = new Vector3(dz, 0f, -dx);
+            }
+            climbDir.Normalize();
 
-            // Camera pose: eye-level, head-on from the lower side. The riser face here
-            // is small (8 DOOM units ≈ 0.25 m) inside a ~3.75 m-tall room, so we back
-            // off and look horizontally so the lower floor + step + upper floor + wall
-            // read in context.
-            //
-            // SELF-CORRECTION: the lower sector's floor must actually be rendered under
-            // the camera, else the frame fills with camera-background void (some E1M1
-            // sectors are degenerate and don't render — line 13's lower sector did this).
-            // We pick the back-off distance that has the MOST solid floor under the
-            // camera (raycast down), trying both normal signs, and shorten the distance
-            // if a closer stance keeps the camera over real floor.
-            float eye = 48f * WorldScale;                   // eye ≈ 1.5 m above lower floor
+            // Aim target nudged up the run from the bottom riser midpoint so the run is
+            // centred in the frame (the camera is well back, so a couple metres in).
+            var aimPoint = new Vector3(bx, aimY, bz) + climbDir * 1.5f;
+
+            // Eye level: ~1.7 m above the bottom (lower) floor.
+            float eye  = 54f * WorldScale;          // ~1.69 m
             float camY = lowerFloor * WorldScale + eye;
 
-            // Prefer the FARTHEST stance (up to 3.5 m) that still has solid lower floor
-            // under the camera, so the lower floor → riser → upper floor all sit in the
-            // frame rather than a steep close-up.
-            Vector3 bestPos = new Vector3(mx, camY, mz) + normalToLower * 3.5f;
+            // Back the camera OFF the bottom step, opposite the climb direction, far
+            // enough to see the risers face-on. Pick the farthest stance (up to ~9 m)
+            // that still stands on solid lower floor (raycast down), so we aren't poking
+            // the camera through a wall or into a void sector.
+            Vector3 backDir = -climbDir;
+            Vector3 bottomMidXZ = new Vector3(bx, camY, bz);
+            Vector3 bestPos = bottomMidXZ + backDir * 9.0f;
             bool foundFloor = false;
-            foreach (Vector3 nrm in new[] { normalToLower, -normalToLower })
+            for (float d = 9.0f; d >= 2.0f; d -= 0.25f)
             {
-                Vector3 sideBest = Vector3.zero; bool sideOk = false;
-                for (float d = 3.5f; d >= 1.0f; d -= 0.25f)
+                Vector3 p = bottomMidXZ + backDir * d;
+                if (Physics.Raycast(new Vector3(p.x, camY + 1.0f, p.z), Vector3.down,
+                                    out var hit, 30f))
                 {
-                    Vector3 p = new Vector3(mx, camY, mz) + nrm * d;
-                    if (Physics.Raycast(new Vector3(p.x, camY + 1f, p.z), Vector3.down,
-                                        out var hit, 30f))
-                    {
-                        float floorErr = Mathf.Abs(hit.point.y - lowerFloor * WorldScale);
-                        if (floorErr < 0.6f) { sideBest = p; sideOk = true; break; } // farthest valid
-                    }
+                    float floorErr = Mathf.Abs(hit.point.y - lowerFloor * WorldScale);
+                    if (floorErr < 0.8f) { bestPos = p; foundFloor = true; break; } // farthest valid
                 }
-                if (sideOk) { bestPos = sideBest; normalToLower = nrm; foundFloor = true; break; }
             }
 
+            cam.fieldOfView = 60f;
             cam.transform.position = bestPos;
-            // Aim at the riser midpoint so the step face is centred, with the lower floor
-            // below and the upper floor/wall above.
-            cam.transform.LookAt(riserMid);
-            Debug.Log($"[StairCapture] poseFoundFloor={foundFloor} bestPos={bestPos}");
+            // Look toward the staircase. LookAt yields the natural slight-downward pitch
+            // because the aim point sits low on the run while the eye is ~1.6 m up.
+            cam.transform.LookAt(aimPoint);
+
+            float pitch = cam.transform.eulerAngles.x;
+            if (pitch > 180f) pitch -= 360f;
             Vector3 camPos = bestPos;
 
-            Debug.Log($"[StairCapture] riserLine={riserLine} frontSec={frontSec}(f{frontFloor},c{map.Sectors[frontSec].CeilingHeight}) " +
-                      $"backSec={backSec}(f{backFloor},c{map.Sectors[backSec].CeilingHeight}) lowerSec={lowerSec} step={(upperFloor - lowerFloor)} " +
-                      $"camPos={camPos} riserMid={riserMid} lowerTex={map.SideDefs[LowerSideOf(ld, map, lowerSec)].LowerTexture}");
+            Debug.Log($"[StairCapture] staircase sectors=[{string.Join(",", stair.Sectors)}] " +
+                      $"riserLines=[{string.Join(",", stair.RiserLines)}] " +
+                      $"floors=[{string.Join(",", stair.FloorHeights)}] " +
+                      $"bottomLine={bottomLine} lowerFloor={lowerFloor} topFloor={topFloor} " +
+                      $"foundFloor={foundFloor} camPos={camPos} aim={aimPoint} pitchDeg={pitch:F1} " +
+                      $"backDist={(bestPos - bottomMidXZ).magnitude:F2}");
 
             yield return null; // let the new pose register before rendering
             CaptureTo(cam, CapturePng, 800, 600);
@@ -192,78 +191,105 @@ namespace Doom.Stage3.PlayTests
 
         // ── Helpers ───────────────────────────────────────────────────────────────
 
-        /// Pick a two-sided linedef forming a small upward floor step. Returns the
-        /// `preferred` line if it qualifies, else the qualifying line with the
-        /// largest step (frames best), else -1.
-        static int PickRiserLine(MapData map, int preferred, int minStep, int maxStep)
+        /// A discovered staircase: an ordered run of sector indices with strictly
+        /// increasing floor heights, plus the two-sided riser linedef between each
+        /// consecutive pair, and the floor heights for logging.
+        class Staircase
         {
-            bool Qualifies(int i, out int step)
-            {
-                step = 0;
-                if (i < 0 || i >= map.LineDefs.Length) return false;
-                var ld = map.LineDefs[i];
-                if (!ld.IsTwoSided) return false;
-                if (ld.FrontSideIdx < 0 || ld.BackSideIdx < 0) return false;
-                int fs = map.SideDefs[ld.FrontSideIdx].SectorIdx;
-                int bs = map.SideDefs[ld.BackSideIdx].SectorIdx;
-                if (fs < 0 || bs < 0) return false;
-                int diff = Mathf.Abs(map.Sectors[fs].FloorHeight - map.Sectors[bs].FloorHeight);
-                step = diff;
-                return diff >= minStep && diff <= maxStep;
-            }
+            public System.Collections.Generic.List<int> Sectors = new();
+            public System.Collections.Generic.List<int> RiserLines = new();
+            public System.Collections.Generic.List<int> FloorHeights = new();
+        }
 
-            if (Qualifies(preferred, out _)) return preferred;
+        /// Scan E1M1 for a staircase: a chain of >=minSteps sectors whose floor heights
+        /// increase monotonically in small steps (minStep..maxStep DOOM units), each
+        /// pair joined by a two-sided linedef. We build an adjacency of "upward step"
+        /// edges (lower sector -> upper sector via a riser line) and greedily extend the
+        /// longest chain. To favour a real visible staircase, we prefer chains whose
+        /// bottom sector has the LOWEST floor (most likely standing on open floor).
+        static Staircase FindStaircase(MapData map, int minStep, int maxStep, int minSteps)
+        {
+            int sectorCount = map.Sectors.Length;
 
-            int best = -1, bestStep = -1;
+            // For each sector, list of (neighbourSector, riserLine) where neighbour is
+            // exactly one small step UP from this sector.
+            var upEdges = new System.Collections.Generic.List<(int up, int line)>[sectorCount];
+            for (int s = 0; s < sectorCount; s++)
+                upEdges[s] = new System.Collections.Generic.List<(int, int)>();
+
             for (int i = 0; i < map.LineDefs.Length; i++)
             {
-                if (Qualifies(i, out int step) && step > bestStep)
+                var ld = map.LineDefs[i];
+                if (!ld.IsTwoSided) continue;
+                if (ld.FrontSideIdx < 0 || ld.BackSideIdx < 0) continue;
+                int fs = map.SideDefs[ld.FrontSideIdx].SectorIdx;
+                int bs = map.SideDefs[ld.BackSideIdx].SectorIdx;
+                if (fs < 0 || bs < 0 || fs >= sectorCount || bs >= sectorCount) continue;
+
+                int ff = map.Sectors[fs].FloorHeight;
+                int bf = map.Sectors[bs].FloorHeight;
+                int diff = Mathf.Abs(ff - bf);
+                if (diff < minStep || diff > maxStep) continue;
+
+                int lower = ff <= bf ? fs : bs;
+                int upper = ff <= bf ? bs : fs;
+                upEdges[lower].Add((upper, i));
+            }
+
+            // DFS the longest increasing chain from each sector. Floors strictly
+            // increase along an "up" edge by construction, so no revisits are needed.
+            Staircase best = null;
+
+            Staircase Extend(int sector, System.Collections.Generic.HashSet<int> visited)
+            {
+                Staircase localBest = new Staircase();
+                localBest.Sectors.Add(sector);
+                localBest.FloorHeights.Add(map.Sectors[sector].FloorHeight);
+
+                Staircase deepest = null;
+                int deepestEdgeLine = -1;
+                foreach (var (up, line) in upEdges[sector])
                 {
-                    best = i; bestStep = step;
+                    if (visited.Contains(up)) continue;
+                    visited.Add(up);
+                    var sub = Extend(up, visited);
+                    visited.Remove(up);
+                    if (deepest == null || sub.Sectors.Count > deepest.Sectors.Count)
+                    {
+                        deepest = sub;
+                        deepestEdgeLine = line;
+                    }
+                }
+
+                if (deepest != null)
+                {
+                    localBest.RiserLines.Add(deepestEdgeLine);
+                    localBest.RiserLines.AddRange(deepest.RiserLines);
+                    localBest.Sectors.AddRange(deepest.Sectors);
+                    localBest.FloorHeights.AddRange(deepest.FloorHeights);
+                }
+                return localBest;
+            }
+
+            for (int s = 0; s < sectorCount; s++)
+            {
+                if (upEdges[s].Count == 0) continue;
+                var visited = new System.Collections.Generic.HashSet<int> { s };
+                var chain = Extend(s, visited);
+                if (chain.Sectors.Count < minSteps) continue;
+
+                // Score: prefer the LONGEST chain; tie-break toward the LOWEST bottom
+                // floor (so the camera stands on open low ground in front of the run).
+                if (best == null
+                    || chain.Sectors.Count > best.Sectors.Count
+                    || (chain.Sectors.Count == best.Sectors.Count
+                        && chain.FloorHeights[0] < best.FloorHeights[0]))
+                {
+                    best = chain;
                 }
             }
+
             return best;
-        }
-
-        /// Index of the sidedef belonging to `lowerSec` for this linedef (the side
-        /// whose LowerTexture is the riser face).
-        static int LowerSideOf(LineDef ld, MapData map, int lowerSec)
-        {
-            if (ld.FrontSideIdx >= 0 && map.SideDefs[ld.FrontSideIdx].SectorIdx == lowerSec)
-                return ld.FrontSideIdx;
-            return ld.BackSideIdx;
-        }
-
-        /// Choose the normal direction (±n) that points into the LOWER sector. We
-        /// raycast straight down from a probe just off the line on each side; the
-        /// side whose floor is at the LOWER height is the lower sector's side.
-        static Vector3 ChooseLowerSideNormal(Vector3 lineMidXZ, Vector3 n,
-                                             float lowerY, float upperY)
-        {
-            const float probe = 0.6f;     // meters off the line
-            const float castFromY = 50f;  // high above the map
-            const float castDist  = 200f;
-
-            float FloorYAt(Vector3 p)
-            {
-                var origin = new Vector3(p.x, castFromY, p.z);
-                if (Physics.Raycast(origin, Vector3.down, out var hit, castDist))
-                    return hit.point.y;
-                return float.NaN;
-            }
-
-            Vector3 plus  = lineMidXZ + n * probe;
-            Vector3 minus = lineMidXZ - n * probe;
-            float yPlus  = FloorYAt(plus);
-            float yMinus = FloorYAt(minus);
-
-            // Pick whichever side's floor is closer to the LOWER height.
-            float dPlus  = float.IsNaN(yPlus)  ? float.MaxValue : Mathf.Abs(yPlus  - lowerY);
-            float dMinus = float.IsNaN(yMinus) ? float.MaxValue : Mathf.Abs(yMinus - lowerY);
-
-            // If both raycasts failed, fall back to +n (still a valid framing attempt).
-            if (dPlus == float.MaxValue && dMinus == float.MaxValue) return n;
-            return dPlus <= dMinus ? n : -n;
         }
 
         /// Render `cam` into a fresh RenderTexture and save the PNG to `pngPath`.
