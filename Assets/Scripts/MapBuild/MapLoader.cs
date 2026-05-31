@@ -205,6 +205,18 @@ namespace Doom.MapBuild
             // (set just before SpawnPlayer) and the player's camera transform.
             var activator = player.AddComponent<LineActivator>();
             activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform);
+
+            // Health, floor damage, death/respawn, and a minimal HP/armor readout (Stage 6b).
+            var health = player.AddComponent<PlayerHealth>();
+
+            var hud = player.AddComponent<PlayerHud>();
+            hud.Init(health);
+
+            var floorDamage = player.AddComponent<FloorDamageSystem>();
+            floorDamage.Init(map, worldScale, health, cc);
+
+            var death = player.AddComponent<PlayerDeathHandler>();
+            death.Init(health, pc, activator, floorDamage, cc, pos, Quaternion.Euler(0f, yaw, 0f));
         }
 
         enum ColliderMode { None, Render, ThickWall }
