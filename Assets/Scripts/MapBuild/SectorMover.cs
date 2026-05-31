@@ -21,6 +21,7 @@ namespace Doom.MapBuild
         float waitSeconds;
         Phase phase;
         float waitTimer;
+        System.Action onDone;
 
         // DOOM speeds (units/tic × 35 tics/sec). Normal door ≈ 2 u/tic, fast ≈ 8.
         public static float SpeedUnitsPerSec(MoveSpeed s) => s switch
@@ -34,11 +35,11 @@ namespace Doom.MapBuild
 
         public void Begin(RuntimeSectorHeights heights, SectorGeometry geometry, int sector,
                           Surface surface, float target, float speedUnitsPerSec,
-                          bool cycle, float waitSeconds)
+                          bool cycle, float waitSeconds, System.Action onDone = null)
         {
             this.heights = heights; this.geometry = geometry; this.sector = sector;
             this.surface = surface; this.target = target; this.speedUnitsPerSec = speedUnitsPerSec;
-            this.cycle = cycle; this.waitSeconds = waitSeconds;
+            this.cycle = cycle; this.waitSeconds = waitSeconds; this.onDone = onDone;
             origin = Current();
             phase = Phase.MovingToTarget;
         }
@@ -71,7 +72,7 @@ namespace Doom.MapBuild
                 if (phase == Phase.MovingToTarget && cycle)
                 { phase = Phase.Waiting; waitTimer = waitSeconds; }
                 else
-                { geometry.RebuildSectorAndNeighbors(sector); phase = Phase.Done; }
+                { geometry.RebuildSectorAndNeighbors(sector); phase = Phase.Done; onDone?.Invoke(); }
             }
         }
     }

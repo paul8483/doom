@@ -38,6 +38,8 @@ namespace Doom.MapBuild
         public void ActivateLineForTest(int lineIndex) => Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
         /// Test hook: read the live (raw DOOM-unit) ceiling height of a sector.
         public float GetSectorCeilForTest(int sector) => heights.CeilRaw(sector);
+        /// Test hook: is a mover currently active on this sector?
+        public bool IsSectorMovingForTest(int sector) => moving[sector];
 
         /// Called when the player presses Use. Raycasts forward into a wall.
         public void TryUse()
@@ -162,7 +164,7 @@ namespace Doom.MapBuild
         void StartMover(int sector, LineSpecial sp)
         {
             if (sector < 0 || sector >= map.Sectors.Length) return;
-            if (moving[sector]) return; // one mover per sector at a time (6a simplification)
+            if (moving[sector]) return; // one mover per sector at a time; cleared on mover completion
 
             float speed = SectorMover.SpeedUnitsPerSec(sp.Speed);
             var mover = gameObject.AddComponent<SectorMover>();
@@ -172,19 +174,19 @@ namespace Doom.MapBuild
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
                 bool cycle = sp.Repeatable || sp.Type == 1 || sp.Type == 4 || sp.Type == 90 || sp.Type == 63;
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Ceiling,
-                            targetH, speed, cycle, waitSeconds: 4.3f);
+                            targetH, speed, cycle, waitSeconds: 4.3f, onDone: () => moving[sector] = false);
             }
             else if (sp.Category == SpecialCategory.Plat)
             {
                 int down = SectorActions.ComputeTargetHeight(map, heights, sector, TargetSpec.LowestNeighborFloor);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
-                            down, speed, cycle: true, waitSeconds: 3f);
+                            down, speed, cycle: true, waitSeconds: 3f, onDone: () => moving[sector] = false);
             }
             else if (sp.Category == SpecialCategory.Floor)
             {
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
-                            targetH, speed, cycle: false, waitSeconds: 0f);
+                            targetH, speed, cycle: false, waitSeconds: 0f, onDone: () => moving[sector] = false);
             }
             else if (sp.Category == SpecialCategory.Stair)
             {
@@ -192,15 +194,16 @@ namespace Doom.MapBuild
                 foreach (var (sec, tgt) in chain)
                 {
                     if (sec < 0 || sec >= map.Sectors.Length || moving[sec]) continue;
+                    int captured = sec;
                     var m = gameObject.AddComponent<SectorMover>();
-                    m.Begin(heights, geometry, sec, SectorMover.Surface.Floor, tgt, speed, false, 0f);
+                    m.Begin(heights, geometry, sec, SectorMover.Surface.Floor, tgt, speed, false, 0f,
+                            onDone: () => moving[captured] = false);
                     moving[sec] = true;
                 }
                 return;
             }
             moving[sector] = true;
-            // NOTE (6a simplification): `moving[sector]` is never cleared, so a sector
-            // animates once per session. Acceptable for the milestone.
+            // Cleared when the mover finishes (onDone), so the line can be re-triggered.
         }
     }
 }
