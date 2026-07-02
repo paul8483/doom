@@ -114,6 +114,38 @@ namespace Doom.Map.Tests
             Assert.That(bot, Is.EqualTo(0f).Within(0.001f));
         }
 
+        [Test]
+        public void Back_side_u_runs_from_V2_toward_V1()
+        {
+            // DOOM рисует back-сайд как seg V2→V1: колонка текстуры u=0 (+offset) у
+            // V2 и растёт к V1. Если оставить u по направлению V1→V2, зритель из
+            // back-сектора видит текстуру зеркально (надписи задом наперёд).
+            // Линия (0,0)→(64,0), back-сектор 1 (север, пол ниже) владеет lower-квадом.
+            var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
+            var lines = new[] { new LineDef(0, 1, 0, 0, 0, 0, 1) };
+            var sides = new[]
+            {
+                new SideDef(0,0,"-","-","-",0),
+                new SideDef(0,0,"-","LOW","-",1),
+            };
+            var sectors = new[]
+            {
+                new Sector(32, 128, "F", "F", 255, 0, 0),
+                new Sector(0,  128, "F", "F", 255, 0, 0),
+            };
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
+
+            var sec = First(WallMeshBuilder.BuildForSector(map, 1, new Sizes().Add("LOW", 64, 128)));
+            // u у V2 (x=64) = 0, у V1 (x=0) = 64/64 = 1.
+            for (int i = 0; i < sec.Mesh.Vertices.Length; i++)
+            {
+                float x = sec.Mesh.Vertices[i].X;
+                float u = sec.Mesh.Uv[i].X;
+                if (x > 63f) Assert.That(u, Is.EqualTo(0f).Within(0.001f), "u=0 у V2");
+                if (x < 1f)  Assert.That(u, Is.EqualTo(1f).Within(0.001f), "u=1 у V1");
+            }
+        }
+
         private static float BottomV(WallSection s)
         {
             float botY = 1e9f, v = 0;

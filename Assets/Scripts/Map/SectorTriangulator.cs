@@ -12,7 +12,7 @@ namespace Doom.Map
             h ??= new StaticSectorHeights(map);
             var sec = map.Sectors[poly.SectorIdx];
             return Triangulate(map, poly, h.FloorHeight(poly.SectorIdx) * worldScale,
-                               worldScale, flipWinding: true, sec.LightLevel);
+                               worldScale, faceUp: true, sec.LightLevel);
         }
 
         public static MeshData TriangulateCeiling(MapData map, SectorPolygon poly,
@@ -23,12 +23,12 @@ namespace Doom.Map
             // Sky ceilings are not rendered (Stage 4 defers real sky).
             if (sec.CeilingFlat == SkyFlat) return MeshData.Empty;
             return Triangulate(map, poly, h.CeilingHeight(poly.SectorIdx) * worldScale,
-                               worldScale, flipWinding: false, sec.LightLevel);
+                               worldScale, faceUp: false, sec.LightLevel);
         }
 
         private static MeshData Triangulate(MapData map, SectorPolygon poly,
                                             float yHeight, float worldScale,
-                                            bool flipWinding, ushort lightLevel)
+                                            bool faceUp, ushort lightLevel)
         {
             if (!poly.IsValid) return MeshData.Empty;
 
@@ -62,7 +62,15 @@ namespace Doom.Map
                     int a = tess.Elements[t * 3 + 0];
                     int b = tess.Elements[t * 3 + 1];
                     int c = tess.Elements[t * 3 + 2];
-                    if (flipWinding) { var tmp = a; a = c; c = tmp; }
+                    // Ориентация закрепляется АБСОЛЮТНО по знаку нормали, а не
+                    // относительным разворотом выдачи LibTess: LibTess выбирает
+                    // нормаль проекции по СУММЕ знаковых площадей контуров, и у
+                    // секторов из нескольких несвязных колец (ступени лестницы под
+                    // одним номером сектора) «дырки» перевешивают outer — весь
+                    // сектор выходит в обратном winding'е (невидимые полы/потолки).
+                    float ny = (verts[b].Z - verts[a].Z) * (verts[c].X - verts[a].X)
+                             - (verts[b].X - verts[a].X) * (verts[c].Z - verts[a].Z);
+                    if (ny != 0f && (ny > 0f) != faceUp) { var tmp = b; b = c; c = tmp; }
                     tris[t * 3 + 0] = a;
                     tris[t * 3 + 1] = b;
                     tris[t * 3 + 2] = c;

@@ -156,14 +156,22 @@ namespace Doom.Map
             }
             else
             {
-                bucket.V.Add(new Float3(ax, yLow, az));  bucket.Uv.Add(new Float2(u0, vLow));
-                bucket.V.Add(new Float3(bx, yLow, bz));  bucket.Uv.Add(new Float2(u1, vLow));
-                bucket.V.Add(new Float3(bx, yHigh, bz)); bucket.Uv.Add(new Float2(u1, vHigh));
-                bucket.V.Add(new Float3(ax, yHigh, az)); bucket.Uv.Add(new Float2(u0, vHigh));
+                // Back-сайд рисуется как seg V2→V1: u=0(+offset) у b(V2), растёт к
+                // a(V1) — иначе текстура зеркальна для зрителя из back-сектора.
+                bucket.V.Add(new Float3(ax, yLow, az));  bucket.Uv.Add(new Float2(u1, vLow));
+                bucket.V.Add(new Float3(bx, yLow, bz));  bucket.Uv.Add(new Float2(u0, vLow));
+                bucket.V.Add(new Float3(bx, yHigh, bz)); bucket.Uv.Add(new Float2(u0, vHigh));
+                bucket.V.Add(new Float3(ax, yHigh, az)); bucket.Uv.Add(new Float2(u1, vHigh));
             }
             for (int k = 0; k < 4; k++) bucket.C.Add(new Float3(light, light, light));
-            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 2); bucket.T.Add(baseIdx + 1);
-            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 3); bucket.T.Add(baseIdx + 2);
+            // Порядок индексов (0,1,2),(0,2,3): Cross(p1-p0,p2-p0) смотрит В сектор-
+            // владелец квада (Unity рисует сторону, куда указывает этот cross).
+            // Прежний порядок (0,2,1),(0,3,2) выворачивал ВСЕ стены наизнанку: квад
+            // был виден только с противоположной стороны линии, изнутри своего
+            // сектора отсекался back-face culling'ом (стены-призраки, зеркальные
+            // текстуры, синие дыры в открытых зонах E1M1).
+            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 1); bucket.T.Add(baseIdx + 2);
+            bucket.T.Add(baseIdx + 0); bucket.T.Add(baseIdx + 2); bucket.T.Add(baseIdx + 3);
         }
 
         /// DOOM Y that the texture's top row aligns to, per part + pegging flags.
