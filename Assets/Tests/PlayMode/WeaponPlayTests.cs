@@ -106,13 +106,16 @@ namespace Doom.Stage3.PlayTests
             }
             else
             {
-                // E1M1 may place several shotgun/ammo pickups near each other; disable
-                // every OTHER pickup trigger so teleporting next to one can't also
-                // sweep through a neighbor and add extra shells (non-deterministic
-                // ammo count). Only the targeted pickup may fire.
+                // E1M1 places several shotgun/ammo pickups near each other (e.g. a
+                // shotgun with shell boxes only 32 DU away); deactivate every OTHER
+                // pickup GO so teleporting next to one can't also sweep a neighbor's
+                // trigger and add extra shells (non-deterministic ammo count).
+                // NOTE: `p.enabled = false` would NOT work — Unity sends trigger
+                // events to disabled MonoBehaviours (see OnTriggerEnter docs); only
+                // deactivating the GameObject (or its collider) suppresses them.
                 foreach (var p in allPickups)
                     if (p != null && p.gameObject != pickupGo)
-                        p.enabled = false;
+                        p.gameObject.SetActive(false);
             }
 
             // Teleport onto the item + micro-move so the CharacterController
