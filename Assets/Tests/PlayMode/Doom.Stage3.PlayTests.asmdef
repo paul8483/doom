@@ -6,6 +6,7 @@
         "Doom.Map",
         "Doom.MapBuild",
         "Doom.Specials",
+        "Doom.Game",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.InputSystem"
