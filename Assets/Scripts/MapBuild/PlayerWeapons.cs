@@ -44,6 +44,12 @@ namespace Doom.MapBuild
             map.Enable();
         }
 
+        // Pair the action map with component enable state (as PlayerController does),
+        // so disabling this component (e.g. on death) also mutes weapon input.
+        // OnEnable runs at AddComponent time, before Init builds the map — the
+        // null guards cover that; Init enables the map itself.
+        void OnEnable() { map?.Enable(); }
+        void OnDisable() { map?.Disable(); }
         void OnDestroy() => map?.Dispose();
 
         void SelectSlot(int slot)
@@ -79,8 +85,10 @@ namespace Doom.MapBuild
             foreach (var shot in volley)
             {
                 var dir = Quaternion.AngleAxis(shot.YawOffsetDeg, Vector3.up) * cam.forward;
-                // Start slightly ahead so we don't hit our own capsule (r=0.5m).
-                var origin = cam.position + dir * 0.6f;
+                // Fire from the camera itself: PhysX raycasts never hit a collider
+                // the ray starts inside, so the player's own capsule is immune,
+                // and any offset would create a point-blank dead zone.
+                var origin = cam.position;
                 if (!Physics.Raycast(origin, dir, out var hit, range,
                                      ~0, QueryTriggerInteraction.Ignore)) continue;
 
