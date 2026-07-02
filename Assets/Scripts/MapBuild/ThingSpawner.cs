@@ -58,14 +58,23 @@ namespace Doom.MapBuild
                 for (int rot = 0; rot < 8; rot++)
                     cache.Get(def.Sprite, def.Frame, rot);
 
+                CapsuleCollider col = null;
                 if (def.Has(ThingFlags.Solid))
                 {
-                    var col = go.AddComponent<CapsuleCollider>();
+                    col = go.AddComponent<CapsuleCollider>();
                     float r = def.Radius * worldScale;
                     float h = Mathf.Max(def.Height * worldScale, 2f * r);
                     col.radius = r;
                     col.height = h;
                     col.center = new Vector3(0f, h * 0.5f, 0f);
+                }
+
+                if (def.Has(ThingFlags.Shootable) && def.Health > 0)
+                {
+                    var eh = go.AddComponent<EnemyHealth>();
+                    eh.Init(def.Health, def.CorpseFrame, bb, col);
+                    if (def.CorpseFrame >= 0)
+                        cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
                 }
                 count++;
             }

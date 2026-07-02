@@ -20,6 +20,7 @@ namespace Doom.MapBuild
         MeshRenderer meshRenderer;
         Transform cam;
         readonly Vector3[] quadVerts = new Vector3[4];
+        bool lockRotation;
 
         public void Init(SpriteCache cache, string sprite, int frame, float worldScale,
                          float doomAngleDeg, bool spawnCeiling, float ceilingY)
@@ -41,6 +42,14 @@ namespace Doom.MapBuild
             meshFilter.sharedMesh = UnitQuad();
         }
 
+        /// Switch the billboard to a static frame with no rotation selection (corpse:
+        /// DOOM death frames have no rotations — always rotation 0).
+        public void SetStaticFrame(int newFrame)
+        {
+            frame = newFrame;
+            lockRotation = true;
+        }
+
         void LateUpdate()
         {
             if (cache == null) return;
@@ -58,10 +67,15 @@ namespace Doom.MapBuild
                 transform.rotation = Quaternion.LookRotation(-to, Vector3.up);
 
             // 2) Rotation index: DOOM angle from this object TO the camera, minus the
-            //    object's facing, offset by 202.5°, in 45° buckets → 0..7.
-            float angToCam = Mathf.Atan2(to.z, to.x) * Mathf.Rad2Deg; // CCW from +X (East)
-            float diff = angToCam - doomAngleDeg + 202.5f;
-            int rotIndex = Mathf.FloorToInt(Mod360(diff) / 45f) & 7;
+            //    object's facing, offset by 202.5°, in 45° buckets → 0..7. Locked
+            //    (corpse) frames skip this and always use rotation 0.
+            int rotIndex = 0;
+            if (!lockRotation)
+            {
+                float angToCam = Mathf.Atan2(to.z, to.x) * Mathf.Rad2Deg; // CCW from +X (East)
+                float diff = angToCam - doomAngleDeg + 202.5f;
+                rotIndex = Mathf.FloorToInt(Mod360(diff) / 45f) & 7;
+            }
 
             // 3) Resolve and apply the sprite material + quad size/anchor/mirror.
             var sm = cache.Get(sprite, frame, rotIndex);
