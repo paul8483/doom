@@ -42,6 +42,16 @@ namespace Doom.MapBuild
             meshFilter.sharedMesh = UnitQuad();
         }
 
+        // The quad Mesh is created per instance in Init and never shared between
+        // billboards. Destroy(gameObject) destroys components but not the Mesh
+        // asset they reference, so without this every short-lived effect
+        // (HitEffect PUFF/BLUD) would leak one native Mesh.
+        void OnDestroy()
+        {
+            if (meshFilter != null && meshFilter.sharedMesh != null)
+                Destroy(meshFilter.sharedMesh);
+        }
+
         /// Switch the billboard to a static frame with no rotation selection (corpse:
         /// DOOM death frames have no rotations — always rotation 0).
         public void SetStaticFrame(int newFrame)

@@ -32,6 +32,7 @@ namespace Doom.MapBuild
 
         private readonly Dictionary<int, Material> matByLump = new();
         private readonly Dictionary<int, PatchHeader> headerByLump = new();
+        private readonly HashSet<int> failedLumps = new();
 
         public SpriteCache(WadFile wad, SpriteSet sprites, Palette palette, int anisoLevel = 9)
         {
@@ -49,18 +50,37 @@ namespace Doom.MapBuild
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
 
-            if (!headerByLump.TryGetValue(refr.LumpIndex, out var header))
-            {
-                header = Patch.ReadHeader(wad.ReadLump(refr.LumpIndex));
-                headerByLump[refr.LumpIndex] = header;
-            }
+            // Reads from the WAD are lazy; after MapLoader disposes the WAD a cache
+            // miss would throw ObjectDisposedException from LateUpdate every frame.
+            // Cache the failure so each missing lump warns once and never retries.
+            if (failedLumps.Contains(refr.LumpIndex))
+                return default;
 
-            if (!matByLump.TryGetValue(refr.LumpIndex, out var mat))
+            PatchHeader header;
+            Material mat;
+            try
             {
-                var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
-                var tex = ToTexture2D(img);
-                mat = new Material(cutoutShader) { mainTexture = tex };
-                matByLump[refr.LumpIndex] = mat;
+                if (!headerByLump.TryGetValue(refr.LumpIndex, out header))
+                {
+                    header = Patch.ReadHeader(wad.ReadLump(refr.LumpIndex));
+                    headerByLump[refr.LumpIndex] = header;
+                }
+
+                if (!matByLump.TryGetValue(refr.LumpIndex, out mat))
+                {
+                    var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
+                    var tex = ToTexture2D(img);
+                    mat = new Material(cutoutShader) { mainTexture = tex };
+                    matByLump[refr.LumpIndex] = mat;
+                }
+            }
+            catch (System.ObjectDisposedException)
+            {
+                failedLumps.Add(refr.LumpIndex);
+                Debug.LogWarning($"SpriteCache: sprite '{sprite}' frame {frame} rot {rotationIndex} " +
+                                 "requested after the WAD was closed and was not pre-warmed; " +
+                                 "it will not render.");
+                return default;
             }
 
             return new SpriteMaterial(mat, header.Width, header.Height,
