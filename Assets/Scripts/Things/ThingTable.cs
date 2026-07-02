@@ -22,15 +22,16 @@ namespace Doom.Things
             const ThingFlags None = ThingFlags.None;
 
             var d = new Dictionary<int, ThingDef>();
-            void Add(int n, string s, int f, int r, int h, ThingFlags fl)
-                => d[n] = new ThingDef(n, s, f, r, h, fl);
+            void Add(int n, string s, int f, int r, int h, ThingFlags fl,
+                     int health = 0, int corpseFrame = -1)
+                => d[n] = new ThingDef(n, s, f, r, h, fl, health, corpseFrame);
 
             // ── Monsters ──────────────────────────────────────────────────────
-            Add(3004, "POSS", 0, 20, 56, Mon);   // zombieman
-            Add(9,    "SPOS", 0, 20, 56, Mon);   // shotgun guy
+            Add(3004, "POSS", 0, 20, 56, Mon, health: 20, corpseFrame: 11);   // zombieman
+            Add(9,    "SPOS", 0, 20, 56, Mon, health: 30, corpseFrame: 11);   // shotgun guy
             Add(65,   "CPOS", 0, 20, 56, Mon);   // chaingunner
-            Add(3001, "TROO", 0, 20, 56, Mon);   // imp
-            Add(3002, "SARG", 0, 30, 56, Mon);   // demon
+            Add(3001, "TROO", 0, 20, 56, Mon, health: 60, corpseFrame: 12);   // imp
+            Add(3002, "SARG", 0, 30, 56, Mon, health: 150, corpseFrame: 13);   // demon
             Add(58,   "SARG", 0, 30, 56, Mon);   // spectre
             Add(3006, "SKUL", 0, 16, 56, ThingFlags.Solid | ThingFlags.Shootable); // lost soul
             Add(3005, "HEAD", 0, 31, 56, Mon);   // cacodemon

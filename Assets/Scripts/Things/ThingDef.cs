@@ -25,9 +25,12 @@ namespace Doom.Things
         public readonly int Radius;
         public readonly int Height;
         public readonly ThingFlags Flags;
+        public readonly int Health;       // 0 = unkillable (decorations, items)
+        public readonly int CorpseFrame;  // final death-state frame (info.c), -1 = none
 
         public ThingDef(int doomEdNum, string sprite, int frame,
-                        int radius, int height, ThingFlags flags)
+                        int radius, int height, ThingFlags flags,
+                        int health = 0, int corpseFrame = -1)
         {
             DoomEdNum = doomEdNum;
             Sprite = sprite;
@@ -35,6 +38,8 @@ namespace Doom.Things
             Radius = radius;
             Height = height;
             Flags = flags;
+            Health = health;
+            CorpseFrame = corpseFrame;
         }
 
         public bool Has(ThingFlags f) => (Flags & f) != 0;
