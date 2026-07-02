@@ -134,9 +134,13 @@ namespace Doom.Map
                                          regionLowDoom, regionHighDoom, texH);
             texTopY += side.TextureYOffset; // positive Y offset shifts texture down in DOOM space
 
-            // v = (texTopY - vertexDoomY) / texH  -> top of texture at texTopY
-            float vLow = (texTopY - yLowDoom) / texH;
-            float vHigh = (texTopY - yHighDoom) / texH;
+            // DOOM-класс v считается СВЕРХУ текстуры: vDoom = (texTopY - y)/texH.
+            // Unity-текстура (после переворота строк в TextureCache) хранит верх
+            // изображения на v=1, поэтому конвертируем v = 1 - vDoom (аффинно —
+            // вертикальный тайлинг через Repeat-wrap сохраняется). Без инверсии все
+            // стены рисовались вверх ногами.
+            float vLow = 1f - (texTopY - yLowDoom) / texH;
+            float vHigh = 1f - (texTopY - yHighDoom) / texH;
 
             float yLow = yLowDoom * worldScale;
             float yHigh = yHighDoom * worldScale;

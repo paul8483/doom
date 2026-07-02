@@ -36,10 +36,13 @@ namespace Doom.Map.Tests
         }
 
         [Test]
-        public void OneSided_default_is_top_pegged_v_zero_at_ceiling()
+        public void OneSided_default_is_top_pegged_v_one_at_ceiling()
         {
             // height 128, texHeight 128. Default (no unpegged): texture top at ceiling.
-            // v = (ceilingY - vertexY)/texHeight -> top vertices (y=128) v=0, bottom (y=0) v=1.
+            // DOOM считает v сверху вниз, но Unity-текстура (после переворота строк в
+            // TextureCache) хранит верх изображения на v=1 — поэтому у потолка v=1,
+            // у пола v=0. Инвертированный v рисовал ВСЕ стены вверх ногами (AGM-лого
+            // на SHAWN1 читалось перевёрнутым).
             var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
             var lines = new[] { new LineDef(0, 1, 0, 0, 0, 0, -1) };
             var sides = new[] { new SideDef(0,0,"-","-","W",0) };
@@ -55,17 +58,18 @@ namespace Doom.Map.Tests
                 if (y > topY) { topY = y; vAtTop = sec.Mesh.Uv[i].Y; }
                 if (y < botY) { botY = y; vAtBottom = sec.Mesh.Uv[i].Y; }
             }
-            Assert.That(vAtTop, Is.EqualTo(0f).Within(0.001f), "texture top at ceiling");
-            Assert.That(vAtBottom, Is.EqualTo(1f).Within(0.001f), "texture bottom one tile down");
+            Assert.That(vAtTop, Is.EqualTo(1f).Within(0.001f), "texture top (Unity v=1) at ceiling");
+            Assert.That(vAtBottom, Is.EqualTo(0f).Within(0.001f), "texture bottom (Unity v=0) one tile down");
         }
 
         [Test]
         public void OneSided_lower_unpegged_shifts_v_so_bottom_sits_at_floor()
         {
             // Same wall but Lower-unpegged (flag 0x0008). With height==texHeight==128
-            // the difference from default is zero, so use height 64, texHeight 128:
-            // default top-pegged: bottom v = 64/128 = 0.5
-            // lower-unpegged: bottom v = 1.0 (texture bottom pinned to floor)
+            // the difference from default is zero, so use height 64, texHeight 128
+            // (Unity-v: 1 - doomV):
+            // default top-pegged: bottom v = 1 - 64/128 = 0.5
+            // lower-unpegged: bottom v = 1 - 1.0 = 0.0 (texture bottom pinned to floor)
             var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
             var linesDefault = new[] { new LineDef(0, 1, 0, 0, 0, 0, -1) };
             var linesUnpeg   = new[] { new LineDef(0, 1, 0x0008, 0, 0, 0, -1) };
@@ -80,7 +84,7 @@ namespace Doom.Map.Tests
 
             float defBottom = BottomV(def), unpBottom = BottomV(unp);
             Assert.That(defBottom, Is.EqualTo(0.5f).Within(0.001f));
-            Assert.That(unpBottom, Is.EqualTo(1.0f).Within(0.001f));
+            Assert.That(unpBottom, Is.EqualTo(0.0f).Within(0.001f));
         }
 
         [Test]
