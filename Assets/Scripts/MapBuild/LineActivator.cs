@@ -46,7 +46,10 @@ namespace Doom.MapBuild
         {
             if (map == null || cam == null) return;
             float range = 64f * worldScale;
-            if (!Physics.Raycast(cam.position, cam.forward, out var hit, range)) return;
+            // Ignore triggers: pickup spheres (ThingPickup) would otherwise eat the
+            // ray before it reaches the wall behind them.
+            if (!Physics.Raycast(cam.position, cam.forward, out var hit, range,
+                                 ~0, QueryTriggerInteraction.Ignore)) return;
 
             var lineRef = hit.collider.GetComponentInParent<LineRef>();
             if (lineRef == null) return;
