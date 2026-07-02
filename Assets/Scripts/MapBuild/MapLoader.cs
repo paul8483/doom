@@ -126,11 +126,26 @@ namespace Doom.MapBuild
             Geometry = new SectorGeometry(map, polys, runtimeHeights, worldScale,
                                           cache, textures, sectorRoots);
 
-            SpawnPlayer(map, bounds);
-
             // ── Sprites (Stage 5) ─────────────────────────────────────────────
+            // Created BEFORE SpawnPlayer so the player's weapon view can share the
+            // same SpriteCache instance (viewmodel/effect sprites are pre-warmed
+            // below while the WAD is still open).
             var spriteSet = SpriteSet.Load(wad);
             var spriteCache = new SpriteCache(wad, spriteSet, palette);
+
+            // Pre-warm weapon/flash/effect sprites: the WAD closes at the end of
+            // Build(), and WeaponView/HitEffect fetch these lazily at runtime.
+            foreach (var (spr, frames) in new (string, int[])[]
+            {
+                ("PUNG", new[] { 0, 1, 2, 3 }), ("PISG", new[] { 0, 1, 2 }), ("PISF", new[] { 0 }),
+                ("SHTG", new[] { 0, 1, 2, 3 }), ("SHTF", new[] { 0, 1 }),
+                ("CHGG", new[] { 0, 1 }), ("CHGF", new[] { 0, 1 }),
+                ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),
+            })
+                foreach (int f in frames) spriteCache.Get(spr, f, 0);
+
+            SpawnPlayer(map, bounds, spriteCache);
+
             var thingsRoot = new GameObject("Things");
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
             float fallbackY = bounds?.min.y ?? 0f;
@@ -140,7 +155,7 @@ namespace Doom.MapBuild
         }
 
         // ── Player spawn ──────────────────────────────────────────────────────
-        void SpawnPlayer(MapData map, Bounds? bounds)
+        void SpawnPlayer(MapData map, Bounds? bounds, SpriteCache spriteCache)
         {
             Thing? start = null;
             foreach (var t in map.Things)
@@ -222,6 +237,15 @@ namespace Doom.MapBuild
             // (rising lifts/floors). Acts only when the floor under the player moved.
             var rider = player.AddComponent<PlayerLiftRider>();
             rider.Init(cc, worldScale);
+
+            // Weapons and shooting (Stage 6c).
+            var weapons = player.AddComponent<PlayerWeapons>();
+            weapons.Init(spriteCache, worldScale, cameraGO.transform);
+            var weaponView = cameraGO.AddComponent<WeaponView>();
+            weaponView.Init(weapons, spriteCache, worldScale, cc);
+            death.Respawned += weapons.ResetToStart;
+            death.SetWeapons(weapons);
+            hud.SetWeapons(weapons);
         }
 
         enum ColliderMode { None, Render, ThickWall }

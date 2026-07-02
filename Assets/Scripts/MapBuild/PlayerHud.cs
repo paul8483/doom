@@ -7,8 +7,10 @@ namespace Doom.MapBuild
     public sealed class PlayerHud : MonoBehaviour
     {
         PlayerHealth health;
+        PlayerWeapons weapons;
 
         public void Init(PlayerHealth health) => this.health = health;
+        public void SetWeapons(PlayerWeapons w) => weapons = w;
 
         void OnGUI()
         {
@@ -17,6 +19,13 @@ namespace Doom.MapBuild
             style.normal.textColor = Color.white;
             GUI.Label(new Rect(12f, 8f, 300f, 28f), $"HEALTH {health.Health}", style);
             GUI.Label(new Rect(12f, 32f, 300f, 28f), $"ARMOR {health.Armor}", style);
+            if (weapons != null)
+            {
+                var def = Doom.Game.WeaponTable.Get(weapons.Loadout.Current);
+                string ammo = def.Ammo == Doom.Game.AmmoType.None
+                    ? "-" : weapons.Ammo.Get(def.Ammo).ToString();
+                GUI.Label(new Rect(12f, 56f, 300f, 28f), $"AMMO {ammo}", style);
+            }
         }
     }
 }

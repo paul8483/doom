@@ -76,6 +76,14 @@ namespace Doom.MapBuild
                     if (def.CorpseFrame >= 0)
                         cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
                 }
+
+                // Weapon/ammo pickups (Stage 6c).
+                switch (t.Type)
+                {
+                    case 2001: case 2002: case 2007: case 2008: case 2048: case 2049:
+                        go.AddComponent<ThingPickup>().Init(t.Type, worldScale);
+                        break;
+                }
                 count++;
             }
             if (floorMisses > 0)

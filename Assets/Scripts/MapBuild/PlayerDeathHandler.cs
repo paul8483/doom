@@ -11,10 +11,16 @@ namespace Doom.MapBuild
         PlayerController controller;
         LineActivator activator;
         FloorDamageSystem damage;
+        PlayerWeapons weapons;
         CharacterController cc;
         Vector3 startPos;
         Quaternion startRot;
         bool dead;
+
+        /// Fired after a full respawn (health reset, position/rotation restored,
+        /// components re-enabled) so other systems (e.g. PlayerWeapons) can reset
+        /// their own state. Stage 6c.
+        public event System.Action Respawned;
 
         public void Init(PlayerHealth health, PlayerController controller, LineActivator activator,
                          FloorDamageSystem damage, CharacterController cc,
@@ -29,6 +35,11 @@ namespace Doom.MapBuild
             this.startRot = startRot;
             health.Died += OnDied;
         }
+
+        /// Wire the weapons component into the death/respawn freeze path so a dead
+        /// player cannot fire or switch weapons. Set separately from Init because
+        /// MapLoader creates PlayerWeapons after PlayerDeathHandler (Stage 6c).
+        public void SetWeapons(PlayerWeapons weapons) => this.weapons = weapons;
 
         void OnDestroy()
         {
@@ -60,6 +71,7 @@ namespace Doom.MapBuild
             if (cc != null) cc.enabled = true;
             SetActive(true);
             dead = false;
+            Respawned?.Invoke();
         }
 
         void SetActive(bool on)
@@ -67,6 +79,7 @@ namespace Doom.MapBuild
             if (controller != null) controller.enabled = on;
             if (activator != null) activator.enabled = on;
             if (damage != null) damage.enabled = on;
+            if (weapons != null) weapons.enabled = on;
         }
 
         void OnGUI()
