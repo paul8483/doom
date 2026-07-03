@@ -66,6 +66,11 @@ namespace Doom.Game
             StartSeq(def.Run, loop: true);
         }
 
+        // Invariant: OnSeqEntry/OnSeqFinished must remain the FINAL statement of
+        // StartSeq/AdvanceSeq — entry hooks may re-enter StartSeq (e.g. LookThink
+        // → Wake → StartSeq(Run)), and any write to seq/seqIdx/ticsLeft after
+        // that call would corrupt the freshly started sequence. Likewise, state
+        // transitions inside *Think handlers must stay tail-positioned.
         void StartSeq(MonsterSeq s, bool loop)
         {
             seq = s; seqLoop = loop; seqIdx = 0;
@@ -119,13 +124,18 @@ namespace Doom.Game
             Move();
         }
 
+        // A_Chase: `if (--actor->movecount<0 || !P_Move(actor)) P_NewChaseDir(actor);`
+        // The decrement is UNCONDITIONAL and, when it goes negative, short-circuits
+        // P_Move away — so a move turn takes at most ONE step (on the re-decide
+        // turn the step is NewChaseDir's P_TryWalk probe). movecount also burns
+        // while door-waiting and when moveDir is None — that IS DOOM behavior.
         void Move()
         {
-            if (moveDir != Dir8.None)
+            if (--moveCount >= 0 && moveDir != Dir8.None)
             {
                 var res = world.TryStep(moveDir);
                 if (res == StepResult.BlockedByDoor) { world.UseDoor(); return; }
-                if (res == StepResult.Moved && --moveCount >= 0) return;
+                if (res == StepResult.Moved) return;
             }
             NewDir();
         }

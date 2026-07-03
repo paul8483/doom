@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using Doom.Things;
 
@@ -67,6 +68,25 @@ namespace Doom.Game.Tests
             for (int i = 0; i < 24; i++) b.Tick();
             Assert.That(w.Log, Has.None.Contains("hitscan"));
             Assert.That(w.Log, Has.Some.Contains("step"));
+        }
+
+        [Test]
+        public void Chase_takes_exactly_one_step_per_move_turn()
+        {
+            var w = new FakeMonsterWorld(); // всё открыто: каждый TryStep = Moved
+            var b = NewPoss(w);
+            b.NotifyNoise(); // Wake запускает ChaseThink сразу — ход 1 до всяких Tick
+
+            const int ticks = 60; // + 60/4 = 15 границ кадров бега (по 4 тика)
+            for (int i = 0; i < ticks; i++) b.Tick();
+
+            // Ровно один шаг на ход, как в A_Chase: на ходе перевыбора направления
+            // (movecount исчерпан) шаг делает проба NewChaseDir, а прямой P_Move
+            // отсекается unconditional-декрементом. Окно в 16 ходов пересекает ДВА
+            // перевыбора (ходы 14 и 16 при seed 0) — старый порядок декремента
+            // давал бы по два шага на каждом (18 вместо 16).
+            int steps = w.Log.Count(e => e.StartsWith("step:"));
+            Assert.That(steps, Is.EqualTo(1 + ticks / 4));
         }
 
         [Test]
