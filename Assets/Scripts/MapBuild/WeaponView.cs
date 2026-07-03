@@ -11,7 +11,9 @@ namespace Doom.MapBuild
     /// so that left edge = sx - leftOffset (measured from the 160 center),
     /// top edge = sy - topOffset, where at rest sx=1, sy=WEAPONTOP=32. Weapon
     /// patches are authored with offsets that assume these coordinates.
-    /// Verified visually (Task 13 eyeball check via StairCaptureTests).
+    /// NOTE: not visually verified by the capture harness — StairCaptureTests
+    /// renders via Camera.Render(), which excludes OnGUI/IMGUI output, so the
+    /// viewmodel/HUD never appear in its PNGs. The formula follows R_DrawPSprite.
     public sealed class WeaponView : MonoBehaviour
     {
         const float WeaponTopPx = 32f;
