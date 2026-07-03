@@ -3,6 +3,9 @@ namespace Doom.Game
     /// Port of P_NewChaseDir (p_enemy.c). Deltas in DOOM units, +y = north.
     public static class ChaseDir
     {
+        /// P_TryWalk semantics: on success the callback has ALREADY taken the step
+        /// (moved the monster); failed probes must not move it. NewChaseDir may probe
+        /// several directions; at most one call succeeds.
         public delegate bool TryStepFn(Dir8 dir);
 
         static readonly Dir8[] Opposite =
@@ -15,7 +18,8 @@ namespace Doom.Game
             { Dir8.NorthWest, Dir8.NorthEast, Dir8.SouthWest, Dir8.SouthEast };
 
         /// Picks a new movement direction; returns Dir8.None when cornered.
-        /// movecount = P_Random()&15 on success (moves before re-deciding).
+        /// movecount = P_Random()&15 on success (moves before re-deciding);
+        /// movecount is 0 when cornered (Dir8.None).
         public static Dir8 NewChaseDir(float dx, float dy, Dir8 current,
                                        DoomRandom r, TryStepFn tryStep, out int movecount)
         {
@@ -33,6 +37,8 @@ namespace Doom.Game
             }
 
             // Randomly (or when |dy|>|dx|) swap axis priorities.
+            // r.Next() must stay the LEFT operand of || — the draw happens
+            // unconditionally as in the original; reordering desyncs all later rolls.
             if (r.Next() > 200 || System.Math.Abs(dy) > System.Math.Abs(dx))
                 (d1, d2) = (d2, d1);
             if (d1 == turnaround) d1 = Dir8.None;
@@ -52,6 +58,8 @@ namespace Doom.Game
             }
             else
             {
+                // d-- past East yields (Dir8)(-1), which fails >= Dir8.East —
+                // intentional loop termination.
                 for (var d = Dir8.SouthEast; d >= Dir8.East; d--)
                     if (d != turnaround && tryStep(d)) return Ok(d, r, out movecount);
             }

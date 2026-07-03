@@ -53,6 +53,7 @@ namespace Doom.Game.Tests
             var r = new DoomRandom();
             var dir = ChaseDir.NewChaseDir(100f, 0f, Dir8.East, r, d => false, out int mc);
             Assert.That(dir, Is.EqualTo(Dir8.None));
+            Assert.That(mc, Is.EqualTo(0), "cornered result must not roll a movecount");
         }
 
         [Test]
@@ -64,6 +65,13 @@ namespace Doom.Game.Tests
                     d => true, out int mc);
                 Assert.That(mc, Is.InRange(0, 15));
             }
+
+            // Pin the exact RNG draw order: with all directions open the NE diagonal
+            // succeeds BEFORE the swap roll, so the only draw is the movecount roll:
+            // seed 0 → r.Next() = RndTable[1] = 8 → mc = 8 & 15 = 8.
+            ChaseDir.NewChaseDir(100f, 100f, Dir8.None, new DoomRandom(0),
+                d => true, out int mc0);
+            Assert.That(mc0, Is.EqualTo(8), "RNG draw order changed");
         }
 
         [Test]
