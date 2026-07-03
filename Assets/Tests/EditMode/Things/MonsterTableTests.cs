@@ -1,7 +1,6 @@
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
-using Doom.Things;
 using Doom.Wad;
 using Doom.Graphics;
 
@@ -31,13 +30,25 @@ namespace Doom.Things.Tests
                 Assert.That(m.FireIndex, Is.InRange(0, m.Attack.Frames.Length - 1), $"{ed} fireIndex");
                 // Хоть какая-то атака есть.
                 Assert.That(m.MeleeMod > 0 || m.HitscanCount > 0 || m.HasMissile, $"{ed} атаки");
+                if (m.HasMissile)
+                {
+                    Assert.That(m.MissileSprite, Is.Not.Null, $"{ed} missileSprite");
+                    foreach (var (frames, tics, name) in new[] {
+                        (m.MissileFlyFrames, m.MissileFlyTics, "missile fly"),
+                        (m.MissileExplodeFrames, m.MissileExplodeTics, "missile explode") })
+                    {
+                        Assert.That(frames.Length, Is.EqualTo(tics.Length), $"{ed} {name}");
+                        Assert.That(frames.Length, Is.GreaterThan(0), $"{ed} {name} пустая");
+                        foreach (int t in tics) Assert.That(t, Is.GreaterThan(0), $"{ed} {name} tics");
+                    }
+                }
             }
         }
 
         [Test]
         public void Doom_data_values()
         {
-            MonsterTable.TryGet(3004, out var poss);  // зомби
+            Assert.That(MonsterTable.TryGet(3004, out var poss), Is.True, "doomednum 3004");  // зомби
             Assert.That(poss.Speed, Is.EqualTo(8));
             Assert.That(poss.PainChance, Is.EqualTo(200));
             Assert.That(poss.HitscanCount, Is.EqualTo(1));
@@ -50,13 +61,13 @@ namespace Doom.Things.Tests
             Assert.That(poss.FireIndex, Is.EqualTo(1));          // огонь на F
             Assert.That(poss.Death.Frames, Is.EqualTo(new[] { 7, 8, 9, 10 })); // H..K, труп L=11 в ThingTable
 
-            MonsterTable.TryGet(9, out var spos);     // сержант
+            Assert.That(MonsterTable.TryGet(9, out var spos), Is.True, "doomednum 9");     // сержант
             Assert.That(spos.PainChance, Is.EqualTo(170));
             Assert.That(spos.HitscanCount, Is.EqualTo(3));
             Assert.That(spos.Run.Tics[0], Is.EqualTo(3));
             Assert.That(spos.Attack.Tics, Is.EqualTo(new[] { 10, 10, 10 }));
 
-            MonsterTable.TryGet(3001, out var troo);  // имп
+            Assert.That(MonsterTable.TryGet(3001, out var troo), Is.True, "doomednum 3001");  // имп
             Assert.That(troo.PainChance, Is.EqualTo(200));
             Assert.That(troo.MeleeMod, Is.EqualTo(8));
             Assert.That(troo.MeleeMult, Is.EqualTo(3));
@@ -69,7 +80,7 @@ namespace Doom.Things.Tests
             Assert.That(troo.Pain.Tics, Is.EqualTo(new[] { 2, 2 }));
             Assert.That(troo.Death.Frames, Is.EqualTo(new[] { 8, 9, 10, 11 })); // I..L, труп M=12
 
-            MonsterTable.TryGet(3002, out var sarg);  // демон
+            Assert.That(MonsterTable.TryGet(3002, out var sarg), Is.True, "doomednum 3002");  // демон
             Assert.That(sarg.Speed, Is.EqualTo(10));
             Assert.That(sarg.PainChance, Is.EqualTo(180));
             Assert.That(sarg.MeleeMod, Is.EqualTo(10));
@@ -88,15 +99,15 @@ namespace Doom.Things.Tests
             var sprites = SpriteSet.Load(wad);
             foreach (int ed in Eds)
             {
-                MonsterTable.TryGet(ed, out var m);
-                ThingTable.TryGet(ed, out var thing);
+                Assert.That(MonsterTable.TryGet(ed, out var m), Is.True, $"MonsterTable ed {ed}");
+                Assert.That(ThingTable.TryGet(ed, out var thing), Is.True, $"ThingTable ed {ed}");
                 foreach (var seq in new[] { m.Stand, m.Run, m.Attack, m.Pain, m.Death })
                     foreach (int f in seq.Frames)
                         Assert.That(sprites.TryGet(thing.Sprite, f, 0, out _), Is.True,
                             $"{thing.Sprite} кадр {f} (ed {ed})");
             }
             // Фаербол импа: полёт A,B + взрыв C,D,E.
-            MonsterTable.TryGet(3001, out var imp);
+            Assert.That(MonsterTable.TryGet(3001, out var imp), Is.True, "MonsterTable ed 3001");
             foreach (int f in imp.MissileFlyFrames) Assert.That(sprites.TryGet("BAL1", f, 0, out _), Is.True, $"BAL1 fly {f}");
             foreach (int f in imp.MissileExplodeFrames) Assert.That(sprites.TryGet("BAL1", f, 0, out _), Is.True, $"BAL1 boom {f}");
         }
