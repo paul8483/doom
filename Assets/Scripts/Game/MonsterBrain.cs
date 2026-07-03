@@ -1,0 +1,140 @@
+using Doom.Things;
+
+namespace Doom.Game
+{
+    public enum MonsterState { Sleep, Chase, Attack, Pain, Die, Dead }
+
+    /// Simplified DOOM monster FSM (A_Look/A_Chase rules, p_enemy.c) driven at
+    /// 35 tics/s. All timing lives here; the world only executes commands.
+    public sealed class MonsterBrain
+    {
+        readonly MonsterDef def;
+        readonly DoomRandom rng;
+        readonly IMonsterWorld world;
+        readonly bool ambush;
+
+        public MonsterState State { get; private set; } = MonsterState.Sleep;
+
+        // Sequence playback.
+        MonsterSeq seq;
+        int seqIdx;
+        int ticsLeft;
+        bool seqLoop;
+
+        // Chase bookkeeping.
+        Dir8 moveDir = Dir8.None;
+        int moveCount;
+        int reaction;
+        bool justAttacked;
+        bool justHit;
+
+        public MonsterBrain(MonsterDef def, DoomRandom rng, IMonsterWorld world, bool ambush)
+        {
+            this.def = def; this.rng = rng; this.world = world; this.ambush = ambush;
+            StartSeq(def.Stand, loop: true);
+        }
+
+        public void Tick()
+        {
+            if (State == MonsterState.Dead) return;
+            ticsLeft--;
+            if (ticsLeft > 0) return;
+            AdvanceSeq();
+        }
+
+        public void NotifyNoise()
+        {
+            if (State != MonsterState.Sleep || ambush) return;
+            Wake();
+        }
+
+        /// Damage landed (world already applied HP). Task 5 adds the pain roll.
+        public void NotifyDamaged()
+        {
+            justHit = true;
+            if (State == MonsterState.Sleep) Wake();
+        }
+
+        public void NotifyKilled() { /* Task 5 */ }
+
+        void Wake()
+        {
+            State = MonsterState.Chase;
+            reaction = def.ReactionMoves;
+            moveDir = Dir8.None;
+            moveCount = 0;
+            StartSeq(def.Run, loop: true);
+        }
+
+        void StartSeq(MonsterSeq s, bool loop)
+        {
+            seq = s; seqLoop = loop; seqIdx = 0;
+            ticsLeft = s.Tics[0];
+            world.SetFrame(s.Frames[0]);
+            OnSeqEntry();
+        }
+
+        void AdvanceSeq()
+        {
+            seqIdx++;
+            if (seqIdx >= seq.Frames.Length)
+            {
+                if (seqLoop) seqIdx = 0;
+                else { OnSeqFinished(); return; }
+            }
+            ticsLeft = seq.Tics[seqIdx];
+            world.SetFrame(seq.Frames[seqIdx]);
+            OnSeqEntry();
+        }
+
+        void OnSeqEntry()
+        {
+            switch (State)
+            {
+                case MonsterState.Sleep: LookThink(); break;
+                case MonsterState.Chase: ChaseThink(); break;
+                // Attack/Pain/Die — Task 5.
+            }
+        }
+
+        void OnSeqFinished() { /* one-shot последовательности — Task 5 */ }
+
+        void LookThink()
+        {
+            if (world.CanSeeTarget(frontOnly: true)) Wake();
+        }
+
+        void ChaseThink()
+        {
+            if (reaction > 0) reaction--;
+
+            if (justAttacked)
+            {
+                justAttacked = false;
+                NewDir();
+                return;
+            }
+
+            // Атаки — Task 5 (melee-проверка и CheckMissileRange). Пока только ходим.
+            Move();
+        }
+
+        void Move()
+        {
+            if (moveDir != Dir8.None)
+            {
+                var res = world.TryStep(moveDir);
+                if (res == StepResult.BlockedByDoor) { world.UseDoor(); return; }
+                if (res == StepResult.Moved && --moveCount >= 0) return;
+            }
+            NewDir();
+        }
+
+        void NewDir()
+        {
+            world.TargetDelta(out float dx, out float dy);
+            moveDir = ChaseDir.NewChaseDir(dx, dy, moveDir, rng,
+                d => world.TryStep(d) == StepResult.Moved, out moveCount);
+        }
+    }
+}
