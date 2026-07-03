@@ -8,12 +8,11 @@ namespace Doom.MapBuild
     /// while moving.
     ///
     /// Placement formula -- R_DrawPSprite: the patch is drawn in 320x200 space
-    /// so that left edge = sx - leftOffset (measured from the 160 center),
-    /// top edge = sy - topOffset, where at rest sx=1, sy=WEAPONTOP=32. Weapon
-    /// patches are authored with offsets that assume these coordinates.
-    /// NOTE: not visually verified by the capture harness — StairCaptureTests
-    /// renders via Camera.Render(), which excludes OnGUI/IMGUI output, so the
-    /// viewmodel/HUD never appear in its PNGs. The formula follows R_DrawPSprite.
+    /// so that left edge = sx - leftOffset, top edge = sy - topOffset, where at
+    /// rest sx=1, sy=WEAPONTOP=32. Weapon patches are authored with offsets
+    /// that assume these coordinates. Verified visually in the editor
+    /// (Stage 6c final check); note StairCaptureTests cannot capture this —
+    /// it renders via Camera.Render(), which excludes OnGUI/IMGUI output.
     public sealed class WeaponView : MonoBehaviour
     {
         const float WeaponTopPx = 32f;
@@ -116,7 +115,10 @@ namespace Doom.MapBuild
             if (tex == null) return;
 
             float scale = Screen.height / 200f;
-            float left = 160f + sx - sm.LeftOffset;               // virtual px
+            // R_DrawPSprite: screen x = center + (sx - 160 - leftOffset) * scale.
+            // Viewmodel patches carry large negative offsets that center them in
+            // the 320x200 canvas; `left` is the patch's left edge in virtual px.
+            float left = sx - sm.LeftOffset;
             float top = sy - sm.TopOffset;
             var r = new Rect(
                 Screen.width * 0.5f + (left - 160f) * scale,
