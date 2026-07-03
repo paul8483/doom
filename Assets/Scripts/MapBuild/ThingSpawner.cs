@@ -122,7 +122,8 @@ namespace Doom.MapBuild
                 // tops, which sit at the sector's ceiling height — good enough to
                 // hang from. Fall back to feet + height if nothing is hit.
                 Vector3 fromBelow = new Vector3(x, feetY, z);
-                if (Physics.Raycast(fromBelow, Vector3.up, out var hitCeil, 2f * Far, worldMask))
+                if (Physics.Raycast(fromBelow, Vector3.up, out var hitCeil, 2f * Far, worldMask,
+                                    QueryTriggerInteraction.Ignore))
                     ceilY = hitCeil.point.y;
                 else
                     ceilY = feetY + def.Height * worldScale;
