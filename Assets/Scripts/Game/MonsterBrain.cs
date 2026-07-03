@@ -48,14 +48,30 @@ namespace Doom.Game
             Wake();
         }
 
-        /// Damage landed (world already applied HP). Task 5 adds the pain roll.
+        /// Damage landed (world already applied HP).
         public void NotifyDamaged()
         {
+            if (State == MonsterState.Die || State == MonsterState.Dead) return;
             justHit = true;
+            // Бросок боли — ДО Wake: P_DamageMobj бросает PainChance на каждом уроне,
+            // включая будящий; а Wake() тратит rng на выбор направления, что сломало бы
+            // детерминизм тестов.
+            bool pained = rng.Next() < def.PainChance;
             if (State == MonsterState.Sleep) Wake();
+            if (pained)
+            {
+                State = MonsterState.Pain;
+                StartSeq(def.Pain, loop: false);
+            }
         }
 
-        public void NotifyKilled() { /* Task 5 */ }
+        public void NotifyKilled()
+        {
+            if (State == MonsterState.Die || State == MonsterState.Dead) return;
+            State = MonsterState.Die;
+            world.OnDeathStarted();
+            StartSeq(def.Death, loop: false);
+        }
 
         void Wake()
         {
@@ -98,11 +114,26 @@ namespace Doom.Game
             {
                 case MonsterState.Sleep: LookThink(); break;
                 case MonsterState.Chase: ChaseThink(); break;
-                // Attack/Pain/Die — Task 5.
+                case MonsterState.Attack: AttackEntry(); break;
+                // Pain/Die: только тайминг кадров.
             }
         }
 
-        void OnSeqFinished() { /* one-shot последовательности — Task 5 */ }
+        void OnSeqFinished()
+        {
+            switch (State)
+            {
+                case MonsterState.Attack:
+                case MonsterState.Pain:
+                    State = MonsterState.Chase;
+                    StartSeq(def.Run, loop: true);
+                    break;
+                case MonsterState.Die:
+                    State = MonsterState.Dead;
+                    world.OnBecameCorpse();
+                    break;
+            }
+        }
 
         void LookThink()
         {
@@ -120,8 +151,52 @@ namespace Doom.Game
                 return;
             }
 
-            // Атаки — Task 5 (melee-проверка и CheckMissileRange). Пока только ходим.
+            // Melee first (P_CheckMeleeRange включает видимость).
+            if (def.MeleeMod > 0 && world.CanSeeTarget(false) &&
+                MonsterRules.InMeleeRange(world.DistanceToTarget(), world.TargetRadiusUnits()))
+            {
+                EnterAttack();
+                return;
+            }
+
+            // Ranged (P_CheckMissileRange: sight, justHit, reaction, дистанционный бросок).
+            if ((def.HitscanCount > 0 || def.HasMissile) && reaction == 0 &&
+                world.CanSeeTarget(false) && MissileRangeCheck())
+            {
+                justAttacked = true;
+                EnterAttack();
+                return;
+            }
+
             Move();
+        }
+
+        bool MissileRangeCheck()
+        {
+            if (justHit) { justHit = false; return true; }
+            return MonsterRules.CheckMissileRange(rng, world.DistanceToTarget(), def.MeleeMod > 0);
+        }
+
+        void EnterAttack()
+        {
+            State = MonsterState.Attack;
+            StartSeq(def.Attack, loop: false);
+        }
+
+        void AttackEntry()
+        {
+            if (seqIdx < def.FireIndex) { world.FaceTarget(); return; }
+            if (seqIdx > def.FireIndex) return;
+            world.FaceTarget();
+            // Огонь: melee в упор приоритетнее (A_TroopAttack), иначе дальняя атака.
+            if (def.MeleeMod > 0 && world.CanSeeTarget(false) &&
+                MonsterRules.InMeleeRange(world.DistanceToTarget(), world.TargetRadiusUnits()))
+            {
+                world.MeleeHit(MonsterRules.RollDamage(rng, def.MeleeMod, def.MeleeMult));
+            }
+            else if (def.HitscanCount > 0) world.FireHitscan(def.HitscanCount);
+            else if (def.HasMissile) world.LaunchMissile();
+            // SARG без дальней атаки за пределами melee «промахивается» — ничего.
         }
 
         // A_Chase: `if (--actor->movecount<0 || !P_Move(actor)) P_NewChaseDir(actor);`
