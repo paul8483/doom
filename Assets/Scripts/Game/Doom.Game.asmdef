@@ -1,7 +1,7 @@
 {
     "name": "Doom.Game",
     "rootNamespace": "Doom.Game",
-    "references": [],
+    "references": ["Doom.Things"],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
