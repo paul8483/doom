@@ -58,6 +58,10 @@ namespace Doom.Game
             // детерминизм тестов.
             bool pained = rng.Next() < def.PainChance;
             if (State == MonsterState.Sleep) Wake();
+            // P_DamageMobj: `target->reactiontime = 0; // we're awake now...`.
+            // ПОСЛЕ Wake: в DOOM reactiontime ставится при спавне (P_SpawnMobj),
+            // а у нас — в Wake, который затёр бы обнуление, стой оно раньше.
+            reaction = 0;
             if (pained)
             {
                 State = MonsterState.Pain;
@@ -86,7 +90,10 @@ namespace Doom.Game
         // StartSeq/AdvanceSeq — entry hooks may re-enter StartSeq (e.g. LookThink
         // → Wake → StartSeq(Run)), and any write to seq/seqIdx/ticsLeft after
         // that call would corrupt the freshly started sequence. Likewise, state
-        // transitions inside *Think handlers must stay tail-positioned.
+        // transitions inside *Think handlers must stay tail-positioned. The same
+        // goes for world calls in AttackEntry: each must remain the last effect
+        // of its branch — a world callback may synchronously re-enter the brain
+        // (infighting wiring makes this real).
         void StartSeq(MonsterSeq s, bool loop)
         {
             seq = s; seqLoop = loop; seqIdx = 0;
@@ -160,7 +167,10 @@ namespace Doom.Game
             }
 
             // Ranged (P_CheckMissileRange: sight, justHit, reaction, дистанционный бросок).
-            if ((def.HitscanCount > 0 || def.HasMissile) && reaction == 0 &&
+            // A_Chase: пока movecount не исчерпан, попытка дальней атаки пропускается
+            // (`if (gameskill < sk_nightmare && !fastparm && actor->movecount)
+            //  goto nomissile;`) — залп в среднем раз в ~8 ходов, а не каждый ход.
+            if ((def.HitscanCount > 0 || def.HasMissile) && moveCount <= 0 && reaction == 0 &&
                 world.CanSeeTarget(false) && MissileRangeCheck())
             {
                 justAttacked = true;

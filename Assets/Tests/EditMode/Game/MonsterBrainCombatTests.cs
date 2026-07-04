@@ -41,6 +41,7 @@ namespace Doom.Game.Tests
             bFar.NotifyNoise();
             RunTics(bFar, 35 * 6);
             Assert.That(far.Log, Has.None.Contains("melee"), "демон издалека не кусает и не стреляет");
+            Assert.That(far.Log, Has.Some.Contains("step"), "но проснулся и идёт — тест не вакуумный");
 
             var near = AwakeWorld(50f);
             var bNear = New(3002, near);
@@ -130,19 +131,62 @@ namespace Doom.Game.Tests
             Assert.That(b.State, Is.EqualTo(MonsterState.Dead));
         }
 
+        static int Shots(FakeMonsterWorld w) => w.Log.FindAll(s => s.StartsWith("hitscan")).Count;
+
         [Test]
         public void JustHit_makes_monster_attack_back_sooner()
         {
-            // justHit → CheckMissileRange отвечает true немедленно (ответка после урона).
-            var w = AwakeWorld(250f);
-            var b = New(3004, w, seed: 2); // без боли (220), но justHit взводится
-            b.NotifyNoise();
-            RunTics(b, 35 * 2);
-            int before = w.Log.FindAll(s => s.StartsWith("hitscan")).Count;
+            // justHit → MF_JUSTHIT: P_CheckMissileRange отвечает true немедленно,
+            // минуя дистанционный бросок. Близнецы с одним seed (0) на дистанции
+            // 400: там бросок проходит только при r >= 200 (порог капится на 200),
+            // так что различие создаёт именно justHit. Трасса (POSS, ход = 4 тика):
+            //   оба:      wake в конструкторе → NewChaseDir (rnd[1]=8, rnd[2]=109 →
+            //             movecount 13); окно атаки на тике 56: rnd[3]=220 >= 200 →
+            //             залп 1, выстрел на тике 66; конец атаки (тик 82) → NewDir
+            //             (rnd[4]=222 → swap, rnd[5]=241 → movecount 1).
+            //   контроль: шаг на 86, окно на 90: rnd[6]=149 < 200 → мимо, NewDir
+            //             (rnd[7]=107, rnd[8]=75 → movecount 11); следующее окно —
+            //             тик 138 (rnd[9]=248) → залп 2 стреляет лишь на тике 148.
+            //   раненый:  урон на тике 84 → боль (rnd[6]=149 < 200) до тика 90,
+            //             шаг на 90 (movecount 1 → 0), окно на 94: justHit → залп 2
+            //             уже на тике 104. Без justHit там выпало бы 107 (< 200) и
+            //             выстрел уехал бы на тик 140 — за пределы окна проверки.
+            var wc = AwakeWorld(400f);
+            var control = New(3004, wc);
+            var wd = AwakeWorld(400f);
+            var damaged = New(3004, wd);
+            RunTics(control, 84);
+            RunTics(damaged, 84);
+            Assert.That(Shots(wc), Is.EqualTo(1), "трасса: у контроля залп 1 к тику 84");
+            Assert.That(Shots(wd), Is.EqualTo(1), "трасса: у раненого залп 1 к тику 84");
+
+            damaged.NotifyDamaged();       // тик 84: боль + justHit (+ reaction=0, уже 0)
+            RunTics(control, 30);
+            RunTics(damaged, 30);          // до тика 114
+            Assert.That(Shots(wd), Is.EqualTo(2), "после урона отвечает залпом в течение 30 тиков");
+            Assert.That(Shots(wc), Is.EqualTo(1), "контроль без урона до залпа 2 ещё не дошёл");
+        }
+
+        [Test]
+        public void Damage_zeroes_reaction_for_immediate_retaliation()
+        {
+            // P_DamageMobj: `target->reactiontime = 0; // we're awake now...` —
+            // разбуженный уроном монстр НЕ выжидает 8 ходов реакции. Мир слепой
+            // (паттерн Pain-теста), чтобы мозг спал до NotifyDamaged. seed 9:
+            // будящий урон без боли (rnd[10]=254 >= 200), NewChaseDir при Wake
+            // берёт rnd[11]=140 (без свапа) и rnd[12]=16 → movecount 0, так что
+            // первый же ход погони (тик 4) — окно атаки: reaction уже обнулён,
+            // justHit минует дистанционный бросок → выстрел на тике 14. Со
+            // старым поведением (реакция 8 ходов) залп не случился бы раньше
+            // ~тика 58 (реакция до тика 28 плюс movecount 10 от NewDir тика 4).
+            var w = new FakeMonsterWorld { Dist = 100f, Dx = 100f, Dy = 0f };
+            var b = New(3004, w, seed: 9);
+            Assert.That(b.State, Is.EqualTo(MonsterState.Sleep), "мир слепой — до урона спит");
             b.NotifyDamaged();
-            RunTics(b, 35 * 2);
-            int after = w.Log.FindAll(s => s.StartsWith("hitscan")).Count;
-            Assert.That(after, Is.GreaterThan(before), "после урона отвечает выстрелом");
+            Assert.That(b.State, Is.EqualTo(MonsterState.Chase), "254 >= painchance 200 — без боли");
+            w.SeesFront = true; // цель становится видимой для боевых проверок погони
+            RunTics(b, 20);
+            Assert.That(w.Log, Has.Some.Contains("hitscan"), "стреляет, не выжидая реакцию");
         }
     }
 }
