@@ -28,8 +28,9 @@ namespace Doom.Stage3.PlayTests
     public class StairCaptureTests
     {
         const float WorldScale = 1f / 32f;
-        const string SpawnPng   = "D:/Development/doom/Logs/stair-spawn.png";
-        const string CapturePng = "D:/Development/doom/Logs/stair-capture.png";
+        static string LogsDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
+        static string SpawnPng => Path.Combine(LogsDir, "stair-spawn.png");
+        static string CapturePng => Path.Combine(LogsDir, "stair-capture.png");
 
         [TearDown]
         public void TearDown()
