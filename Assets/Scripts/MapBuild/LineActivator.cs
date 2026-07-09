@@ -8,6 +8,8 @@ namespace Doom.MapBuild
     /// Resolves the linedef special via LineSpecialTable and starts a SectorMover.
     public sealed class LineActivator : MonoBehaviour
     {
+        static LineActivator instance;
+
         MapData map;
         RuntimeSectorHeights heights;
         SectorGeometry geometry;
@@ -25,6 +27,50 @@ namespace Doom.MapBuild
             onceFired = new bool[map.LineDefs.Length];
             moving = new bool[map.Sectors.Length];
             lastPos = transform.position;
+            instance = this;
+        }
+
+        void OnDestroy()
+        {
+            if (instance == this) instance = null;
+        }
+
+        /// True when the wall belongs to a push-activated door a monster can open.
+        public static bool IsUsableDoor(LineRef lineRef)
+        {
+            if (instance == null || lineRef == null || instance.map == null) return false;
+            int lineIndex = lineRef.LineIndex;
+            if (lineIndex < 0)
+                lineIndex = instance.ResolveLine(lineRef, lineRef.transform.position);
+            if (lineIndex < 0) return false;
+            var ld = instance.map.LineDefs[lineIndex];
+            if (!LineSpecialTable.TryGet(ld.Special, out var sp)) return false;
+            if (sp.Trigger != TriggerKind.Push) return false;
+            return sp.Category == SpecialCategory.Door || sp.Category == SpecialCategory.LockedDoor;
+        }
+
+        /// Activate the nearest push-door within range (monster door use).
+        public static void MonsterUseNearestDoor(Vector3 pos, float radius)
+        {
+            if (instance == null) return;
+            instance.UseNearestDoorAt(pos, radius);
+        }
+
+        void UseNearestDoorAt(Vector3 pos, float radius)
+        {
+            LineRef best = null;
+            float bestDist = float.MaxValue;
+            foreach (var lr in FindObjectsByType<LineRef>(FindObjectsSortMode.None))
+            {
+                if (!IsUsableDoor(lr)) continue;
+                float d = Vector3.Distance(pos, lr.transform.position);
+                if (d > radius || d >= bestDist) continue;
+                bestDist = d;
+                best = lr;
+            }
+            if (best == null) return;
+            int lineIndex = ResolveLine(best, pos);
+            if (lineIndex >= 0) Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
         }
 
         void Update()
