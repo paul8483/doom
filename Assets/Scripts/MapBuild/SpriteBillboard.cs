@@ -60,6 +60,26 @@ namespace Doom.MapBuild
             lockRotation = true;
         }
 
+        /// Switch the animation frame while keeping rotation selection live
+        /// (walking/attack/pain frames have 8 rotations; corpse uses SetStaticFrame).
+        public void SetFrame(int newFrame)
+        {
+            frame = newFrame;
+            lockRotation = false;
+        }
+
+        /// DOOM facing (+X = East) as a flat world direction for sight checks.
+        public Vector3 FacingDirection
+        {
+            get
+            {
+                float rad = doomAngleDeg * Mathf.Deg2Rad;
+                return new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad));
+            }
+        }
+
+        public void SetDoomAngle(float degrees) => doomAngleDeg = degrees;
+
         void LateUpdate()
         {
             if (cache == null) return;
