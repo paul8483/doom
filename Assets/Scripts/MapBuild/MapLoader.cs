@@ -149,9 +149,20 @@ namespace Doom.MapBuild
             var thingsRoot = new GameObject("Things");
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
             float fallbackY = bounds?.min.y ?? 0f;
+            var playerGo = GameObject.Find("Player");
             int spawned = new ThingSpawner(spriteCache, worldScale)
-                .SpawnAll(map, thingsRoot.transform, fallbackY);
+                .SpawnAll(map, thingsRoot.transform, fallbackY, playerGo.transform);
             Debug.Log($"MapLoader: spawned {spawned} sprite things");
+
+            if (playerGo != null)
+            {
+                var weapons = playerGo.GetComponent<PlayerWeapons>();
+                if (weapons != null)
+                {
+                    var noise = gameObject.AddComponent<NoiseAlertSystem>();
+                    noise.Init(map, runtimeHeights, weapons, playerGo.transform);
+                }
+            }
         }
 
         // ── Player spawn ──────────────────────────────────────────────────────
