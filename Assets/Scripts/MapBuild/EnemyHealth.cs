@@ -2,14 +2,15 @@ using UnityEngine;
 
 namespace Doom.MapBuild
 {
-    /// Enemy HP (Stage 6c). No AI and no pain state: accumulates damage, at zero
-    /// switches to the corpse frame, disables the collider, and ignores further damage.
+    /// Enemy HP (Stage 6c). With MonsterController (Stage 6d): damage delegates to
+    /// the brain for pain/death animation; infighting retargets the attacker.
     public sealed class EnemyHealth : MonoBehaviour
     {
         int hp;
         int corpseFrame;
         SpriteBillboard billboard;   // may be null in synthetic tests
         CapsuleCollider capsule;
+        MonsterController controller;
 
         public bool IsDead => hp <= 0;
 
@@ -22,11 +23,27 @@ namespace Doom.MapBuild
             this.capsule = capsule;
         }
 
-        public void TakeDamage(int damage)
+        public void SetController(MonsterController c) => controller = c;
+
+        public void TakeDamage(int damage) => TakeDamage(damage, DamageSource.Player());
+
+        public void TakeDamage(int damage, DamageSource source)
         {
             if (IsDead) return;
             hp -= damage;
-            if (hp <= 0) Die();
+            if (hp <= 0)
+            {
+                hp = 0;
+                if (controller != null) controller.NotifyKilled();
+                else Die();
+                return;
+            }
+            if (controller != null)
+            {
+                if (source.MonsterAttacker != null && source.MonsterAttacker != this)
+                    controller.SetTarget(source.MonsterAttacker.transform);
+                controller.NotifyDamaged();
+            }
         }
 
         void Die()

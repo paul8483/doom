@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.Game;
 using Doom.Map;
 using Doom.Things;
 
@@ -24,10 +25,11 @@ namespace Doom.MapBuild
         static bool IsSpawnPoint(int type)
             => type >= 1 && type <= 4 || type == 11;
 
-        public int SpawnAll(MapData map, Transform parent, float fallbackY)
+        public int SpawnAll(MapData map, Transform parent, float fallbackY, Transform playerTransform)
         {
             int count = 0;
             int floorMisses = 0;
+            int seedCounter = 0;
             foreach (var t in map.Things)
             {
                 if (IsSpawnPoint(t.Type)) continue;
@@ -75,6 +77,23 @@ namespace Doom.MapBuild
                     eh.Init(def.Health, def.CorpseFrame, bb, col);
                     if (def.CorpseFrame >= 0)
                         cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
+
+                    if (MonsterTable.TryGet(t.Type, out var mdef))
+                    {
+                        bool ambush = (t.Flags & 0x0008) != 0;
+                        var mc = go.AddComponent<MonsterController>();
+                        mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
+                                bb, col, eh, new DoomRandom(seedCounter++));
+                        eh.SetController(mc);
+                        foreach (var seq in new[] { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death })
+                            foreach (int f in seq.Frames)
+                                for (int rot = 0; rot < 8; rot++) cache.Get(def.Sprite, f, rot);
+                        if (mdef.HasMissile)
+                        {
+                            foreach (int f in mdef.MissileFlyFrames) cache.Get(mdef.MissileSprite, f, 0);
+                            foreach (int f in mdef.MissileExplodeFrames) cache.Get(mdef.MissileSprite, f, 0);
+                        }
+                    }
                 }
 
                 // Weapon/ammo pickups (Stage 6c).

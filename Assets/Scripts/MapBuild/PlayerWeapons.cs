@@ -95,7 +95,7 @@ namespace Doom.MapBuild
                 var enemy = hit.collider.GetComponent<EnemyHealth>();
                 if (enemy != null && !enemy.IsDead)
                 {
-                    enemy.TakeDamage(shot.Damage);
+                    enemy.TakeDamage(shot.Damage, DamageSource.Player());
                     HitEffect.SpawnBlood(cache, worldScale, hit.point);
                 }
                 else if (enemy == null)
