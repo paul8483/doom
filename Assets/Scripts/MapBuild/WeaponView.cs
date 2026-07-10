@@ -114,17 +114,9 @@ namespace Doom.MapBuild
             var tex = sm.Material != null ? sm.Material.mainTexture : null;
             if (tex == null) return;
 
-            float scale = Screen.height / 200f;
-            // R_DrawPSprite: screen x = center + (sx - 160 - leftOffset) * scale.
-            // Viewmodel patches carry large negative offsets that center them in
-            // the 320x200 canvas; `left` is the patch's left edge in virtual px.
-            float left = sx - sm.LeftOffset;
-            float top = sy - sm.TopOffset;
-            var r = new Rect(
-                Screen.width * 0.5f + (left - 160f) * scale,
-                top * scale,
-                sm.Width * scale,
-                sm.Height * scale);
+            var t = VirtualScreenRenderer.ComputeForScreen();
+            var r = VirtualScreenRenderer.WeaponPatch(
+                t, sx, sy, sm.LeftOffset, sm.TopOffset, sm.Width, sm.Height);
             GUI.DrawTexture(r, tex);
         }
     }

@@ -32,8 +32,9 @@ namespace Doom.MapBuild
             int count = 0;
             int floorMisses = 0;
             int seedCounter = 0;
-            foreach (var t in map.Things)
+            for (int thingIndex = 0; thingIndex < map.Things.Length; thingIndex++)
             {
+                var t = map.Things[thingIndex];
                 if (IsSpawnPoint(t.Type)) continue;
                 if (!ThingTable.TryGet(t.Type, out var def)) continue;
 
@@ -77,6 +78,7 @@ namespace Doom.MapBuild
                 {
                     var eh = go.AddComponent<EnemyHealth>();
                     eh.Init(def.Health, def.CorpseFrame, bb, col);
+                    eh.SetMapThingIndex(thingIndex);
                     if (def.CorpseFrame >= 0)
                         cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
 
@@ -100,7 +102,7 @@ namespace Doom.MapBuild
 
                 // E1 pickups (Stage 6e) — full ItemRules set.
                 if (ItemRules.IsPickup(t.Type))
-                    go.AddComponent<ThingPickup>().Init(t.Type, worldScale);
+                    go.AddComponent<ThingPickup>().Init(t.Type, worldScale, thingIndex);
 
                 // Pre-warm death-drop sprites while the WAD is still open.
                 if (DeathDropTable.TryGet(t.Type, out int dropNum) &&

@@ -21,10 +21,13 @@ namespace Doom.MapBuild
         /// Raised once when the player dies (health hits 0).
         public event Action Died;
 
-        /// Raised on non-lethal damage that actually reduced HP. Argument is HP lost.
-        public event Action<int> Damaged;
+        /// Raised on non-lethal damage that actually reduced HP.
+        /// Args: HP lost, optional attacker side for face turn.
+        public event Action<int, FaceAttackerSide> Damaged;
 
-        public void TakeDamage(int amount)
+        public void TakeDamage(int amount) => TakeDamage(amount, FaceAttackerSide.None);
+
+        public void TakeDamage(int amount, FaceAttackerSide attackerSide)
         {
             if (deadAnnounced || amount <= 0) return;
             int before = model.Health;
@@ -37,7 +40,7 @@ namespace Doom.MapBuild
             }
             int lost = before - model.Health;
             if (lost > 0)
-                Damaged?.Invoke(lost);
+                Damaged?.Invoke(lost, attackerSide);
         }
 
         public bool GiveHealth(int amount, int cap) => model.GiveHealth(amount, cap);

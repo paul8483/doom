@@ -26,7 +26,10 @@ namespace Doom.Map
         {
             h ??= new StaticSectorHeights(map);
             var opaque = new Dictionary<string, Bucket>();
-            var masked = new Dictionary<string, Bucket>();
+            // Masked middles split by ML_BLOCKING so passable curtains stay walk-through
+            // while grates/fences get colliders.
+            var maskedBlocking = new Dictionary<string, Bucket>();
+            var maskedPassable = new Dictionary<string, Bucket>();
             var sec = map.Sectors[sectorIdx];
             float light = sec.LightLevel / 255f;
             int secFloor = h.FloorHeight(sectorIdx);
@@ -52,7 +55,7 @@ namespace Doom.Map
                 {
                     // One-sided: middle texture spans floor..ceiling.
                     if (onFront)
-                        EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                        EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
                                  v1, v2, secFloor, secCeil,
                                  side.MiddleTexture, WallPart.OneSidedMiddle,
                                  secFloor, secCeil, facingFront: true, isMasked: false);
@@ -71,14 +74,14 @@ namespace Doom.Map
 
                 // Lower step: neighbour floor higher than ours.
                 if (otherFloor > secFloor && HasTex(side.LowerTexture))
-                    EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
                              v1, v2, secFloor, otherFloor,
                              side.LowerTexture, WallPart.Lower,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
 
                 // Upper step: neighbour ceiling lower than ours.
                 if (otherCeil < secCeil && HasTex(side.UpperTexture))
-                    EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
                              v1, v2, otherCeil, secCeil,
                              side.UpperTexture, WallPart.Upper,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
@@ -89,24 +92,33 @@ namespace Doom.Map
                     int gapLow = System.Math.Max(secFloor, otherFloor);
                     int gapHigh = System.Math.Min(secCeil, otherCeil);
                     if (gapHigh > gapLow)
-                        EmitQuad(opaque, masked, sizes, ld.Flags, side, light, worldScale,
+                    {
+                        bool blocks = (ld.Flags & WallSection.FlagBlocking) != 0;
+                        var maskedBucket = blocks ? maskedBlocking : maskedPassable;
+                        EmitQuad(opaque, maskedBucket, sizes, ld.Flags, side, light, worldScale,
                                  v1, v2, gapLow, gapHigh,
                                  side.MiddleTexture, WallPart.TwoSidedMiddle,
                                  gapLow, gapHigh, facingFront: onFront, isMasked: true);
+                    }
                 }
             }
 
             var result = new List<WallSection>();
-            foreach (var kv in opaque) result.Add(ToSection(kv.Key, false, kv.Value));
-            foreach (var kv in masked) result.Add(ToSection(kv.Key, true, kv.Value));
+            foreach (var kv in opaque)
+                result.Add(ToSection(kv.Key, masked: false, blocks: true, kv.Value));
+            foreach (var kv in maskedBlocking)
+                result.Add(ToSection(kv.Key, masked: true, blocks: true, kv.Value));
+            foreach (var kv in maskedPassable)
+                result.Add(ToSection(kv.Key, masked: true, blocks: false, kv.Value));
             return result;
         }
 
         private enum WallPart { OneSidedMiddle, Upper, Lower, TwoSidedMiddle }
 
-        private static WallSection ToSection(string tex, bool masked, Bucket b)
+        private static WallSection ToSection(string tex, bool masked, bool blocks, Bucket b)
             => new WallSection(tex, masked,
-                   new MeshData(b.V.ToArray(), b.T.ToArray(), b.Uv.ToArray(), b.C.ToArray()));
+                   new MeshData(b.V.ToArray(), b.T.ToArray(), b.Uv.ToArray(), b.C.ToArray()),
+                   blocks);
 
         private static bool HasTex(string t) => !string.IsNullOrEmpty(t) && t != "-";
 
@@ -147,7 +159,9 @@ namespace Doom.Map
             float ax = a.X * worldScale, az = a.Y * worldScale;
             float bx = b.X * worldScale, bz = b.Y * worldScale;
 
-            var bucket = GetBucket(isMasked ? masked : opaque, texture);
+            var target = isMasked ? masked : opaque;
+            if (target == null) return;
+            var bucket = GetBucket(target, texture);
             int baseIdx = bucket.V.Count;
 
             // Winding mirrors the Stage 2 convention (front sees CCW from +normal).

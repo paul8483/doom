@@ -8,12 +8,16 @@ namespace Doom.MapBuild
     public sealed class ThingPickup : MonoBehaviour
     {
         int doomedNum;
+        int mapThingIndex = -1;
 
         public int DoomedNum => doomedNum;
+        /// Index into MapData.Things, or -1 for runtime drops (not counted as items).
+        public int MapThingIndex => mapThingIndex;
 
-        public void Init(int doomedNum, float worldScale)
+        public void Init(int doomedNum, float worldScale, int mapThingIndex = -1)
         {
             this.doomedNum = doomedNum;
+            this.mapThingIndex = mapThingIndex;
             var trig = gameObject.AddComponent<SphereCollider>();
             trig.isTrigger = true;
             trig.radius = 32f * worldScale;
@@ -24,8 +28,12 @@ namespace Doom.MapBuild
         {
             var inv = other.GetComponent<PlayerInventory>();
             if (inv == null) return;
-            if (inv.TryPickup(doomedNum))
-                Destroy(gameObject);
+            if (!inv.TryPickup(doomedNum)) return;
+
+            if (mapThingIndex >= 0 && LevelStats.IsCountItem(doomedNum))
+                LevelStatsTracker.Instance?.RegisterItem(mapThingIndex);
+
+            Destroy(gameObject);
         }
     }
 }

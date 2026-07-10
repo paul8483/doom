@@ -48,6 +48,9 @@ namespace Doom.MapBuild
         /// Stage 6f music service. Created during Build() while the WAD is open.
         public MusicPlayer Music { get; private set; }
 
+        /// Stage 7b UI patch textures. Built while the WAD is open; never re-reads it.
+        public HudTextureCache HudTextures { get; private set; }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -116,6 +119,10 @@ namespace Doom.MapBuild
             var palette  = new Palette(wad.ReadLump("PLAYPAL"));
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette);
+
+            // Stage 7b: decode HUD/menu/intermission patches while the WAD is open.
+            var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
+            HudTextures = new HudTextureCache(uiCatalog);
 
             // Stage 6f: decode DS* and copy music lumps while the WAD is open.
             var soundCache = new SoundCache(wad);
@@ -194,6 +201,11 @@ namespace Doom.MapBuild
                     var noise = gameObject.AddComponent<NoiseAlertSystem>();
                     noise.Init(map, runtimeHeights, weapons, playerGo.transform);
                 }
+
+                var floor = playerGo.GetComponent<FloorDamageSystem>();
+                var tracker = gameObject.GetComponent<LevelStatsTracker>()
+                    ?? gameObject.AddComponent<LevelStatsTracker>();
+                tracker.Init(map, floor);
             }
 
             // WAD closes when this method returns; further SoundCache misses must
@@ -339,11 +351,8 @@ namespace Doom.MapBuild
             var activator = player.AddComponent<LineActivator>();
             activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform, Sound);
 
-            // Health, floor damage, death/respawn, and a minimal HP/armor readout (Stage 6b).
+            // Health, floor damage, death/respawn, and WAD status bar (Stage 7b).
             var health = player.AddComponent<PlayerHealth>();
-
-            var hud = player.AddComponent<PlayerHud>();
-            hud.Init(health);
 
             var floorDamage = player.AddComponent<FloorDamageSystem>();
             floorDamage.Init(map, worldScale, health, cc);
@@ -367,12 +376,14 @@ namespace Doom.MapBuild
             weapons.SetInventory(inventory);
             activator.SetInventory(inventory);
             floorDamage.SetInventory(inventory);
-            hud.SetInventory(inventory);
+
+            var hud = player.AddComponent<DoomHud>();
+            hud.Init(health, weapons, inventory, HudTextures);
+            death.Respawned += hud.OnRespawn;
 
             death.Respawned += weapons.ResetToStart;
             death.Respawned += inventory.OnRespawn;
             death.SetWeapons(weapons);
-            hud.SetWeapons(weapons);
 
             if (Sound != null)
             {
@@ -453,8 +464,8 @@ namespace Doom.MapBuild
                 if (ws.Mesh.IsEmpty) continue;
                 var wall = AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
                          cache.GetMaterial(ws.Texture, ws.Masked),
-                         ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, worldScale, ref ignore);
-                if (wall != null && !ws.Masked)
+                         ws.Blocks ? ColliderMode.ThickWall : ColliderMode.None, worldScale, ref ignore);
+                if (wall != null && ws.Blocks)
                     wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
             }
         }
@@ -479,11 +490,11 @@ namespace Doom.MapBuild
                 if (ws.Mesh.IsEmpty) continue;
                 var wall = AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
                          cache.GetMaterial(ws.Texture, ws.Masked),
-                         ws.Masked ? ColliderMode.None : ColliderMode.ThickWall, worldScale, ref bounds);
+                         ws.Blocks ? ColliderMode.ThickWall : ColliderMode.None, worldScale, ref bounds);
                 // Tag the wall with its sector so the Use-raycast can resolve the
                 // linedef (LineActivator narrows by sector, then nearest segment).
                 // Re-created on every rebuild because this is the shared build path.
-                if (wall != null && !ws.Masked)
+                if (wall != null && ws.Blocks)
                     wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
             }
         }

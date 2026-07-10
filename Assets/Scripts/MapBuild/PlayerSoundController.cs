@@ -14,7 +14,7 @@ namespace Doom.MapBuild
 
         Action<WeaponDef> onFired;
         Action<int, PickupSoundKind> onPickedUp;
-        Action<int> onDamaged;
+        Action<int, FaceAttackerSide> onDamaged;
         Action onDied;
 
         public void Init(SoundSystem soundSystem, PlayerWeapons weapons,
@@ -36,7 +36,7 @@ namespace Doom.MapBuild
                 string lump = PickupSoundTable.LumpName(kind);
                 if (lump != null) sound?.PlayLocal(lump);
             };
-            onDamaged = _ => sound?.PlayLocal("DSPLPAIN");
+            onDamaged = (_, __) => sound?.PlayLocal("DSPLPAIN");
             onDied = () => PlayFirst("DSPLDETH", "DSPDIEHI");
 
             if (weapons != null) weapons.Fired += onFired;

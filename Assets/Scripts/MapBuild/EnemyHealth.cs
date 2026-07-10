@@ -8,6 +8,7 @@ namespace Doom.MapBuild
     {
         int hp;
         int corpseFrame;
+        int mapThingIndex = -1;
         SpriteBillboard billboard;   // may be null in synthetic tests
         CapsuleCollider capsule;
         MonsterController controller;
@@ -23,6 +24,8 @@ namespace Doom.MapBuild
             this.capsule = capsule;
         }
 
+        public void SetMapThingIndex(int index) => mapThingIndex = index;
+
         public void SetController(MonsterController c) => controller = c;
 
         public void TakeDamage(int damage) => TakeDamage(damage, DamageSource.Player());
@@ -34,6 +37,8 @@ namespace Doom.MapBuild
             if (hp <= 0)
             {
                 hp = 0;
+                if (mapThingIndex >= 0)
+                    LevelStatsTracker.Instance?.RegisterKill(mapThingIndex);
                 if (controller != null) controller.NotifyKilled();
                 else Die();
                 return;

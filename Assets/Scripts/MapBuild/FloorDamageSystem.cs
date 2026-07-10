@@ -64,27 +64,22 @@ namespace Doom.MapBuild
         /// raycast→SectorRef chain resolves.
         public int SectorSpecialUnderPlayer()
         {
+            int idx = SectorIndexUnderPlayer();
+            if (idx < 0) return -1;
+            return map.Sectors[idx].Special;
+        }
+
+        /// Sector index under the player's feet, or -1 if unresolved.
+        public int SectorIndexUnderPlayer()
+        {
             if (map == null) return -1;
 
-            // transform.position is at the player's feet. The floor collider is
-            // essentially co-planar with the feet. Cast from just above feet down a
-            // short range so we reliably strike the floor mesh below.
-            //
-            // Why we can't accidentally hit the player's own CharacterController:
-            // Unity's CharacterController capsule goes from feet (y=0) to feet+height
-            // (y=1.75m). A ray originating at feet+0.5m and going DOWNWARD would exit
-            // the capsule's bottom hemisphere immediately — Unity Physics does not
-            // generate hits when the ray origin is inside a collider. To be robust
-            // against any future geometry changes we also use RaycastAll and skip any
-            // hit whose collider IS the CharacterController, then pick the nearest
-            // remaining hit that carries a SectorRef.
             Vector3 origin = transform.position + Vector3.up * (16f * worldScale);
             float range = 48f * worldScale;
 
             var hits = Physics.RaycastAll(origin, Vector3.down, range,
                                           ~0, QueryTriggerInteraction.Ignore);
 
-            // Find the nearest floor hit that has a SectorRef (ignore own capsule).
             float bestDist = float.MaxValue;
             SectorRef bestRef = null;
             foreach (var hit in hits)
@@ -103,7 +98,7 @@ namespace Doom.MapBuild
                 bestRef.SectorIndex >= map.Sectors.Length)
                 return -1;
 
-            return map.Sectors[bestRef.SectorIndex].Special;
+            return bestRef.SectorIndex;
         }
     }
 }

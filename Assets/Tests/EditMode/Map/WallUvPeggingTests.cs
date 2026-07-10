@@ -111,11 +111,37 @@ namespace Doom.Map.Tests
             foreach (var s in secs) if (s.Texture == "GRATE") grate = s;
             Assert.That(grate, Is.Not.Null, "middle grate section must exist");
             Assert.That(grate.Masked, Is.True);
+            Assert.That(grate.Blocks, Is.False, "no ML_BLOCKING → walk-through");
             Assert.That(grate.Mesh.Triangles.Length, Is.EqualTo(6)); // one quad
             float top = -1e9f, bot = 1e9f;
             foreach (var v in grate.Mesh.Vertices) { if (v.Y > top) top = v.Y; if (v.Y < bot) bot = v.Y; }
             Assert.That(top, Is.EqualTo(128f).Within(0.001f));
             Assert.That(bot, Is.EqualTo(0f).Within(0.001f));
+        }
+
+        [Test]
+        public void TwoSided_middle_with_ML_BLOCKING_marks_Blocks()
+        {
+            var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
+            var lines = new[] { new LineDef(0, 1, WallSection.FlagBlocking, 0, 0, 0, 1) };
+            var sides = new[]
+            {
+                new SideDef(0,0,"-","-","GRATE",0),
+                new SideDef(0,0,"-","-","-",1),
+            };
+            var sectors = new[]
+            {
+                new Sector(0, 128, "F", "F", 255, 0, 0),
+                new Sector(0, 128, "F", "F", 255, 0, 0),
+            };
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
+
+            var secs = WallMeshBuilder.BuildForSector(map, 0, new Sizes().Add("GRATE", 64, 128));
+            WallSection grate = null;
+            foreach (var s in secs) if (s.Texture == "GRATE") grate = s;
+            Assert.That(grate, Is.Not.Null);
+            Assert.That(grate.Masked, Is.True);
+            Assert.That(grate.Blocks, Is.True);
         }
 
         [Test]

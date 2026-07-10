@@ -162,6 +162,55 @@ namespace Doom.Stage3.PlayTests
             Assert.That(Object.FindAnyObjectByType<MapLoader>().LoadedMapName, Is.EqualTo("E1M2"));
         }
 
+        [UnityTest]
+        public IEnumerator Exit_shows_intermission_stats_then_advances_on_confirm()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+            LevelTransitionController.ResetForTests();
+            LevelTransitionController.ImmediateConfirmForTests = false;
+
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForPlayer("E1M1");
+
+            var tracker = Object.FindAnyObjectByType<LevelStatsTracker>();
+            Assert.That(tracker, Is.Not.Null);
+            Assert.That(tracker.Stats.KillTotal, Is.GreaterThan(0));
+
+            LevelStatsSnapshot? shown = null;
+            var ctrl = LevelTransitionController.Ensure();
+            void OnShown(LevelStatsSnapshot s) => shown = s;
+            ctrl.IntermissionShown += OnShown;
+
+            int exitLine = FindLinedef("E1M1", special: 11);
+            GameObject.Find("Player").GetComponent<LineActivator>()
+                .ActivateLineForTest(exitLine);
+
+            for (int i = 0; i < 60; i++)
+            {
+                if (shown.HasValue && ctrl.Intermission != null && ctrl.Intermission.IsVisible)
+                    break;
+                yield return null;
+            }
+
+            ctrl.IntermissionShown -= OnShown;
+            Assert.That(shown.HasValue, Is.True);
+            Assert.That(ctrl.Intermission.IsVisible, Is.True);
+            Assert.That(ctrl.LastStats.HasValue, Is.True);
+            Assert.That(ctrl.IsTransitioning, Is.True);
+
+            ctrl.ConfirmIntermission();
+            for (int i = 0; i < 300; i++)
+            {
+                var loader = Object.FindAnyObjectByType<MapLoader>();
+                if (loader != null && loader.LoadedMapName == "E1M2")
+                    break;
+                yield return null;
+            }
+
+            Assert.That(Object.FindAnyObjectByType<MapLoader>().LoadedMapName, Is.EqualTo("E1M2"));
+        }
+
         static IEnumerator WaitForPlayer(string expectedMap)
         {
             for (int i = 0; i < 180; i++)

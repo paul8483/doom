@@ -24,9 +24,14 @@ namespace Doom.MapBuild
         public bool IsTransitioning { get; private set; }
         public LevelExitRequest? LastRequest { get; private set; }
         public string LastLoadedMap { get; private set; }
+        public LevelStatsSnapshot? LastStats { get; private set; }
+        public IntermissionView Intermission { get; private set; }
 
         /// Raised once when an exit request is accepted (before scene reload).
         public event Action<LevelExitRequest> ExitAccepted;
+
+        /// Raised when intermission becomes visible (stats frozen).
+        public event Action<LevelStatsSnapshot> IntermissionShown;
 
         public static LevelTransitionController Ensure()
         {
@@ -82,14 +87,25 @@ namespace Doom.MapBuild
             var host = GameSessionHost.Ensure();
             EnsureSessionActive(host);
 
+            string finishedMap = host.Session.CurrentMap;
+            var stats = LevelStatsTracker.Instance != null
+                ? LevelStatsTracker.Instance.Stats.Snapshot()
+                : default;
+            LastStats = stats;
+
             var carry = CaptureCarry();
             var result = host.Session.Advance(request.Kind, carry ?? PlayerCarryState.FreshStart());
+
+            ShowIntermission(stats, finishedMap, result.NextMap);
+            IntermissionShown?.Invoke(stats);
 
             if (!ImmediateConfirmForTests)
             {
                 _confirm = false;
                 while (!_confirm) yield return null;
             }
+
+            HideIntermission();
 
             if (result.Outcome == CampaignOutcome.EpisodeComplete)
             {
@@ -106,6 +122,23 @@ namespace Doom.MapBuild
             // Scene reload tears down the old map; session host survives.
             IsTransitioning = false;
             SceneManager.LoadScene(PreviewSceneName, LoadSceneMode.Single);
+        }
+
+        void ShowIntermission(LevelStatsSnapshot stats, string finished, string next)
+        {
+            if (Intermission == null)
+                Intermission = gameObject.GetComponent<IntermissionView>()
+                    ?? gameObject.AddComponent<IntermissionView>();
+
+            var loader = UnityEngine.Object.FindAnyObjectByType<MapLoader>();
+            var textures = loader != null ? loader.HudTextures : null;
+            Intermission.Show(textures, stats, finished, next);
+        }
+
+        void HideIntermission()
+        {
+            if (Intermission != null)
+                Intermission.Hide();
         }
 
         void FreezeGameplay()
