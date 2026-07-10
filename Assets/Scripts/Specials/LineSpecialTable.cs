@@ -180,7 +180,7 @@ namespace Doom.Specials
             Add(138,TriggerKind.Switch, true,  false, SpecialCategory.Light, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // SR light to 255
             Add(139,TriggerKind.Switch, true,  false, SpecialCategory.Light, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // SR light to 35
 
-            // ── Teleports (classified, not executed) ──────────────────────────
+            // ── Teleports (executable in Stage 7e) ────────────────────────────
             Add(39, TriggerKind.Walk,   false, true,  SpecialCategory.Teleport, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 teleport
             Add(97, TriggerKind.Walk,   true,  true,  SpecialCategory.Teleport, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR teleport
             Add(125,TriggerKind.Walk,   false, true,  SpecialCategory.Teleport, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 teleport (monsters only)

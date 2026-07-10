@@ -27,6 +27,15 @@ namespace Doom.MapBuild
         /// Map name actually loaded by the most recent Build().
         public string LoadedMapName { get; private set; }
 
+        /// Last Build() wall-clock seconds (Stage 7e baseline).
+        public float LastBuildSeconds { get; private set; }
+
+        /// Object counts captured at end of last Build().
+        public int LastMeshCount { get; private set; }
+        public int LastMaterialCount { get; private set; }
+        public int LastColliderCount { get; private set; }
+        public int LastGameObjectCount { get; private set; }
+
         [Tooltip("DOOM unit × worldScale = Unity meter. 1/32 → player ~1.75m")]
         [SerializeField] float worldScale = 1f / 32f;
 
@@ -134,6 +143,7 @@ namespace Doom.MapBuild
         // ── Build ─────────────────────────────────────────────────────────────
         void Build()
         {
+            float t0 = Time.realtimeSinceStartup;
             string path = Path.Combine(Application.streamingAssetsPath, wadRelativePath);
             if (!File.Exists(path))
             {
@@ -272,6 +282,15 @@ namespace Doom.MapBuild
             // WAD closes when this method returns; further SoundCache misses must
             // not touch the disposed stream.
             soundCache.NotifyWadClosed();
+
+            LastBuildSeconds = Time.realtimeSinceStartup - t0;
+            LastMeshCount = Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None).Length;
+            LastMaterialCount = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Length;
+            LastColliderCount = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).Length;
+            LastGameObjectCount = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Length;
+            Debug.Log($"MapLoader: build {LastBuildSeconds:F3}s — " +
+                      $"meshes={LastMeshCount} renderers={LastMaterialCount} " +
+                      $"colliders={LastColliderCount} transforms={LastGameObjectCount}");
         }
 
         void InitMusic(WadFile wad, string loadName)

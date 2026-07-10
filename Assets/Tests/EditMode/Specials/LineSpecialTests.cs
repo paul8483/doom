@@ -16,9 +16,13 @@ namespace Doom.Specials.Tests
             var exit = new LineSpecial(11, TriggerKind.Switch, false, false,
                 SpecialCategory.Exit, MoveDirection.Up, MoveSpeed.Slow,
                 TargetSpec.None, KeyKind.None);
+            var teleport = new LineSpecial(97, TriggerKind.Walk, true, true,
+                SpecialCategory.Teleport, MoveDirection.Up, MoveSpeed.Slow,
+                TargetSpec.None, KeyKind.None);
 
             Assert.That(door.IsExecutable, Is.True);
             Assert.That(exit.IsExecutable, Is.True);
+            Assert.That(teleport.IsExecutable, Is.True);
             Assert.That(light.IsExecutable, Is.False);
             Assert.That(door.Repeatable, Is.True);
             Assert.That(door.Trigger, Is.EqualTo(TriggerKind.Push));

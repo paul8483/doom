@@ -271,6 +271,7 @@ namespace Doom.MapBuild
             float stepM = def.Speed * worldScale;
             Vector3 move = DirVectors[(int)dir] * stepM;
             float stepUpM = StepUpUnits * worldScale;
+            Vector3 from = transform.position;
 
             // Свип капсулой с высоты «плечи» — перешагиваемые ступени не мешают.
             Vector3 p1 = transform.position + Vector3.up * (radiusM + stepUpM);
@@ -291,6 +292,7 @@ namespace Doom.MapBuild
                 return StepResult.Blocked;   // впереди обрыв больше ступеньки
 
             transform.position = new Vector3(dest.x, floorHit.point.y, dest.z);
+            LineActivator.MonsterCrossed(from, transform.position, transform);
             return StepResult.Moved;
         }
 

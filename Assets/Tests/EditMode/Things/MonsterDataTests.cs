@@ -16,6 +16,8 @@ namespace Doom.Things.Tests
             (9,    30, 11),  // SPOS: S_SPOS_DIE5, frame 11 = 'L'
             (3001, 60, 12),  // TROO: S_TROO_DIE5, frame 12 = 'M'
             (3002, 150, 13), // SARG: S_SARG_DIE6, frame 13 = 'N'
+            (58,   150, 13), // spectre (same as demon)
+            (3003, 1000, 14), // BOSS: S_BOSS_DIE7, frame 14 = 'O'
         };
 
         private static string FreedoomPath =>

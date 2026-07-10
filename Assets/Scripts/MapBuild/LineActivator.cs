@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Doom.Map;
 using Doom.Specials;
@@ -21,6 +22,11 @@ namespace Doom.MapBuild
         PlayerInventory inventory;
         SoundSystem sound;
         float keyDenyCooldown;
+        TeleportLanding[] teleportLandings;
+        PlayerController playerLook;
+        WalkLineIndex walkIndex;
+        readonly List<int> walkQuery = new List<int>(32);
+        LineRef[] cachedLineRefs;
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
                          float worldScale, Transform cam, SoundSystem sound = null)
@@ -30,6 +36,10 @@ namespace Doom.MapBuild
             onceFired = new bool[map.LineDefs.Length];
             moving = new bool[map.Sectors.Length];
             lastPos = transform.position;
+            teleportLandings = TeleportRules.CollectLandings(map);
+            playerLook = GetComponent<PlayerController>();
+            walkIndex = new WalkLineIndex(map, worldScale);
+            cachedLineRefs = null;
             instance = this;
         }
 
@@ -61,11 +71,28 @@ namespace Doom.MapBuild
             instance.UseNearestDoorAt(pos, radius);
         }
 
+        /// Monster walk-over: fire MonsterActivatable Walk specials crossed from→to.
+        public static void MonsterCrossed(Vector3 from, Vector3 to, Transform body)
+        {
+            if (instance == null || body == null) return;
+            instance.pendingMonsterBody = body;
+            try
+            {
+                instance.HandleActorWalk(from, to, TeleportActorKind.Monster);
+            }
+            finally
+            {
+                instance.pendingMonsterBody = null;
+            }
+        }
+
+        Transform pendingMonsterBody;
+
         void UseNearestDoorAt(Vector3 pos, float radius)
         {
             LineRef best = null;
             float bestDist = float.MaxValue;
-            foreach (var lr in FindObjectsByType<LineRef>(FindObjectsSortMode.None))
+            foreach (var lr in CachedLineRefs())
             {
                 if (!IsUsableDoor(lr)) continue;
                 float d = Vector3.Distance(pos, lr.transform.position);
@@ -78,6 +105,13 @@ namespace Doom.MapBuild
             if (lineIndex >= 0) Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
         }
 
+        LineRef[] CachedLineRefs()
+        {
+            if (cachedLineRefs == null)
+                cachedLineRefs = FindObjectsByType<LineRef>(FindObjectsSortMode.None);
+            return cachedLineRefs;
+        }
+
         void Update()
         {
             if (map == null) return;
@@ -87,7 +121,17 @@ namespace Doom.MapBuild
         }
 
         /// Test hook: directly activate a linedef as if pushed (Stage 6a PlayMode tests).
-        public void ActivateLineForTest(int lineIndex) => Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
+        public void ActivateLineForTest(int lineIndex) =>
+            Activate(lineIndex, TriggerKind.Push, alsoSwitch: true, TeleportActorKind.Player);
+
+        /// Test hook: fire a Walk teleport linedef as the player (no geometric cross required).
+        public bool ActivateTeleportForTest(int lineIndex)
+        {
+            if (map == null || lineIndex < 0 || lineIndex >= map.LineDefs.Length) return false;
+            var before = transform.position;
+            Activate(lineIndex, TriggerKind.Walk, alsoSwitch: false, TeleportActorKind.Player);
+            return (transform.position - before).sqrMagnitude > 1e-6f;
+        }
         /// Test hook: read the live (raw DOOM-unit) ceiling height of a sector.
         public float GetSectorCeilForTest(int sector) => heights.CeilRaw(sector);
         /// Test hook: is a mover currently active on this sector?
@@ -254,16 +298,46 @@ namespace Doom.MapBuild
         void HandleWalk()
         {
             Vector3 a = lastPos, b = transform.position;
-            if ((b - a).sqrMagnitude < 1e-8f) return;
-            for (int i = 0; i < map.LineDefs.Length; i++)
+            HandleActorWalk(a, b, TeleportActorKind.Player);
+        }
+
+        void HandleActorWalk(Vector3 from, Vector3 to, TeleportActorKind actor)
+        {
+            if (map == null) return;
+            if ((to - from).sqrMagnitude < 1e-8f) return;
+            Vector2 a = new(from.x, from.z);
+            Vector2 b = new(to.x, to.z);
+            if (walkIndex != null)
+                walkIndex.QuerySegment(a, b, walkQuery);
+            else
             {
+                walkQuery.Clear();
+                for (int i = 0; i < map.LineDefs.Length; i++) walkQuery.Add(i);
+            }
+
+            for (int qi = 0; qi < walkQuery.Count; qi++)
+            {
+                int i = walkQuery[qi];
                 if (onceFired[i]) continue;
                 var ld = map.LineDefs[i];
                 if (ld.Special == 0) continue;
                 if (!LineSpecialTable.TryGet(ld.Special, out var sp)) continue;
                 if (sp.Trigger != TriggerKind.Walk) continue;
-                if (CrossesLine(a, b, ld)) Activate(i, TriggerKind.Walk, alsoSwitch: false);
+                if (actor == TeleportActorKind.Monster && !sp.MonsterActivatable) continue;
+                if (!CrossesLine(from, to, ld)) continue;
+                if (!CrossedFromFrontSide(from, ld)) continue;
+                Activate(i, TriggerKind.Walk, alsoSwitch: false, actor);
             }
+        }
+
+        bool CrossedFromFrontSide(Vector3 from, LineDef ld)
+        {
+            if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) return false;
+            var v1 = map.Vertexes[ld.V1];
+            var v2 = map.Vertexes[ld.V2];
+            return TeleportRules.IsOnFrontSide(
+                from.x / worldScale, from.z / worldScale,
+                v1.X, v1.Y, v2.X, v2.Y);
         }
 
         bool CrossesLine(Vector3 a, Vector3 b, LineDef ld)
@@ -286,7 +360,8 @@ namespace Doom.MapBuild
 
         bool IsValidVertex(int idx) => idx >= 0 && idx < map.Vertexes.Length;
 
-        void Activate(int lineIndex, TriggerKind via, bool alsoSwitch)
+        void Activate(int lineIndex, TriggerKind via, bool alsoSwitch,
+                      TeleportActorKind actor = TeleportActorKind.Player)
         {
             var ld = map.LineDefs[lineIndex];
             if (!LineSpecialTable.TryGet(ld.Special, out var sp)) return;
@@ -308,6 +383,35 @@ namespace Doom.MapBuild
 
                 if (sp.Trigger == TriggerKind.Switch)
                     sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
+
+                if (!sp.Repeatable) onceFired[lineIndex] = true;
+                return;
+            }
+
+            if (sp.Category == SpecialCategory.Teleport)
+            {
+                if (!TeleportRules.CanActorUse(ld.Special, actor))
+                    return;
+                if (!TeleportRules.TrySelect(map, ld.Tag, teleportLandings, out var landing))
+                {
+                    Debug.LogWarning($"[7e] teleport line {lineIndex} tag {ld.Tag}: no landing");
+                    return;
+                }
+
+                Transform body = actor == TeleportActorKind.Player
+                    ? transform
+                    : null;
+                // Monster body is passed via pendingMonsterBody when activated from MonsterCrossed.
+                if (actor == TeleportActorKind.Monster)
+                    body = pendingMonsterBody;
+                if (body == null) return;
+
+                var cc = actor == TeleportActorKind.Player
+                    ? GetComponent<CharacterController>()
+                    : null;
+                var look = actor == TeleportActorKind.Player ? playerLook : null;
+                if (!TeleportExecutor.TryTeleport(map, landing, body, worldScale, cc, look, sound))
+                    return;
 
                 if (!sp.Repeatable) onceFired[lineIndex] = true;
                 return;

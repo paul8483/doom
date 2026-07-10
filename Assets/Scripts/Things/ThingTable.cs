@@ -32,10 +32,10 @@ namespace Doom.Things
             Add(65,   "CPOS", 0, 20, 56, Mon);   // chaingunner
             Add(3001, "TROO", 0, 20, 56, Mon, health: 60, corpseFrame: 12);   // imp
             Add(3002, "SARG", 0, 30, 56, Mon, health: 150, corpseFrame: 13);   // demon
-            Add(58,   "SARG", 0, 30, 56, Mon);   // spectre
+            Add(58,   "SARG", 0, 30, 56, Mon, health: 150, corpseFrame: 13);   // spectre
             Add(3006, "SKUL", 0, 16, 56, ThingFlags.Solid | ThingFlags.Shootable); // lost soul
             Add(3005, "HEAD", 0, 31, 56, Mon);   // cacodemon
-            Add(3003, "BOSS", 0, 24, 64, Mon);   // baron of hell
+            Add(3003, "BOSS", 0, 24, 64, Mon, health: 1000, corpseFrame: 14);  // baron of hell
             Add(69,   "BOS2", 0, 24, 64, Mon);   // hell knight
             Add(68,   "BSPI", 0, 64, 64, Mon);   // arachnotron
             Add(71,   "PAIN", 0, 31, 56, Mon);   // pain elemental

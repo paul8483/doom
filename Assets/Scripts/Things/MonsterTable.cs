@@ -95,6 +95,54 @@ namespace Doom.Things
                     Death = new[] { "DSSGTDTH" },
                 },
             },
+            // Spectre: same AI as demon (MF_SHADOW rendering deferred).
+            [58] = new MonsterDef
+            {
+                Speed = 10, PainChance = 180, ReactionMoves = 8,
+                MeleeMod = 10, MeleeMult = 4, HitscanCount = 0, HasMissile = false,
+                Stand = new MonsterSeq(new[] { 0, 1 }, new[] { 10, 10 }),
+                Run = new MonsterSeq(new[] { 0, 0, 1, 1, 2, 2, 3, 3 },
+                                     new[] { 2, 2, 2, 2, 2, 2, 2, 2 }),
+                Attack = new MonsterSeq(new[] { 4, 5, 6 }, new[] { 8, 8, 8 }),
+                FireIndex = 2,
+                Pain = new MonsterSeq(new[] { 7, 7 }, new[] { 2, 2 }),
+                Death = new MonsterSeq(new[] { 8, 9, 10, 11, 12 }, new[] { 8, 8, 4, 4, 4 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSSGTSIT" },
+                    Active = "DSDMACT",
+                    RangedAttack = null,
+                    MeleeAttack = "DSSGTATK",
+                    Pain = "DSDMPAIN",
+                    Death = new[] { "DSSGTDTH" },
+                },
+            },
+            [3003] = new MonsterDef // BOSS, baron of hell
+            {
+                Speed = 8, PainChance = 50, ReactionMoves = 8,
+                MeleeMod = 10, MeleeMult = 10, HitscanCount = 0, HasMissile = true,
+                MissileSpeed = 15, MissileImpactMod = 8, MissileImpactMult = 8,
+                MissileRadius = 6, MissileSpawnHeight = 32, MissileSprite = "BAL7",
+                MissileFlyFrames = new[] { 0, 1 }, MissileFlyTics = new[] { 4, 4 },
+                MissileExplodeFrames = new[] { 2, 3, 4 }, MissileExplodeTics = new[] { 6, 6, 6 },
+                Stand = new MonsterSeq(new[] { 0, 1 }, new[] { 10, 10 }),
+                Run = new MonsterSeq(new[] { 0, 0, 1, 1, 2, 2, 3, 3 },
+                                     new[] { 3, 3, 3, 3, 3, 3, 3, 3 }),
+                Attack = new MonsterSeq(new[] { 4, 5, 6 }, new[] { 8, 8, 8 }),
+                FireIndex = 2,
+                Pain = new MonsterSeq(new[] { 7, 7 }, new[] { 2, 2 }),
+                Death = new MonsterSeq(new[] { 8, 9, 10, 11, 12, 13, 14 },
+                                       new[] { 8, 8, 8, 8, 8, 8, 8 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSBRSSIT" },
+                    Active = "DSDMACT",
+                    RangedAttack = "DSFIRSHT",
+                    MeleeAttack = "DSCLAW",
+                    Pain = "DSDMPAIN",
+                    Death = new[] { "DSBRSDTH" },
+                },
+            },
         };
 
         public static bool TryGet(int doomEdNum, out MonsterDef def)

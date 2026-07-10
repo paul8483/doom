@@ -173,17 +173,18 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.ProgressionBlocker,
                         "Teleport classified but not yet executed (Task 14)");
                 case SpecialCategory.Crusher:
-                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.ProgressionBlocker,
-                        "Crusher classified but not yet executed (Task 14)");
+                    // No crusher linedefs on Freedoom E1; keep classified for Doom II maps.
+                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.Unsupported,
+                        "Crusher classified; not present on E1 (deferred)");
                 case SpecialCategory.Donut:
-                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.ProgressionBlocker,
-                        "Donut classified but not yet executed");
+                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.Unsupported,
+                        "Donut classified; not present on E1 (deferred)");
                 case SpecialCategory.Light:
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.HarmlessVisual,
-                        "Light special — cosmetic until Task 14");
+                        "Light special — cosmetic (static lightlevel still applies)");
                 case SpecialCategory.Scroll:
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.HarmlessVisual,
-                        "Scroll special — cosmetic until Task 14");
+                        "Scroll special — cosmetic UV motion deferred");
                 default:
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.Unsupported,
                         $"unknown non-executable category {sp.Category}");
@@ -196,8 +197,8 @@ namespace Doom.Map.Tests
             if (SectorDamageTable.DamagePerTick(special) > 0)
             {
                 if (special == 11)
-                    return new CompatibilityEntry("sector", special, CompatibilityStatus.ProgressionBlocker,
-                        "damage implemented; low-HP exit not yet executed (Task 3)");
+                    return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
+                        "floor damage + low-HP exit (special 11)");
                 return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
                     $"floor damage {SectorDamageTable.DamagePerTick(special)}/tic");
             }
@@ -205,14 +206,15 @@ namespace Doom.Map.Tests
             switch (special)
             {
                 case 9:
-                    return new CompatibilityEntry("sector", special, CompatibilityStatus.HarmlessVisual,
-                        "secret sector — counting deferred to Task 7");
+                    return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
+                        "secret sector — counted by LevelStatsTracker");
                 case 1: case 2: case 3: case 8: case 12: case 13: case 17:
                     return new CompatibilityEntry("sector", special, CompatibilityStatus.HarmlessVisual,
                         "sector light effect — static lightlevel still applies");
                 case 10: case 14:
-                    return new CompatibilityEntry("sector", special, CompatibilityStatus.ProgressionBlocker,
-                        "timed door sector special not executed");
+                    // Not present on Freedoom E1; keep classified for completeness.
+                    return new CompatibilityEntry("sector", special, CompatibilityStatus.Unsupported,
+                        "timed door sector special not executed (not on E1)");
                 default:
                     return new CompatibilityEntry("sector", special, CompatibilityStatus.Unsupported,
                         "unknown sector special");
@@ -229,8 +231,8 @@ namespace Doom.Map.Tests
                 return new CompatibilityEntry("thing", type, CompatibilityStatus.HarmlessVisual,
                     "deathmatch start (ignored)");
             if (type == 14)
-                return new CompatibilityEntry("thing", type, CompatibilityStatus.ProgressionBlocker,
-                    "teleport destination — required by teleport (Task 14)");
+                return new CompatibilityEntry("thing", type, CompatibilityStatus.Implemented,
+                    "teleport destination (TeleportRules / TeleportExecutor)");
 
             if (MonsterTable.TryGet(type, out _))
                 return new CompatibilityEntry("thing", type, CompatibilityStatus.Implemented,

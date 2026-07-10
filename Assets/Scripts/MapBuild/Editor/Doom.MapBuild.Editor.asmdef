@@ -1,0 +1,14 @@
+{
+    "name": "Doom.MapBuild.Editor",
+    "rootNamespace": "Doom.MapBuild.Editor",
+    "references": ["Doom.MapBuild"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

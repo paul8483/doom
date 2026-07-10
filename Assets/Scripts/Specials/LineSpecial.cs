@@ -57,6 +57,6 @@ namespace Doom.Specials
             Category == SpecialCategory.Door || Category == SpecialCategory.LockedDoor ||
             Category == SpecialCategory.Floor || Category == SpecialCategory.Ceiling ||
             Category == SpecialCategory.Plat || Category == SpecialCategory.Stair ||
-            Category == SpecialCategory.Exit;
+            Category == SpecialCategory.Exit || Category == SpecialCategory.Teleport;
     }
 }

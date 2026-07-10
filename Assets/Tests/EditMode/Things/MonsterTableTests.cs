@@ -9,10 +9,10 @@ namespace Doom.Things.Tests
 {
     public class MonsterTableTests
     {
-        static readonly int[] Eds = { 3004, 9, 3001, 3002 };
+        static readonly int[] Eds = { 3004, 9, 3001, 3002, 58, 3003 };
 
         [Test]
-        public void All_four_monsters_have_consistent_defs()
+        public void All_e1_roster_monsters_have_consistent_defs()
         {
             foreach (int ed in Eds)
             {
@@ -120,6 +120,18 @@ namespace Doom.Things.Tests
             Assert.That(sarg.HasMissile, Is.False);
             Assert.That(sarg.Run.Tics[0], Is.EqualTo(2));
             Assert.That(sarg.Death.Frames, Is.EqualTo(new[] { 8, 9, 10, 11, 12 })); // I..M, труп N=13
+
+            Assert.That(MonsterTable.TryGet(58, out var spectre), Is.True, "doomednum 58");
+            Assert.That(spectre.Speed, Is.EqualTo(sarg.Speed));
+            Assert.That(spectre.MeleeMult, Is.EqualTo(sarg.MeleeMult));
+
+            Assert.That(MonsterTable.TryGet(3003, out var boss), Is.True, "doomednum 3003");
+            Assert.That(boss.HasMissile, Is.True);
+            Assert.That(boss.MissileSprite, Is.EqualTo("BAL7"));
+            Assert.That(boss.MissileSpeed, Is.EqualTo(15));
+            Assert.That(boss.PainChance, Is.EqualTo(50));
+            Assert.That(boss.MeleeMult, Is.EqualTo(10));
+            Assert.That(boss.Death.Frames.Length, Is.EqualTo(7));
         }
 
         [Test]
@@ -141,6 +153,10 @@ namespace Doom.Things.Tests
             Assert.That(MonsterTable.TryGet(3001, out var imp), Is.True, "MonsterTable ed 3001");
             foreach (int f in imp.MissileFlyFrames) Assert.That(sprites.TryGet("BAL1", f, 0, out _), Is.True, $"BAL1 fly {f}");
             foreach (int f in imp.MissileExplodeFrames) Assert.That(sprites.TryGet("BAL1", f, 0, out _), Is.True, $"BAL1 boom {f}");
+            // Baron green ball BAL7.
+            Assert.That(MonsterTable.TryGet(3003, out var baron), Is.True);
+            foreach (int f in baron.MissileFlyFrames) Assert.That(sprites.TryGet("BAL7", f, 0, out _), Is.True, $"BAL7 fly {f}");
+            foreach (int f in baron.MissileExplodeFrames) Assert.That(sprites.TryGet("BAL7", f, 0, out _), Is.True, $"BAL7 boom {f}");
         }
     }
 }
