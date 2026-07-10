@@ -98,7 +98,7 @@ DOOM-уровень — двумерная карта, где высоту за�
 
 ## Этап 6. Игровая логика
 
-Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; **6a–6f завершены**. Stage 7: **7a–7b ✅**, следующий — 7c.
+Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; **6a–6f завершены**. Stage 7: **7a–7d ✅**, следующий — 7e.
 
 - Здоровье, броня, урон. ✅ (под-этап 6b)
 - Оружие и стрельба. ✅ (под-этап 6c)
@@ -131,8 +131,8 @@ DOOM-уровень — двумерная карта, где высоту за�
 
 - Переходы между уровнями / campaign session. ✅ (под-этап 7a)
 - HUD: здоровье, патроны, оружие, лицо + intermission. ✅ (под-этап 7b)
-- Меню, настройки. (7c)
-- Сохранения. (7d)
+- Меню, настройки. ✅ (под-этап 7c)
+- Сохранения. ✅ (под-этап 7d)
 - Оптимизация, E1 specials, standalone build. (7e)
 - Тестирование на разных картах WAD.
 
@@ -143,6 +143,17 @@ DOOM-уровень — двумерная карта, где высоту за�
 **Под-этап 7b (HUD и intermission) ✅.** WAD-only status bar (`DoomHud`),
 `HudModel`/`FaceRules`, `LevelStats` + `IntermissionView`. Debug `PlayerHud`
 удалён. Коллайдеры на ML_BLOCKING midtextures (решётки).
+
+**Под-этап 7c (меню и настройки) ✅.** `GameFlowController` (Playing/Paused/
+Dead/Intermission/MainMenu), WAD `MenuController`, `GameSettingsData` +
+`SettingsStore`/`SettingsController` (SFX/music volume, sensitivity, invert Y,
+fullscreen); runtime volume и music pause/resume без рестарта sequencer.
+
+**Под-этап 7d (full-world saves) ✅.** Pure `SaveGame`/`PlayerSnapshot`/
+`WorldSnapshot` + `SaveGameCodec`/`SaveSlotStore`; Unity `WorldStateRegistry`/
+capture/restore/`SaveGameController`; Save из pause, Load из main/pause с
+WAD-identity preflight; scene reload и phased restore. PlayMode
+`WorldCapturePlayTests` + `SaveLoadPlayTests`.
 
 **Результат этапа:** завершённый ремейк с несколькими играбельными уровнями.
 
