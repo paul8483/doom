@@ -25,6 +25,7 @@ namespace Doom.MapBuild
         CapsuleCollider capsule;
         SpriteBillboard bb;
         EnemyHealth health;
+        SoundSystem sound;
         float tickAccum;
         float radiusM, heightM;
         int doomEdNum;
@@ -36,12 +37,14 @@ namespace Doom.MapBuild
         public void Init(MonsterDef def, bool ambush, int corpseFrame,
                          SpriteCache cache, float worldScale,
                          Transform player, SpriteBillboard bb, CapsuleCollider capsule,
-                         EnemyHealth health, DoomRandom rng, int doomEdNum = 0)
+                         EnemyHealth health, DoomRandom rng, int doomEdNum = 0,
+                         SoundSystem sound = null)
         {
             this.def = def; this.ambush = ambush; this.corpseFrame = corpseFrame;
             this.cache = cache; this.worldScale = worldScale;
             this.player = player; this.bb = bb; this.capsule = capsule;
             this.health = health; this.rng = rng; this.doomEdNum = doomEdNum;
+            this.sound = sound;
             target = player;
             radiusM = capsule != null ? capsule.radius : 0.5f;
             heightM = capsule != null ? capsule.height : 56f * worldScale;
@@ -98,6 +101,45 @@ namespace Doom.MapBuild
             }
             public void OnBecameCorpse()
             { if (c.bb != null && c.corpseFrame >= 0) c.bb.SetStaticFrame(c.corpseFrame); }
+            public void PlaySound(MonsterSoundCue cue, int variant) => c.PlayCue(cue, variant);
+        }
+
+        void PlayCue(MonsterSoundCue cue, int variant)
+        {
+            if (sound == null || def?.Sounds == null) return;
+            string name = ResolveCue(cue, variant);
+            if (!string.IsNullOrEmpty(name))
+                sound.PlayAt(name, transform.position);
+        }
+
+        string ResolveCue(MonsterSoundCue cue, int variant)
+        {
+            var s = def.Sounds;
+            switch (cue)
+            {
+                case MonsterSoundCue.Sight:
+                    return Pick(s.Sight, variant);
+                case MonsterSoundCue.Active:
+                    return s.Active;
+                case MonsterSoundCue.RangedAttack:
+                    return s.RangedAttack;
+                case MonsterSoundCue.MeleeAttack:
+                    return s.MeleeAttack;
+                case MonsterSoundCue.Pain:
+                    return s.Pain;
+                case MonsterSoundCue.Death:
+                    return Pick(s.Death, variant);
+                default:
+                    return null;
+            }
+        }
+
+        static string Pick(string[] names, int variant)
+        {
+            if (names == null || names.Length == 0) return null;
+            int i = variant % names.Length;
+            if (i < 0) i += names.Length;
+            return names[i];
         }
 
         void SpawnDeathDrop()
@@ -272,7 +314,8 @@ namespace Doom.MapBuild
         {
             if (target == null) return;
             Vector3 from = transform.position + Vector3.up * (def.MissileSpawnHeight * worldScale);
-            Projectile.Launch(cache, def, worldScale, rng, from, TargetCenter(), health);
+            // Launch SFX is owned by MonsterBrain (RangedAttack / DSFIRSHT).
+            Projectile.Launch(cache, def, worldScale, rng, from, TargetCenter(), health, sound);
         }
     }
 }

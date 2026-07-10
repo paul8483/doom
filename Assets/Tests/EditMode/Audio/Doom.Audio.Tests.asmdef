@@ -1,10 +1,9 @@
 {
-    "name": "Doom.Things.Tests",
-    "rootNamespace": "Doom.Things.Tests",
+    "name": "Doom.Audio.Tests",
+    "rootNamespace": "Doom.Audio.Tests",
     "references": [
-        "Doom.Things",
         "Doom.Wad",
-        "Doom.Graphics",
+        "Doom.Wad.Tests",
         "Doom.Audio",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

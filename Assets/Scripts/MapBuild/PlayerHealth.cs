@@ -21,15 +21,23 @@ namespace Doom.MapBuild
         /// Raised once when the player dies (health hits 0).
         public event Action Died;
 
+        /// Raised on non-lethal damage that actually reduced HP. Argument is HP lost.
+        public event Action<int> Damaged;
+
         public void TakeDamage(int amount)
         {
             if (deadAnnounced || amount <= 0) return;
+            int before = model.Health;
             model.ApplyDamage(amount);
             if (model.IsDead)
             {
                 deadAnnounced = true;
                 Died?.Invoke();
+                return;
             }
+            int lost = before - model.Health;
+            if (lost > 0)
+                Damaged?.Invoke(lost);
         }
 
         public bool GiveHealth(int amount, int cap) => model.GiveHealth(amount, cap);

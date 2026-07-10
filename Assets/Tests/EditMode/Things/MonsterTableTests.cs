@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using Doom.Wad;
@@ -30,6 +31,17 @@ namespace Doom.Things.Tests
                 Assert.That(m.FireIndex, Is.InRange(0, m.Attack.Frames.Length - 1), $"{ed} fireIndex");
                 // Хоть какая-то атака есть.
                 Assert.That(m.MeleeMod > 0 || m.HitscanCount > 0 || m.HasMissile, $"{ed} атаки");
+                Assert.That(m.Sounds, Is.Not.Null, $"{ed} Sounds");
+                Assert.That(m.Sounds.Sight, Is.Not.Null.And.Not.Empty, $"{ed} Sight");
+                Assert.That(m.Sounds.Pain, Is.Not.Null.And.Not.Empty, $"{ed} Pain");
+                Assert.That(m.Sounds.Death, Is.Not.Null.And.Not.Empty, $"{ed} Death");
+                foreach (string s in m.Sounds.Sight.Concat(m.Sounds.Death)
+                             .Append(m.Sounds.Pain).Append(m.Sounds.Active)
+                             .Append(m.Sounds.RangedAttack).Append(m.Sounds.MeleeAttack))
+                {
+                    if (string.IsNullOrEmpty(s)) continue;
+                    Assert.That(s, Does.StartWith("DS"), $"{ed} sound {s}");
+                }
                 if (m.HasMissile)
                 {
                     Assert.That(m.MissileSprite, Is.Not.Null, $"{ed} missileSprite");
@@ -41,6 +53,25 @@ namespace Doom.Things.Tests
                         Assert.That(frames.Length, Is.GreaterThan(0), $"{ed} {name} пустая");
                         foreach (int t in tics) Assert.That(t, Is.GreaterThan(0), $"{ed} {name} tics");
                     }
+                }
+            }
+        }
+
+        [Test]
+        public void Sound_lumps_decode_in_freedoom()
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, "wads", "freedoom1.wad");
+            using var wad = WadFile.Open(path);
+            foreach (int ed in Eds)
+            {
+                Assert.That(MonsterTable.TryGet(ed, out var m), Is.True);
+                foreach (string name in m.Sounds.Sight.Concat(m.Sounds.Death)
+                             .Append(m.Sounds.Pain).Append(m.Sounds.Active)
+                             .Append(m.Sounds.RangedAttack).Append(m.Sounds.MeleeAttack))
+                {
+                    if (string.IsNullOrEmpty(name)) continue;
+                    Assert.That(Doom.Audio.SoundCatalog.TryRead(wad, name, out var snd), Is.True, name);
+                    Assert.That(snd.Samples, Is.Not.Empty, name);
                 }
             }
         }

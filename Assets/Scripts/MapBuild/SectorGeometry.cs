@@ -32,6 +32,12 @@ namespace Doom.MapBuild
             { lastFloor[s] = heights.FloorHeight(s); lastCeil[s] = heights.CeilingHeight(s); }
         }
 
+        public Transform GetSectorRoot(int sector)
+        {
+            if (sector < 0 || sector >= sectorRoots.Length) return null;
+            return sectorRoots[sector];
+        }
+
         /// Rebuild sector s and every neighbor sharing a line (wall heights depend
         /// on both sides). The per-frame skip is applied by the CALLER (SectorMover
         /// only calls this when the moving sector's rounded height changed).

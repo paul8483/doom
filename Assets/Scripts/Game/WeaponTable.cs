@@ -10,6 +10,7 @@ namespace Doom.Game
             FireFrames = new[] { 1, 2, 3, 2, 1 }, FireTics = new[] { 4, 4, 5, 4, 5 },
             FlashSprite = null, FlashFrames = System.Array.Empty<int>(),
             FlashTics = System.Array.Empty<int>(),
+            FireSound = "DSPUNCH",
         };
 
         static readonly WeaponDef Pistol = new WeaponDef
@@ -19,6 +20,7 @@ namespace Doom.Game
             Sprite = "PISG", IdleFrame = 0,
             FireFrames = new[] { 0, 1, 2, 1 }, FireTics = new[] { 4, 6, 4, 5 },
             FlashSprite = "PISF", FlashFrames = new[] { 0 }, FlashTics = new[] { 7 },
+            FireSound = "DSPISTOL",
         };
 
         static readonly WeaponDef Shotgun = new WeaponDef
@@ -29,6 +31,7 @@ namespace Doom.Game
             FireFrames = new[] { 0, 0, 1, 2, 3, 2, 1, 0, 0 },
             FireTics = new[] { 3, 7, 5, 5, 4, 5, 5, 3, 7 },
             FlashSprite = "SHTF", FlashFrames = new[] { 0, 1 }, FlashTics = new[] { 4, 3 },
+            FireSound = "DSSHOTGN",
         };
 
         // DOOM: 2 выстрела за 8 тиков (S_CHAIN1 A 4 + S_CHAIN2 B 4). Моделируем
@@ -40,6 +43,7 @@ namespace Doom.Game
             Sprite = "CHGG", IdleFrame = 0,
             FireFrames = new[] { 1 }, FireTics = new[] { 4 },
             FlashSprite = "CHGF", FlashFrames = new[] { 0 }, FlashTics = new[] { 5 },
+            FireSound = "DSPISTOL",
         };
 
         public static WeaponDef Get(WeaponId id) => id switch

@@ -17,6 +17,7 @@ namespace Doom.MapBuild
         SpriteBillboard bb;
         float castRadius;
         EnemyHealth owner;
+        SoundSystem sound;
 
         int flyIdx;
         float flyLeft;
@@ -26,7 +27,7 @@ namespace Doom.MapBuild
 
         public static void Launch(SpriteCache cache, MonsterDef def, float worldScale,
                                   DoomRandom rng, Vector3 from, Vector3 targetPoint,
-                                  EnemyHealth owner = null)
+                                  EnemyHealth owner = null, SoundSystem sound = null)
         {
             var go = new GameObject($"Missile_{def.MissileSprite}",
                 typeof(MeshFilter), typeof(MeshRenderer));
@@ -38,7 +39,7 @@ namespace Doom.MapBuild
 
             var p = go.AddComponent<Projectile>();
             p.cache = cache; p.def = def; p.worldScale = worldScale; p.rng = rng;
-            p.bb = bb; p.owner = owner;
+            p.bb = bb; p.owner = owner; p.sound = sound;
             float speed = def.MissileSpeed * 35f * worldScale;      // юниты/тик → м/с
             Vector3 delta = targetPoint - from;
             if (delta.sqrMagnitude < 1e-8f) delta = Vector3.forward;
@@ -76,6 +77,8 @@ namespace Doom.MapBuild
 
         void OnImpact(Collider hitCollider)
         {
+            sound?.PlayAt("DSFIRXPL", transform.position);
+
             int damage = MonsterRules.RollDamage(rng, def.MissileImpactMod, def.MissileImpactMult);
 
             var player = hitCollider.GetComponent<PlayerHealth>();

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Doom.Game;
 
@@ -8,6 +9,9 @@ namespace Doom.MapBuild
     {
         public KeyInventory Keys { get; } = new KeyInventory();
         public PlayerPowers Powers { get; } = new PlayerPowers();
+
+        /// Raised after a successful <see cref="TryPickup"/> with the doomednum and SFX class.
+        public event Action<int, PickupSoundKind> PickedUp;
 
         PlayerHealth health;
         PlayerWeapons weapons;
@@ -34,6 +38,12 @@ namespace Doom.MapBuild
             bool ok = ItemRules.TryPickup(doomedNum, ctx);
             if (ok && ctx.PreferFist)
                 weapons.Loadout.TrySelect(WeaponId.Fist);
+            if (ok)
+            {
+                var kind = PickupSoundTable.Get(doomedNum);
+                if (kind != PickupSoundKind.None)
+                    PickedUp?.Invoke(doomedNum, kind);
+            }
             return ok;
         }
 

@@ -39,5 +39,19 @@ namespace Doom.Things
         public int FireIndex { get; init; }        // damage/projectile happens entering this entry
         public MonsterSeq Pain { get; init; }      // one-shot
         public MonsterSeq Death { get; init; }     // one-shot; then ThingDef.CorpseFrame
+
+        /// DMX lump names for this monster (Stage 6f). Never null for E1 roster.
+        public MonsterSoundSet Sounds { get; init; }
+    }
+
+    /// Sound lump names for one monster. Arrays may have multiple variants.
+    public sealed class MonsterSoundSet
+    {
+        public string[] Sight { get; init; }
+        public string Active { get; init; }
+        public string RangedAttack { get; init; }
+        public string MeleeAttack { get; init; }
+        public string Pain { get; init; }
+        public string[] Death { get; init; }
     }
 }

@@ -98,14 +98,14 @@ DOOM-уровень — двумерная карта, где высоту за�
 
 ## Этап 6. Игровая логика
 
-Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; 6a–6e завершены; **следующий — 6f (звук)**.
+Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; 6a–6e завершены; **6f SFX (Tasks 1–6) готовы; следующий шаг — музыка (Tasks 7–9)**.
 
 - Здоровье, броня, урон. ✅ (под-этап 6b)
 - Оружие и стрельба. ✅ (под-этап 6c)
 - ИИ врагов (преследование, атака, смерть). ✅ (под-этап 6d)
 - Подбираемые предметы (аптечки, патроны, ключи). ✅ (под-этап 6e)
 - Поведение секторов: двери, лифты, движущиеся платформы. ✅ (под-этап 6a)
-- Звук: эффекты и музыка из WAD.
+- Звук: эффекты ✅ (частично 6f); музыка из WAD — в работе (Tasks 7–9).
 
 **Под-этап 6a (двери и интерактивные секторы) ✅.** Перенесена таблица типов линий DOOM в новую чистую C#-сборку `Doom.Specials` (`LineSpecialTable`, `SectorActions`, `Neighbors`); `Doom.Map` получил `ISectorHeights` и перестроение геометрии сектора в рантайме по высотам пола/потолка; `Doom.MapBuild` — `RuntimeSectorHeights`, `SectorGeometry` (перестроение меша/коллайдера на месте), `SectorMover` (анимация высот) и `LineActivator` (триггеры Use/Walk/Switch) плюс ввод «Use» (клавиша E). Двери и лифты открываются/двигаются. Отложено: проверка ключей (запертые двери пока открываются), выходы с уровня, давильни (crusher), свет, телепорты, скроллинг текстур, звук, повторный запуск отработавшего мувера. Дизайн — `docs/superpowers/specs/2026-05-31-doors-design.md`; план реализации — `docs/superpowers/plans/2026-05-31-doors.md`.
 
@@ -116,6 +116,8 @@ DOOM-уровень — двумерная карта, где высоту за�
 **Под-этап 6d (ИИ врагов) ✅.** Четыре монстра E1 (POSS/SPOS/TROO/SARG) просыпаются от взгляда/урона/шума выстрела, преследуют DOOM-походкой, открывают двери, атакуют (hitscan/укус/фаербол), дерутся между собой и умирают с анимацией. FSM в `Doom.Game` (`MonsterBrain`, `MonsterRules`, `ChaseDir`), данные в `Doom.Things` (`MonsterDef`/`MonsterTable`), заливка шума `NoiseAlert` в `Doom.Specials`. Unity-глю: `SpriteBillboard.SetFrame`, `Projectile` (фаербол импа), `MonsterController` (движение, зрение, атаки, двери), `DamageSource`+infighting в `EnemyHealth`, навеска в `ThingSpawner`, `NoiseAlertSystem` (выстрелы будят сектор). **193 EditMode + 20 PlayMode** (включая 5× `MonsterAiPlayTests`, Task 11, commit `14ae50f`). **Facing fix (2026-07-10):** в `SpriteBillboard` оффсет ротации был `+202.5°` вместо дизайн-дока `+22.5°` — монстр лицом к камере всегда получал rot 4 (спина) вместо rot 0 (лицо); особенно заметно на hitscan POSS/SPOS. Исправлено на `+22.5°`; `Face()` каждый кадр в Chase/Attack/Pain. Визуальная приёмка (Task 12) подтверждена интерактивно на E1M1. Отложено: XDEATH, летающие монстры, звук (6f), A_Look chain-wake, ML_SOUNDBLOCK. Дизайн — `docs/superpowers/specs/2026-07-03-monster-ai-design.md`; план — `docs/superpowers/plans/2026-07-03-monster-ai.md`.
 
 **Под-этап 6e (подбираемые предметы) ✅.** Полный E1-набор через чистый роутер `ItemRules`: здоровье (stim/medi/bonus/soul), броня (green/blue/bonus), шесть ключей, рюкзак (×2 max + clip-грант), берсерк (heal-to-100, кулак ×10), радиокостюм (2100 тиков). `HealthModel` — GiveHealth/GiveArmor/GiveArmorBonus; новые `KeyInventory`/`PlayerKey`, `PlayerPowers`, `DeathDropTable` (POSS→CLIP, SPOS→SHOTGUN); `AmmoModel` — рюкзак. Unity: `PlayerInventory`, `ThingPickup`/`ThingSpawner` на все E1-предметы, `KeyMapping` + проверка ключей в `LineActivator`, ironfeet в `FloorDamageSystem`, дроп через `PickupFactory`, HUD KEYS/BERSERK/SUIT. Респавн сохраняет ключи. **215 EditMode + 25 PlayMode** (включая 5× `PickupPlayTests`). Отложено: invuln/invis/map/light-amp, ракеты/ячейки/новое оружие, звук (6f), анимация бонусов, полный HUD. Дизайн — `docs/superpowers/specs/2026-07-10-pickups-design.md`; план — `docs/superpowers/plans/2026-07-10-pickups.md`.
+
+**Под-этап 6f (звук) — SFX ✅, музыка ⏳.** `Doom.Audio` декодирует DMX `DS*`; `SoundCache`/`SoundSystem` в `Doom.MapBuild` (пул 2D/3D, loops); озвучены оружие, пикапы, игрок (pain/death), монстры E1 (FSM cues), фаербол impact, двери/лифты/switch/key-deny. PlayMode `SoundPlayTests` ×5. **Осталось:** MUS + GENMIDI + Nuked OPL3 + streaming `MusicPlayer` (Tasks 7–9), pre-warm closure (10), приёмка/docs (11–12). Дизайн — `docs/superpowers/specs/2026-07-10-sound-design.md`; план — `docs/superpowers/plans/2026-07-10-sound.md`.
 
 **Результат этапа:** играбельный уровень с базовым геймплеем.
 

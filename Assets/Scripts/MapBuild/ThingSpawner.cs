@@ -13,11 +13,13 @@ namespace Doom.MapBuild
         readonly SpriteCache cache;
         readonly float worldScale;
         readonly int worldMask;
+        readonly SoundSystem sound;
 
-        public ThingSpawner(SpriteCache cache, float worldScale)
+        public ThingSpawner(SpriteCache cache, float worldScale, SoundSystem sound = null)
         {
             this.cache = cache;
             this.worldScale = worldScale;
+            this.sound = sound;
             this.worldMask = ~0; // all layers; map geometry is on Default
         }
 
@@ -83,7 +85,7 @@ namespace Doom.MapBuild
                         bool ambush = (t.Flags & 0x0008) != 0;
                         var mc = go.AddComponent<MonsterController>();
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
-                                bb, col, eh, new DoomRandom(seedCounter++), t.Type);
+                                bb, col, eh, new DoomRandom(seedCounter++), t.Type, sound);
                         eh.SetController(mc);
                         foreach (var seq in new[] { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death })
                             foreach (int f in seq.Frames)

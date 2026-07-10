@@ -31,6 +31,9 @@ namespace Doom.MapBuild
         public SectorGeometry Geometry { get; private set; }
         public RuntimeSectorHeights RuntimeHeights { get; private set; }
 
+        /// Stage 6f SFX service. Created during Build() while the WAD is open.
+        public SoundSystem Sound { get; private set; }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -99,6 +102,14 @@ namespace Doom.MapBuild
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette);
 
+            // Stage 6f: decode DS* while the WAD is open; temporary fixed list
+            // until Tasks 3–6 replace it with table-driven collection.
+            var soundCache = new SoundCache(wad);
+            foreach (string sfx in TemporarySfxPrewarm)
+                soundCache.Get(sfx);
+            Sound = gameObject.GetComponent<SoundSystem>() ?? gameObject.AddComponent<SoundSystem>();
+            Sound.Init(soundCache, worldScale);
+
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
 
@@ -154,7 +165,7 @@ namespace Doom.MapBuild
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
             float fallbackY = bounds?.min.y ?? 0f;
             var playerGo = GameObject.Find("Player");
-            int spawned = new ThingSpawner(spriteCache, worldScale)
+            int spawned = new ThingSpawner(spriteCache, worldScale, Sound)
                 .SpawnAll(map, thingsRoot.transform, fallbackY, playerGo.transform);
             Debug.Log($"MapLoader: spawned {spawned} sprite things");
 
@@ -167,7 +178,26 @@ namespace Doom.MapBuild
                     noise.Init(map, runtimeHeights, weapons, playerGo.transform);
                 }
             }
+
+            // WAD closes when this method returns; further SoundCache misses must
+            // not touch the disposed stream.
+            soundCache.NotifyWadClosed();
         }
+
+        // Temporary until Task 10 gathers names from WeaponTable / MonsterTable /
+        // PickupSoundTable. Keep in sync with the Stage 6f source-of-truth table.
+        static readonly string[] TemporarySfxPrewarm =
+        {
+            "DSPUNCH", "DSPISTOL", "DSSHOTGN",
+            "DSITEMUP", "DSWPNUP", "DSGETPOW",
+            "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
+            "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
+            "DSFIRSHT", "DSFIRXPL", "DSCLAW",
+            "DSPOSIT1", "DSPOSIT2", "DSPOSIT3", "DSPOSACT", "DSPOPAIN",
+            "DSPODTH1", "DSPODTH2", "DSPODTH3",
+            "DSBGSIT1", "DSBGSIT2", "DSDMACT", "DSDMPAIN", "DSBGDTH1", "DSBGDTH2",
+            "DSSGTSIT", "DSSGTATK", "DSSGTDTH",
+        };
 
         // ── Player spawn ──────────────────────────────────────────────────────
         void SpawnPlayer(MapData map, Bounds? bounds, SpriteCache spriteCache)
@@ -234,7 +264,7 @@ namespace Doom.MapBuild
             // for Walk detection. Init with the runtime height/geometry registries
             // (set just before SpawnPlayer) and the player's camera transform.
             var activator = player.AddComponent<LineActivator>();
-            activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform);
+            activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform, Sound);
 
             // Health, floor damage, death/respawn, and a minimal HP/armor readout (Stage 6b).
             var health = player.AddComponent<PlayerHealth>();
@@ -270,6 +300,12 @@ namespace Doom.MapBuild
             death.Respawned += inventory.OnRespawn;
             death.SetWeapons(weapons);
             hud.SetWeapons(weapons);
+
+            if (Sound != null)
+            {
+                var playerSound = player.AddComponent<PlayerSoundController>();
+                playerSound.Init(Sound, weapons, inventory, health);
+            }
         }
 
         enum ColliderMode { None, Render, ThickWall }

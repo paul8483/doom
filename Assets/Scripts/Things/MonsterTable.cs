@@ -18,6 +18,15 @@ namespace Doom.Things
                 FireIndex = 1,
                 Pain = new MonsterSeq(new[] { 6, 6 }, new[] { 3, 3 }),
                 Death = new MonsterSeq(new[] { 7, 8, 9, 10 }, new[] { 5, 5, 5, 5 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSPOSIT1", "DSPOSIT2", "DSPOSIT3" },
+                    Active = "DSPOSACT",
+                    RangedAttack = "DSPISTOL",
+                    MeleeAttack = null,
+                    Pain = "DSPOPAIN",
+                    Death = new[] { "DSPODTH1", "DSPODTH2", "DSPODTH3" },
+                },
             },
             [9] = new MonsterDef // SPOS, shotgun guy
             {
@@ -30,6 +39,15 @@ namespace Doom.Things
                 FireIndex = 1,
                 Pain = new MonsterSeq(new[] { 6, 6 }, new[] { 3, 3 }),
                 Death = new MonsterSeq(new[] { 7, 8, 9, 10 }, new[] { 5, 5, 5, 5 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSPOSIT1", "DSPOSIT2", "DSPOSIT3" },
+                    Active = "DSPOSACT",
+                    RangedAttack = "DSSHOTGN",
+                    MeleeAttack = null,
+                    Pain = "DSPOPAIN",
+                    Death = new[] { "DSPODTH1", "DSPODTH2", "DSPODTH3" },
+                },
             },
             [3001] = new MonsterDef // TROO, imp
             {
@@ -46,6 +64,15 @@ namespace Doom.Things
                 FireIndex = 2,
                 Pain = new MonsterSeq(new[] { 7, 7 }, new[] { 2, 2 }),
                 Death = new MonsterSeq(new[] { 8, 9, 10, 11 }, new[] { 8, 8, 6, 6 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSBGSIT1", "DSBGSIT2" },
+                    Active = "DSDMACT",
+                    RangedAttack = "DSFIRSHT",
+                    MeleeAttack = "DSCLAW",
+                    Pain = "DSDMPAIN",
+                    Death = new[] { "DSBGDTH1", "DSBGDTH2" },
+                },
             },
             [3002] = new MonsterDef // SARG, demon
             {
@@ -58,6 +85,15 @@ namespace Doom.Things
                 FireIndex = 2,
                 Pain = new MonsterSeq(new[] { 7, 7 }, new[] { 2, 2 }),
                 Death = new MonsterSeq(new[] { 8, 9, 10, 11, 12 }, new[] { 8, 8, 4, 4, 4 }),
+                Sounds = new MonsterSoundSet
+                {
+                    Sight = new[] { "DSSGTSIT" },
+                    Active = "DSDMACT",
+                    RangedAttack = null,
+                    MeleeAttack = "DSSGTATK",
+                    Pain = "DSDMPAIN",
+                    Death = new[] { "DSSGTDTH" },
+                },
             },
         };
 

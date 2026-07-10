@@ -19,12 +19,14 @@ namespace Doom.MapBuild
         bool[] onceFired;        // per linedef
         bool[] moving;           // per sector: a mover is active
         PlayerInventory inventory;
+        SoundSystem sound;
+        float keyDenyCooldown;
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
-                         float worldScale, Transform cam)
+                         float worldScale, Transform cam, SoundSystem sound = null)
         {
             this.map = map; this.heights = heights; this.geometry = geometry;
-            this.worldScale = worldScale; this.cam = cam;
+            this.worldScale = worldScale; this.cam = cam; this.sound = sound;
             onceFired = new bool[map.LineDefs.Length];
             moving = new bool[map.Sectors.Length];
             lastPos = transform.position;
@@ -79,6 +81,7 @@ namespace Doom.MapBuild
         void Update()
         {
             if (map == null) return;
+            if (keyDenyCooldown > 0f) keyDenyCooldown -= Time.deltaTime;
             HandleWalk();
             lastPos = transform.position;
         }
@@ -274,6 +277,7 @@ namespace Doom.MapBuild
                 {
                     if (inventory != null)
                         Debug.Log($"need key {sp.Key}");
+                    PlayKeyDenied();
                     return;
                 }
             }
@@ -282,9 +286,76 @@ namespace Doom.MapBuild
                 ld.Tag == 0 ? SectorActions.FindManualDoorTarget(map, lineIndex)
                             : SectorActions.FindTaggedSectors(map, ld.Tag);
 
-            foreach (int s in targets) StartMover(s, sp);
+            bool any = false;
+            foreach (int s in targets)
+            {
+                StartMover(s, sp);
+                any = true;
+            }
+
+            if (any && sp.Trigger == TriggerKind.Switch)
+                sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
 
             if (!sp.Repeatable) onceFired[lineIndex] = true;
+        }
+
+        void PlayKeyDenied()
+        {
+            if (keyDenyCooldown > 0f) return;
+            keyDenyCooldown = 0.25f;
+            if (sound == null) return;
+            if (sound.Cache != null && sound.Cache.Get("DSNOWAY") != null)
+                sound.PlayLocal("DSNOWAY");
+            else
+                sound.PlayLocal("DSOOF");
+        }
+
+        Vector3 LineMidpoint(int lineIndex)
+        {
+            var ld = map.LineDefs[lineIndex];
+            if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) return transform.position;
+            var v1 = map.Vertexes[ld.V1];
+            var v2 = map.Vertexes[ld.V2];
+            return new Vector3(
+                (v1.X + v2.X) * 0.5f * worldScale,
+                0f,
+                (v1.Y + v2.Y) * 0.5f * worldScale);
+        }
+
+        Vector3 SectorSoundOrigin(int sector)
+        {
+            // Sector_* roots sit at map origin — use floor/ceiling mesh bounds center.
+            if (geometry != null)
+            {
+                var root = geometry.GetSectorRoot(sector);
+                if (root != null)
+                {
+                    Transform surface = root.Find("Floor") ?? root.Find("Ceiling");
+                    if (surface != null)
+                    {
+                        var mf = surface.GetComponent<MeshFilter>();
+                        if (mf != null && mf.sharedMesh != null)
+                            return mf.sharedMesh.bounds.center;
+                    }
+                }
+            }
+
+            // Fallback: average linedef vertices touching the sector.
+            float sx = 0f, sy = 0f;
+            int n = 0;
+            for (int i = 0; i < map.LineDefs.Length; i++)
+            {
+                var ld = map.LineDefs[i];
+                if (!LineTouchesSector(ld, sector)) continue;
+                if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) continue;
+                var v1 = map.Vertexes[ld.V1];
+                var v2 = map.Vertexes[ld.V2];
+                sx += v1.X + v2.X;
+                sy += v1.Y + v2.Y;
+                n += 2;
+            }
+            if (n == 0) return Vector3.zero;
+            return new Vector3(sx / n * worldScale, 0f, sy / n * worldScale);
         }
 
         void StartMover(int sector, LineSpecial sp)
@@ -300,19 +371,22 @@ namespace Doom.MapBuild
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
                 bool cycle = sp.Repeatable || sp.Type == 1 || sp.Type == 4 || sp.Type == 90 || sp.Type == 63;
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Ceiling,
-                            targetH, speed, cycle, waitSeconds: 4.3f, onDone: () => moving[sector] = false);
+                            targetH, speed, cycle, waitSeconds: 4.3f, onDone: () => moving[sector] = false,
+                            sound, MoverSoundProfile.Door, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Plat)
             {
                 int down = SectorActions.ComputeTargetHeight(map, heights, sector, TargetSpec.LowestNeighborFloor);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
-                            down, speed, cycle: true, waitSeconds: 3f, onDone: () => moving[sector] = false);
+                            down, speed, cycle: true, waitSeconds: 3f, onDone: () => moving[sector] = false,
+                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Floor)
             {
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
-                            targetH, speed, cycle: false, waitSeconds: 0f, onDone: () => moving[sector] = false);
+                            targetH, speed, cycle: false, waitSeconds: 0f, onDone: () => moving[sector] = false,
+                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Stair)
             {
@@ -323,7 +397,8 @@ namespace Doom.MapBuild
                     int captured = sec;
                     var m = gameObject.AddComponent<SectorMover>();
                     m.Begin(heights, geometry, sec, SectorMover.Surface.Floor, tgt, speed, false, 0f,
-                            onDone: () => moving[captured] = false);
+                            onDone: () => moving[captured] = false,
+                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sec));
                     moving[sec] = true;
                 }
                 return;

@@ -18,7 +18,18 @@ namespace Doom.Game.Tests
                 Assert.That(d.CycleTics, Is.GreaterThan(0));
                 if (d.FlashSprite != null)
                     Assert.That(d.FlashFrames.Length, Is.EqualTo(d.FlashTics.Length));
+                Assert.That(d.FireSound, Is.Not.Null.And.Not.Empty, $"{id}: FireSound");
+                Assert.That(d.FireSound, Does.StartWith("DS"), $"{id}: FireSound DS*");
             }
+        }
+
+        [Test]
+        public void Fire_sounds_match_doom_table()
+        {
+            Assert.That(WeaponTable.Get(WeaponId.Fist).FireSound, Is.EqualTo("DSPUNCH"));
+            Assert.That(WeaponTable.Get(WeaponId.Pistol).FireSound, Is.EqualTo("DSPISTOL"));
+            Assert.That(WeaponTable.Get(WeaponId.Shotgun).FireSound, Is.EqualTo("DSSHOTGN"));
+            Assert.That(WeaponTable.Get(WeaponId.Chaingun).FireSound, Is.EqualTo("DSPISTOL"));
         }
 
         [Test]

@@ -66,6 +66,7 @@ namespace Doom.Game
             {
                 State = MonsterState.Pain;
                 StartSeq(def.Pain, loop: false);
+                Emit(MonsterSoundCue.Pain, 0);
             }
         }
 
@@ -74,6 +75,7 @@ namespace Doom.Game
             if (State == MonsterState.Die || State == MonsterState.Dead) return;
             State = MonsterState.Die;
             world.OnDeathStarted();
+            EmitVariant(MonsterSoundCue.Death, def.Sounds?.Death);
             StartSeq(def.Death, loop: false);
         }
 
@@ -83,6 +85,7 @@ namespace Doom.Game
             reaction = def.ReactionMoves;
             moveDir = Dir8.None;
             moveCount = 0;
+            EmitVariant(MonsterSoundCue.Sight, def.Sounds?.Sight);
             StartSeq(def.Run, loop: true);
         }
 
@@ -156,6 +159,7 @@ namespace Doom.Game
             {
                 justAttacked = false;
                 NewDir();
+                MaybeActiveSound();
                 return;
             }
 
@@ -164,7 +168,7 @@ namespace Doom.Game
                 MonsterRules.InMeleeRange(world.DistanceToTarget(), world.TargetRadiusUnits()))
             {
                 EnterAttack();
-                return;
+                return; // A_Chase returns into attack state — no active sound this call
             }
 
             // Ranged (P_CheckMissileRange: sight, justHit, reaction, дистанционный бросок).
@@ -180,6 +184,14 @@ namespace Doom.Game
             }
 
             Move();
+            MaybeActiveSound();
+        }
+
+        void MaybeActiveSound()
+        {
+            // A_Chase end: `if (activesound && P_Random() < 3)`
+            if (!string.IsNullOrEmpty(def.Sounds?.Active) && rng.Next() < 3)
+                Emit(MonsterSoundCue.Active, 0);
         }
 
         bool MissileRangeCheck()
@@ -203,11 +215,29 @@ namespace Doom.Game
             if (def.MeleeMod > 0 && world.CanSeeTarget(false) &&
                 MonsterRules.InMeleeRange(world.DistanceToTarget(), world.TargetRadiusUnits()))
             {
+                Emit(MonsterSoundCue.MeleeAttack, 0);
                 world.MeleeHit(MonsterRules.RollDamage(rng, def.MeleeMod, def.MeleeMult));
             }
-            else if (def.HitscanCount > 0) world.FireHitscan(def.HitscanCount);
-            else if (def.HasMissile) world.LaunchMissile();
+            else if (def.HitscanCount > 0)
+            {
+                Emit(MonsterSoundCue.RangedAttack, 0);
+                world.FireHitscan(def.HitscanCount);
+            }
+            else if (def.HasMissile)
+            {
+                Emit(MonsterSoundCue.RangedAttack, 0);
+                world.LaunchMissile();
+            }
             // SARG без дальней атаки за пределами melee «промахивается» — ничего.
+        }
+
+        void Emit(MonsterSoundCue cue, int variant) => world.PlaySound(cue, variant);
+
+        void EmitVariant(MonsterSoundCue cue, string[] names)
+        {
+            if (names == null || names.Length == 0) return;
+            int variant = names.Length == 1 ? 0 : rng.Next() % names.Length;
+            Emit(cue, variant);
         }
 
         // A_Chase: `if (--actor->movecount<0 || !P_Move(actor)) P_NewChaseDir(actor);`

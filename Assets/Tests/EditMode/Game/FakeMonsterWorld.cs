@@ -37,5 +37,6 @@ namespace Doom.Game.Tests
         public void SetFrame(int frame) { LastFrame = frame; }
         public void OnDeathStarted() => Log.Add("death-start");
         public void OnBecameCorpse() => Log.Add("corpse");
+        public void PlaySound(MonsterSoundCue cue, int variant) => Log.Add($"sfx:{cue}:{variant}");
     }
 }

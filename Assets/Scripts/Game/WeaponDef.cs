@@ -21,6 +21,9 @@ namespace Doom.Game
         public int[] FlashFrames;
         public int[] FlashTics;
 
+        /// DMX lump name for the fire sound (e.g. "DSPISTOL"). Never null for E1 weapons.
+        public string FireSound;
+
         public int CycleTics
         {
             get { int s = 0; foreach (int t in FireTics) s += t; return s; }
