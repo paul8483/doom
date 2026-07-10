@@ -25,8 +25,18 @@ namespace Doom.MapBuild
             this.textures = textures;
             this.palette = palette;
             this.anisoLevel = anisoLevel;
-            opaqueShader = Shader.Find("Doom/Unlit");
-            cutoutShader = Shader.Find("Doom/UnlitCutout");
+            opaqueShader = RequireShader("Doom/Unlit");
+            cutoutShader = RequireShader("Doom/UnlitCutout");
+        }
+
+        static Shader RequireShader(string name)
+        {
+            var s = Shader.Find(name);
+            if (s == null)
+                throw new System.InvalidOperationException(
+                    $"Shader '{name}' not found in player build. " +
+                    "Add it to Project Settings → Graphics → Always Included Shaders.");
+            return s;
         }
 
         public Material GetMaterial(string name, bool masked)

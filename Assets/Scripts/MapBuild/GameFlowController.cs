@@ -15,8 +15,9 @@ namespace Doom.MapBuild
     {
         public const string PreviewSceneName = LevelTransitionController.PreviewSceneName;
 
-        /// When true (PlayMode default), MapLoader builds the level and enters Playing
-        /// without showing the main menu. MenuPlayTests set this false.
+        /// When true, MapLoader builds the level and enters Playing without the
+        /// main menu. Editor/PlayMode default is true (tests + hit-Play convenience).
+        /// Standalone player boots with this false → main menu (Stage 7e acceptance).
         public static bool AutoStartPlaying = true;
 
         /// One-shot: next MapLoader.Start skips geometry and opens the main menu.
@@ -29,6 +30,15 @@ namespace Doom.MapBuild
 
         float savedTimeScale = 1f;
         bool timeScaleSaved;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void ApplyPlayerBootDefaults()
+        {
+            // Fresh Windows build must open main menu, not E1M1. Leave Editor/PlayMode
+            // on AutoStartPlaying=true so existing tests keep auto-building the map.
+            if (!Application.isEditor)
+                AutoStartPlaying = false;
+        }
 
         public static GameFlowController Ensure()
         {

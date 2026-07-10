@@ -41,6 +41,10 @@ namespace Doom.MapBuild
             this.palette = palette;
             this.anisoLevel = anisoLevel;
             cutoutShader = Shader.Find("Doom/UnlitCutout");
+            if (cutoutShader == null)
+                throw new System.InvalidOperationException(
+                    "Shader 'Doom/UnlitCutout' not found in player build. " +
+                    "Add it to Project Settings → Graphics → Always Included Shaders.");
         }
 
         /// Resolve (sprite, frame, rotationIndex 0..7). Returns an invalid

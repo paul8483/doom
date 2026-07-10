@@ -82,6 +82,9 @@ namespace Doom.MapBuild
             if (FindAnyObjectByType<MapLoader>() != null) return;
             var go = new GameObject("MapLoader (auto)");
             var loader = go.AddComponent<MapLoader>();
+            // Blockout mats are unused once TextureCache runs (Stage 4+), but keep
+            // them for any legacy path. Prefer UI/Default — always in player builds;
+            // Standard is often stripped when nothing in the scene references it.
             loader.floorMaterial   = CreateBlockoutMaterial(new Color(0.227f, 0.227f, 0.227f));
             loader.ceilingMaterial = CreateBlockoutMaterial(new Color(0.333f, 0.333f, 0.333f));
             loader.wallMaterial    = CreateBlockoutMaterial(new Color(0.502f, 0.502f, 0.502f));
@@ -89,7 +92,13 @@ namespace Doom.MapBuild
 
         static Material CreateBlockoutMaterial(Color color)
         {
-            var m = new Material(Shader.Find("Standard"));
+            var shader = Shader.Find("UI/Default") ?? Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                Debug.LogError("MapLoader: no fallback shader for blockout materials");
+                return null;
+            }
+            var m = new Material(shader);
             m.color = color;
             return m;
         }
