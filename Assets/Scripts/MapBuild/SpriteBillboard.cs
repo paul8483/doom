@@ -80,6 +80,9 @@ namespace Doom.MapBuild
 
         public void SetDoomAngle(float degrees) => doomAngleDeg = degrees;
 
+        public float DoomAngleDegrees => doomAngleDeg;
+        public int CurrentFrame => frame;
+
         void LateUpdate()
         {
             if (cache == null) return;

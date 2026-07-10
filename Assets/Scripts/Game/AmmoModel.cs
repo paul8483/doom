@@ -74,6 +74,13 @@ namespace Doom.Game
             shells = Clamp(shellCount, GetMax(AmmoType.Shells));
         }
 
+        public void Capture(out int bulletCount, out int shellCount, out bool hasBackpack)
+        {
+            bulletCount = bullets;
+            shellCount = shells;
+            hasBackpack = HasBackpack;
+        }
+
         static int Clamp(int v, int max)
         {
             if (v < 0) return 0;

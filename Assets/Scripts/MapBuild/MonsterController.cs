@@ -57,6 +57,35 @@ namespace Doom.MapBuild
         public void NotifyDamaged() => brain.NotifyDamaged();
         public void NotifyKilled() => brain.NotifyKilled();
 
+        /// Apply transform/health/frame from a save. Dead monsters become corpses
+        /// without re-spawning death drops (those live in SpawnedPickups).
+        public void ApplySnapshotRestore(int healthValue, int frame, float angleDegrees, bool dead)
+        {
+            if (bb != null)
+                bb.SetDoomAngle(angleDegrees);
+
+            if (dead || healthValue <= 0)
+            {
+                dropSpawned = true;
+                if (health != null) health.RestoreHealth(0);
+                if (capsule != null) capsule.enabled = false;
+                if (brain != null)
+                {
+                    brain.RestoreChaseBookkeeping(
+                        MonsterState.Dead, 0, 0, Dir8.None, 0, 0, false, false);
+                }
+                if (bb != null)
+                {
+                    int corpse = frame >= 0 ? frame : corpseFrame;
+                    if (corpse >= 0) bb.SetStaticFrame(corpse);
+                }
+                return;
+            }
+
+            if (health != null) health.RestoreHealth(healthValue);
+            if (bb != null && frame >= 0) bb.SetFrame(frame);
+        }
+
         static float NormAngle(float deg)
         {
             deg %= 360f;
@@ -315,7 +344,7 @@ namespace Doom.MapBuild
             if (target == null) return;
             Vector3 from = transform.position + Vector3.up * (def.MissileSpawnHeight * worldScale);
             // Launch SFX is owned by MonsterBrain (RangedAttack / DSFIRSHT).
-            Projectile.Launch(cache, def, worldScale, rng, from, TargetCenter(), health, sound);
+            Projectile.Launch(cache, def, worldScale, rng, from, TargetCenter(), health, sound, doomEdNum);
         }
     }
 }

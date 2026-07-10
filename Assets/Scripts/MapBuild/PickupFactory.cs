@@ -7,7 +7,8 @@ namespace Doom.MapBuild
     public static class PickupFactory
     {
         public static GameObject Spawn(SpriteCache cache, float worldScale, int doomedNum,
-                                       Vector3 feetPosition, Transform parent = null)
+                                       Vector3 feetPosition, Transform parent = null,
+                                       int? forcedSpawnId = null)
         {
             if (!ThingTable.TryGet(doomedNum, out var def)) return null;
 
@@ -24,6 +25,16 @@ namespace Doom.MapBuild
             cache.Get(def.Sprite, def.Frame, 0);
 
             go.AddComponent<ThingPickup>().Init(doomedNum, worldScale);
+
+            var registry = WorldStateRegistry.Instance;
+            if (registry != null)
+            {
+                int spawnId = forcedSpawnId ?? registry.AllocateSpawnId();
+                var id = go.AddComponent<RuntimeEntityIdentity>();
+                id.Init(spawnId);
+                registry.RegisterSpawned(id);
+            }
+
             return go;
         }
     }

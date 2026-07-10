@@ -75,6 +75,11 @@ namespace Doom.MapBuild
             var kb = Keyboard.current;
             if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
 
+            // Slot submenus handle Escape themselves (Back).
+            if (Menu != null &&
+                (Menu.Kind == MenuKind.SaveSlots || Menu.Kind == MenuKind.LoadSlots))
+                return;
+
             if (State == GameFlowState.Playing)
                 RequestPause();
             else if (State == GameFlowState.Paused)
@@ -91,6 +96,7 @@ namespace Doom.MapBuild
         public void EnterMainMenu()
         {
             var host = GameSessionHost.Ensure();
+            host.ClearPendingRestore();
             host.Session.Clear();
             SetState(GameFlowState.MainMenu);
             FreezeGameplay();
@@ -170,7 +176,9 @@ namespace Doom.MapBuild
         public void StartNewGame()
         {
             var host = GameSessionHost.Ensure();
+            host.ClearPendingRestore();
             host.Session.Clear();
+            host.SetNextSpawnId(0);
             host.Session.BeginNewGame("E1M1", CollectAvailableMaps());
             EnterLoading();
             SceneManager.LoadScene(PreviewSceneName, LoadSceneMode.Single);
@@ -180,7 +188,9 @@ namespace Doom.MapBuild
         public void QuitToMainMenu()
         {
             var host = GameSessionHost.Ensure();
+            host.ClearPendingRestore();
             host.Session.Clear();
+            host.SetNextSpawnId(0);
             EnterLoading();
             ForceMainMenuOnNextLoad = true;
             SceneManager.LoadScene(PreviewSceneName, LoadSceneMode.Single);

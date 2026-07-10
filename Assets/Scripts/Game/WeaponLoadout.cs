@@ -5,10 +5,15 @@ namespace Doom.Game
     {
         readonly bool[] owned = new bool[4];
         public WeaponId Current { get; private set; }
+        /// Queued weapon switch (save contract); cleared on Reset / successful select.
+        WeaponId? pending;
 
         public WeaponLoadout() { Reset(); }
 
         public bool Has(WeaponId id) => owned[(int)id];
+        public bool HasPending => pending.HasValue;
+        public WeaponId Pending =>
+            pending ?? throw new System.InvalidOperationException("No pending weapon.");
 
         /// true если оружие новое (и тогда авто-переключение на него, как в DOOM).
         public bool Give(WeaponId id)
@@ -23,8 +28,19 @@ namespace Doom.Game
         {
             if (!owned[(int)id]) return false;
             Current = id;
+            pending = null;
             return true;
         }
+
+        /// Queue a switch for later (e.g. mid-cooldown). Must be owned.
+        public bool TryQueuePending(WeaponId id)
+        {
+            if (!owned[(int)id]) return false;
+            pending = id;
+            return true;
+        }
+
+        public void ClearPending() => pending = null;
 
         /// Лучшее оружие, на которое хватает патронов (порядок P_CheckAmmo).
         public WeaponId BestAvailable(AmmoModel ammo)
@@ -43,6 +59,7 @@ namespace Doom.Game
             owned[(int)WeaponId.Fist] = true;
             owned[(int)WeaponId.Pistol] = true;
             Current = WeaponId.Pistol;
+            pending = null;
         }
 
         /// Authoritative restore for carry-over / save. Fist is always owned.
@@ -50,6 +67,13 @@ namespace Doom.Game
         /// using a temporary ammo-agnostic preference (pistol if owned, else fist).
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun, WeaponId current)
+        {
+            Restore(fist, pistol, shotgun, chaingun, current, pendingWeapon: null);
+        }
+
+        public void Restore(
+            bool fist, bool pistol, bool shotgun, bool chaingun,
+            WeaponId current, WeaponId? pendingWeapon)
         {
             owned[(int)WeaponId.Fist] = true; // always
             owned[(int)WeaponId.Pistol] = pistol;
@@ -63,6 +87,23 @@ namespace Doom.Game
                 Current = WeaponId.Pistol;
             else
                 Current = WeaponId.Fist;
+
+            if (pendingWeapon.HasValue && owned[(int)pendingWeapon.Value])
+                pending = pendingWeapon;
+            else
+                pending = null;
+        }
+
+        public void Capture(
+            out bool fist, out bool pistol, out bool shotgun, out bool chaingun,
+            out WeaponId current, out WeaponId? pendingWeapon)
+        {
+            fist = owned[(int)WeaponId.Fist];
+            pistol = owned[(int)WeaponId.Pistol];
+            shotgun = owned[(int)WeaponId.Shotgun];
+            chaingun = owned[(int)WeaponId.Chaingun];
+            current = Current;
+            pendingWeapon = pending;
         }
     }
 }

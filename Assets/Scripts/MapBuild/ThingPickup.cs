@@ -33,6 +33,14 @@ namespace Doom.MapBuild
             if (mapThingIndex >= 0 && LevelStats.IsCountItem(doomedNum))
                 LevelStatsTracker.Instance?.RegisterItem(mapThingIndex);
 
+            var mapId = GetComponent<MapThingIdentity>();
+            if (mapId != null && WorldStateRegistry.Instance != null)
+                WorldStateRegistry.Instance.UnregisterMapThing(mapId.MapThingIndex);
+
+            var spawnId = GetComponent<RuntimeEntityIdentity>();
+            if (spawnId != null && WorldStateRegistry.Instance != null)
+                WorldStateRegistry.Instance.UnregisterSpawned(spawnId.SpawnId);
+
             Destroy(gameObject);
         }
     }

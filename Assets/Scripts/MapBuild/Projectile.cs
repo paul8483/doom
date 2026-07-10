@@ -18,6 +18,7 @@ namespace Doom.MapBuild
         float castRadius;
         EnemyHealth owner;
         SoundSystem sound;
+        int typeEdNum;
 
         int flyIdx;
         float flyLeft;
@@ -27,7 +28,33 @@ namespace Doom.MapBuild
 
         public static void Launch(SpriteCache cache, MonsterDef def, float worldScale,
                                   DoomRandom rng, Vector3 from, Vector3 targetPoint,
-                                  EnemyHealth owner = null, SoundSystem sound = null)
+                                  EnemyHealth owner = null, SoundSystem sound = null,
+                                  int typeEdNum = 0)
+        {
+            Vector3 delta = targetPoint - from;
+            if (delta.sqrMagnitude < 1e-8f) delta = Vector3.forward;
+            float speed = def.MissileSpeed * 35f * worldScale;
+            Vector3 velocity = delta.normalized * speed;
+            LaunchInternal(cache, def, worldScale, rng, from, velocity,
+                owner, sound, typeEdNum, forcedSpawnId: null, remainingLife: -1f);
+        }
+
+        /// Recreate a projectile from a save snapshot (forced SpawnId + velocity).
+        public static void LaunchFromSnapshot(
+            SpriteCache cache, MonsterDef def, float worldScale, DoomRandom rng,
+            ProjectileSnapshot snap, EnemyHealth owner = null, SoundSystem sound = null)
+        {
+            if (snap == null || def == null || cache == null) return;
+            var from = new Vector3(snap.X, snap.Y, snap.Z);
+            var velocity = new Vector3(snap.VelX, snap.VelY, snap.VelZ);
+            LaunchInternal(cache, def, worldScale, rng, from, velocity,
+                owner, sound, snap.Type, snap.SpawnId, snap.RemainingLife);
+        }
+
+        static void LaunchInternal(
+            SpriteCache cache, MonsterDef def, float worldScale, DoomRandom rng,
+            Vector3 from, Vector3 velocity, EnemyHealth owner, SoundSystem sound,
+            int typeEdNum, int? forcedSpawnId, float remainingLife)
         {
             var go = new GameObject($"Missile_{def.MissileSprite}",
                 typeof(MeshFilter), typeof(MeshRenderer));
@@ -35,18 +62,48 @@ namespace Doom.MapBuild
             var bb = go.AddComponent<SpriteBillboard>();
             bb.Init(cache, def.MissileSprite, def.MissileFlyFrames[0], worldScale,
                     doomAngleDeg: 0f, spawnCeiling: false, ceilingY: 0f);
-            bb.SetStaticFrame(def.MissileFlyFrames[0]); // BAL1 без ротаций
+            bb.SetStaticFrame(def.MissileFlyFrames[0]);
 
             var p = go.AddComponent<Projectile>();
             p.cache = cache; p.def = def; p.worldScale = worldScale; p.rng = rng;
-            p.bb = bb; p.owner = owner; p.sound = sound;
-            float speed = def.MissileSpeed * 35f * worldScale;      // юниты/тик → м/с
-            Vector3 delta = targetPoint - from;
-            if (delta.sqrMagnitude < 1e-8f) delta = Vector3.forward;
-            p.velocity = delta.normalized * speed;
+            p.bb = bb; p.owner = owner; p.sound = sound; p.typeEdNum = typeEdNum;
+            p.velocity = velocity;
             p.castRadius = def.MissileRadius * worldScale;
             p.flyIdx = 0;
-            p.flyLeft = def.MissileFlyTics[0] / 35f;
+            p.flyLeft = remainingLife > 0f
+                ? remainingLife
+                : def.MissileFlyTics[0] / 35f;
+
+            var registry = WorldStateRegistry.Instance;
+            if (registry != null)
+            {
+                int spawnId = forcedSpawnId ?? registry.AllocateSpawnId();
+                var id = go.AddComponent<RuntimeEntityIdentity>();
+                id.Init(spawnId);
+                registry.RegisterSpawned(id);
+            }
+        }
+
+        public ProjectileSnapshot CaptureSnapshot(int spawnId, WorldStateRegistry registry)
+        {
+            var ownerId = SaveEntityId.None;
+            if (owner != null && registry != null)
+                ownerId = registry.ResolveEntity(owner.transform);
+
+            float life = exploding ? boomLeft : flyLeft;
+            var p = transform.position;
+            return new ProjectileSnapshot(
+                spawnId, typeEdNum, ownerId,
+                p.x, p.y, p.z,
+                velocity.x, velocity.y, velocity.z,
+                life);
+        }
+
+        void OnDestroy()
+        {
+            var id = GetComponent<RuntimeEntityIdentity>();
+            if (id != null && WorldStateRegistry.Instance != null)
+                WorldStateRegistry.Instance.UnregisterSpawned(id.SpawnId);
         }
 
         void Update()

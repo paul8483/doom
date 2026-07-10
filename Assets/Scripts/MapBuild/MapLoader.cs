@@ -218,6 +218,9 @@ namespace Doom.MapBuild
 
             SpawnPlayer(map, bounds, spriteCache);
 
+            var registry = gameObject.GetComponent<WorldStateRegistry>()
+                ?? gameObject.AddComponent<WorldStateRegistry>();
+
             var thingsRoot = new GameObject("Things");
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
             float fallbackY = bounds?.min.y ?? 0f;
@@ -226,8 +229,11 @@ namespace Doom.MapBuild
                 .SpawnAll(map, thingsRoot.transform, fallbackY, playerGo.transform);
             Debug.Log($"MapLoader: spawned {spawned} sprite things");
 
+            LineActivator lineActivator = null;
+            LevelStatsTracker tracker = null;
             if (playerGo != null)
             {
+                lineActivator = playerGo.GetComponent<LineActivator>();
                 var weapons = playerGo.GetComponent<PlayerWeapons>();
                 if (weapons != null)
                 {
@@ -236,9 +242,31 @@ namespace Doom.MapBuild
                 }
 
                 var floor = playerGo.GetComponent<FloorDamageSystem>();
-                var tracker = gameObject.GetComponent<LevelStatsTracker>()
+                tracker = gameObject.GetComponent<LevelStatsTracker>()
                     ?? gameObject.AddComponent<LevelStatsTracker>();
                 tracker.Init(map, floor);
+            }
+
+            int startSpawnId = GameSessionHost.Instance != null
+                ? GameSessionHost.Instance.NextSpawnId
+                : 0;
+            registry.Bind(map, runtimeHeights, lineActivator, tracker, startSpawnId);
+
+            var host = GameSessionHost.Ensure();
+            host.EnsureWadIdentity(path);
+            if (host.TryConsumePendingRestore(LoadedMapName, out SaveGame pending))
+            {
+                if (!WorldSnapshotRestore.TryApply(
+                        pending, registry, this, spriteCache, worldScale, playerGo, Sound,
+                        out string restoreError))
+                {
+                    Debug.LogError("MapLoader: restore failed: " + restoreError);
+                }
+                else
+                {
+                    host.SetNextSpawnId(registry.NextSpawnId);
+                    host.SyncSpawnIdFrom(registry);
+                }
             }
 
             // WAD closes when this method returns; further SoundCache misses must
@@ -449,6 +477,8 @@ namespace Doom.MapBuild
             var host = GameSessionHost.Instance;
             if (host == null || host.Session == null || !host.Session.IsActive)
                 return;
+            // Pending full-world restore replaces carry-over entirely.
+            if (host.PendingRestore != null) return;
 
             var carry = host.Session.Carry;
             if (carry == null) return;

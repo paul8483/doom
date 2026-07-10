@@ -28,11 +28,19 @@ namespace Doom.Game
 
         public DoomRandom(int seed = 0) { index = seed & 0xFF; }
 
+        /// Current table index (0..255). Saved/restored for deterministic resumes.
+        public int Index => index;
+
         /// P_Random: rndindex = (rndindex+1)&0xff; return rndtable[rndindex].
         public int Next()
         {
             index = (index + 1) & 0xFF;
             return RndTable[index];
+        }
+
+        public void Restore(int tableIndex)
+        {
+            index = tableIndex & 0xFF;
         }
     }
 }

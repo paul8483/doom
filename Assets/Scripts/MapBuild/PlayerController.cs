@@ -62,6 +62,17 @@ namespace Doom.MapBuild
 
         public void SetCameraPivot(Transform pivot) => cameraPivot = pivot;
 
+        public float PitchDegrees => pitch;
+
+        /// Teleport + view restore for save load (disables CharacterController briefly).
+        public void SetView(float yawDegrees, float pitchDegrees)
+        {
+            pitch = Mathf.Clamp(pitchDegrees, -pitchLimit, pitchLimit);
+            transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f);
+            if (cameraPivot != null)
+                cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
         public void ApplyLookSettings(float sensitivity, bool invertYAxis)
         {
             mouseSensitivity = Mathf.Clamp(sensitivity, 0.01f, 2f);

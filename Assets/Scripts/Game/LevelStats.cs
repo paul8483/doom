@@ -105,6 +105,35 @@ namespace Doom.Game
             new LevelStatsSnapshot(
                 Kills, KillTotal, Items, ItemTotal, Secrets, SecretTotal, Tics);
 
+        /// Sorted unique ids for save/load. Empty when nothing registered.
+        public int[] CaptureKillIds() => ToSortedArray(killIds);
+        public int[] CaptureItemIds() => ToSortedArray(itemIds);
+        public int[] CaptureSecretIds() => ToSortedArray(secretIds);
+
+        public void RestoreIds(
+            int killTotal, int itemTotal, int secretTotal, int tics,
+            int[] kills, int[] items, int[] secrets)
+        {
+            Reset();
+            SetTotals(killTotal, itemTotal, secretTotal);
+            if (tics > 0) AdvanceTics(tics);
+            if (kills != null)
+                foreach (int id in kills) TryRegisterKill(id);
+            if (items != null)
+                foreach (int id in items) TryRegisterItem(id);
+            if (secrets != null)
+                foreach (int id in secrets) TryRegisterSecret(id);
+        }
+
+        static int[] ToSortedArray(HashSet<int> set)
+        {
+            if (set.Count == 0) return Array.Empty<int>();
+            var arr = new int[set.Count];
+            set.CopyTo(arr);
+            Array.Sort(arr);
+            return arr;
+        }
+
         /// MF_COUNTITEM doomednums present in the E1 pickup set.
         public static bool IsCountItem(int doomedNum) => doomedNum switch
         {

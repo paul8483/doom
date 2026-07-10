@@ -8,6 +8,8 @@ namespace Doom.MapBuild
         None,
         Main,
         Pause,
+        SaveSlots,
+        LoadSlots,
     }
 
     public enum MenuAction
@@ -19,6 +21,13 @@ namespace Doom.MapBuild
         Resume,
         SaveGame,
         QuitToMain,
+        Slot0,
+        Slot1,
+        Slot2,
+        Slot3,
+        Slot4,
+        Slot5,
+        Back,
     }
 
     /// WAD-driven main/pause menu. Navigation via keyboard; tests call ActivateSelected.
@@ -55,6 +64,7 @@ namespace Doom.MapBuild
         int selected;
         int skullTic;
         string statusMessage;
+        MenuKind returnKind = MenuKind.None;
 
         public MenuKind Kind { get; private set; } = MenuKind.None;
         public bool IsVisible => Kind != MenuKind.None;
@@ -124,13 +134,101 @@ namespace Doom.MapBuild
                     flow.QuitApplication();
                     break;
                 case MenuAction.LoadGame:
+                    ShowSlotMenu(load: true);
+                    break;
                 case MenuAction.SaveGame:
-                    statusMessage = "Save/Load — Stage 7d";
+                    if (flow.State != GameFlowState.Paused)
+                    {
+                        statusMessage = "Save only while paused.";
+                        break;
+                    }
+                    ShowSlotMenu(load: false);
                     break;
                 case MenuAction.Options:
                     SettingsController.Ensure().OpenOptions();
                     break;
+                case MenuAction.Back:
+                    ReturnFromSlots();
+                    break;
+                case MenuAction.Slot0:
+                case MenuAction.Slot1:
+                case MenuAction.Slot2:
+                case MenuAction.Slot3:
+                case MenuAction.Slot4:
+                case MenuAction.Slot5:
+                    HandleSlot(action - MenuAction.Slot0);
+                    break;
             }
+        }
+
+        void ShowSlotMenu(bool load)
+        {
+            returnKind = Kind;
+            Kind = load ? MenuKind.LoadSlots : MenuKind.SaveSlots;
+            items = BuildSlotItems(load);
+            selected = 0;
+            statusMessage = null;
+        }
+
+        Item[] BuildSlotItems(bool load)
+        {
+            var saves = SaveGameController.Ensure();
+            var list = new Item[SaveGameController.SlotCount + 1];
+            for (int i = 0; i < SaveGameController.SlotCount; i++)
+            {
+                string label = saves.SlotExists(i)
+                    ? $"Slot {i} (used)"
+                    : $"Slot {i} (empty)";
+                list[i] = new Item
+                {
+                    Patch = null,
+                    FallbackLabel = label,
+                    Action = (MenuAction)((int)MenuAction.Slot0 + i),
+                    X = 80,
+                    Y = 48 + i * 16,
+                };
+            }
+            list[SaveGameController.SlotCount] = new Item
+            {
+                Patch = null,
+                FallbackLabel = "Back",
+                Action = MenuAction.Back,
+                X = 80,
+                Y = 48 + SaveGameController.SlotCount * 16,
+            };
+            return list;
+        }
+
+        void HandleSlot(int slot)
+        {
+            var saves = SaveGameController.Ensure();
+            bool ok;
+            if (Kind == MenuKind.SaveSlots)
+            {
+                ok = saves.TrySave(slot, confirmOverwrite: false);
+                statusMessage = ok ? $"Saved slot {slot}." : saves.LastError;
+                if (ok)
+                {
+                    // Refresh labels; stay on save menu while paused.
+                    items = BuildSlotItems(load: false);
+                }
+            }
+            else
+            {
+                ok = saves.TryLoad(slot);
+                statusMessage = ok ? null : saves.LastError;
+                // On success the scene reloads; menu is torn down with the scene.
+            }
+        }
+
+        void ReturnFromSlots()
+        {
+            statusMessage = null;
+            if (returnKind == MenuKind.Main)
+                ShowMain(textures);
+            else
+                ShowPause(textures);
+            returnKind = MenuKind.None;
         }
 
         void Update()
@@ -149,6 +247,9 @@ namespace Doom.MapBuild
                 MoveSelection(1);
             if (kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
                 ActivateSelected();
+            if (kb.escapeKey.wasPressedThisFrame &&
+                (Kind == MenuKind.SaveSlots || Kind == MenuKind.LoadSlots))
+                Activate(MenuAction.Back);
         }
 
         void OnGUI()
@@ -161,6 +262,9 @@ namespace Doom.MapBuild
                 DrawMainBackground(t);
             else
                 DrawPauseDim(t);
+
+            if (Kind == MenuKind.SaveSlots || Kind == MenuKind.LoadSlots)
+                DrawSlotTitle(t);
 
             for (int i = 0; i < items.Length; i++)
                 DrawItem(t, items[i], i == selected);
@@ -176,6 +280,18 @@ namespace Doom.MapBuild
                 var r = VirtualScreenRenderer.ToScreen(t, 0, 170, 320, 20);
                 GUI.Label(r, statusMessage, style);
             }
+        }
+
+        void DrawSlotTitle(in VirtualScreenRenderer.Transform t)
+        {
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
+                alignment = TextAnchor.UpperCenter,
+            };
+            style.normal.textColor = Color.white;
+            string title = Kind == MenuKind.SaveSlots ? "Save Game" : "Load Game";
+            GUI.Label(VirtualScreenRenderer.ToScreen(t, 0, 28, 320, 20), title, style);
         }
 
         void DrawMainBackground(in VirtualScreenRenderer.Transform t)
@@ -206,6 +322,9 @@ namespace Doom.MapBuild
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
             GUI.DrawTexture(r, Texture2D.whiteTexture);
             GUI.color = prev;
+
+            if (Kind == MenuKind.SaveSlots || Kind == MenuKind.LoadSlots)
+                return;
 
             if (textures != null && textures.TryGet("M_PAUSE", out var pause))
             {

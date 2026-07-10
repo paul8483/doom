@@ -52,6 +52,10 @@ namespace Doom.MapBuild
                 go.transform.SetParent(parent, worldPositionStays: false);
                 go.transform.position = new Vector3(x, feetY, z);
 
+                var identity = go.AddComponent<MapThingIdentity>();
+                identity.Init(thingIndex, t.Type, t.Flags);
+                WorldStateRegistry.Instance?.RegisterMapThing(identity);
+
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);

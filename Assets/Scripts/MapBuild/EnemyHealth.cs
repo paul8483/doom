@@ -14,6 +14,8 @@ namespace Doom.MapBuild
         MonsterController controller;
 
         public bool IsDead => hp <= 0;
+        public int Health => hp;
+        public int MapThingIndex => mapThingIndex;
 
         public void Init(int health, int corpseFrame,
                          SpriteBillboard billboard, CapsuleCollider capsule)
@@ -27,6 +29,14 @@ namespace Doom.MapBuild
         public void SetMapThingIndex(int index) => mapThingIndex = index;
 
         public void SetController(MonsterController c) => controller = c;
+
+        /// Apply HP from a save without firing death/pain side effects.
+        public void RestoreHealth(int value)
+        {
+            hp = value < 0 ? 0 : value;
+            if (hp <= 0 && capsule != null)
+                capsule.enabled = false;
+        }
 
         public void TakeDamage(int damage) => TakeDamage(damage, DamageSource.Player());
 

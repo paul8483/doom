@@ -53,5 +53,8 @@ namespace Doom.MapBuild
             model.Reset();
             deadAnnounced = false;
         }
+
+        /// Sync death announcement flag after a snapshot restore.
+        public void SyncDeathFlagFromModel() => deadAnnounced = model.IsDead;
     }
 }

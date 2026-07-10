@@ -64,6 +64,14 @@ namespace Doom.Game
             ArmorType = armorType;
         }
 
+        /// Capture authoritative fields for save round-trip tests / DTO builders.
+        public void Capture(out int health, out int armor, out ArmorKind armorType)
+        {
+            health = Health;
+            armor = Armor;
+            armorType = ArmorType;
+        }
+
         /// P_GiveBody: add up to cap; false if already at cap.
         public bool GiveHealth(int amount, int cap)
         {

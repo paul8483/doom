@@ -27,5 +27,17 @@ namespace Doom.Game
             Berserk = false;
             IronFeetTics = 0;
         }
+
+        public void Capture(out bool berserk, out int ironFeetTics)
+        {
+            berserk = Berserk;
+            ironFeetTics = IronFeetTics;
+        }
+
+        public void Restore(bool berserk, int ironFeetTics)
+        {
+            Berserk = berserk;
+            IronFeetTics = ironFeetTics < 0 ? 0 : ironFeetTics;
+        }
     }
 }

@@ -93,6 +93,33 @@ namespace Doom.MapBuild
         /// Test hook: is a mover currently active on this sector?
         public bool IsSectorMovingForTest(int sector) => moving[sector];
 
+        /// Capture one-shot fired flags for save (defensive copy).
+        public void CaptureFired(out bool[] fired)
+        {
+            if (onceFired == null)
+            {
+                fired = System.Array.Empty<bool>();
+                return;
+            }
+            fired = new bool[onceFired.Length];
+            System.Array.Copy(onceFired, fired, onceFired.Length);
+        }
+
+        /// Restore one-shot fired flags from a save (length must match map).
+        public void RestoreFired(bool[] fired)
+        {
+            if (onceFired == null || fired == null) return;
+            int n = System.Math.Min(onceFired.Length, fired.Length);
+            for (int i = 0; i < n; i++) onceFired[i] = fired[i];
+        }
+
+        /// Mark a sector as having an active mover (blocks re-trigger until done).
+        public void SetSectorMoving(int sector, bool isMoving)
+        {
+            if (moving == null || sector < 0 || sector >= moving.Length) return;
+            moving[sector] = isMoving;
+        }
+
         /// Called when the player presses Use. Raycasts forward into a wall; if that
         /// misses or resolves to a non-special linedef (common with texture-grouped
         /// walls / closed door faces), falls back to the nearest Push/Switch special

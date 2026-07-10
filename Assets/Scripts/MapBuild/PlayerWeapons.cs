@@ -12,6 +12,7 @@ namespace Doom.MapBuild
     {
         public AmmoModel Ammo { get; } = new AmmoModel();
         public WeaponLoadout Loadout { get; } = new WeaponLoadout();
+        public DoomRandom Rng => rng;
 
         /// A shot was fired -- WeaponView plays the fire frames and muzzle flash.
         public event Action<WeaponDef> Fired;

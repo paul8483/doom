@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.Game;
 using Doom.Specials;
 
 namespace Doom.MapBuild
@@ -54,6 +55,44 @@ namespace Doom.MapBuild
             origin = Current();
             phase = Phase.MovingToTarget;
             PlayStartOrLoop();
+        }
+
+        /// Resume a mover from a save snapshot. Heights must already be applied.
+        /// Waiting phase uses <paramref name="returnOrigin"/> as the post-wait goal
+        /// (typically the WAD static height for that plane). Moving phase does a
+        /// one-shot travel to <paramref name="targetHeight"/>.
+        public void BeginFromSnapshot(
+            RuntimeSectorHeights heights, SectorGeometry geometry, int sector,
+            Surface surface, float targetHeight, float speedUnitsPerSec,
+            MoverPhase moverPhase, int waitTics, float returnOrigin,
+            System.Action onDone = null)
+        {
+            this.heights = heights; this.geometry = geometry; this.sector = sector;
+            this.surface = surface; this.speedUnitsPerSec = speedUnitsPerSec;
+            this.onDone = onDone;
+            this.sound = null;
+            this.sfx = default;
+            this.soundOrigin = default;
+            loopKey = this;
+            stopPlayed = false;
+
+            if (moverPhase == MoverPhase.Waiting)
+            {
+                target = targetHeight;
+                origin = returnOrigin;
+                cycle = true;
+                waitSeconds = Mathf.Max(0f, waitTics / 35f);
+                phase = Phase.Waiting;
+                waitTimer = waitSeconds;
+            }
+            else
+            {
+                target = targetHeight;
+                origin = Current();
+                cycle = false;
+                waitSeconds = 0f;
+                phase = Phase.MovingToTarget;
+            }
         }
 
         float Current() => surface == Surface.Floor ? heights.FloorRaw(sector) : heights.CeilRaw(sector);
@@ -131,6 +170,55 @@ namespace Doom.MapBuild
                 StopLoopOnly();
             phase = Phase.Done;
             onDone?.Invoke();
+        }
+
+        /// Capture authoritative mover state for save. Returns false if Done/uninitialized.
+        public bool TryCapture(
+            out int sectorIndex,
+            out MoverPlane plane,
+            out MoverPhase moverPhase,
+            out int direction,
+            out float targetHeight,
+            out float speed,
+            out int waitTics,
+            out bool active)
+        {
+            sectorIndex = sector;
+            plane = surface == Surface.Floor ? MoverPlane.Floor : MoverPlane.Ceiling;
+            targetHeight = target;
+            speed = speedUnitsPerSec;
+            waitTics = 0;
+            direction = 0;
+            moverPhase = MoverPhase.None;
+            active = false;
+
+            if (heights == null || phase == Phase.Done)
+                return false;
+
+            active = true;
+            float cur = Current();
+            switch (phase)
+            {
+                case Phase.MovingToTarget:
+                    moverPhase = MoverPhase.Moving;
+                    direction = target >= cur ? 1 : -1;
+                    break;
+                case Phase.Returning:
+                    moverPhase = MoverPhase.Moving;
+                    direction = origin >= cur ? 1 : -1;
+                    targetHeight = origin;
+                    break;
+                case Phase.Waiting:
+                    moverPhase = MoverPhase.Waiting;
+                    waitTics = Mathf.Max(0, Mathf.RoundToInt(waitTimer * 35f));
+                    direction = origin >= target ? 1 : -1;
+                    break;
+                default:
+                    active = false;
+                    return false;
+            }
+
+            return true;
         }
     }
 }

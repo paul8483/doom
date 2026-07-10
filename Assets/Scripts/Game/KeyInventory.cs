@@ -4,6 +4,9 @@ namespace Doom.Game
     /// ItemRules still accepts key pickups so the GO is destroyed.
     public sealed class KeyInventory
     {
+        /// Bits for all six <see cref="PlayerKey"/> values.
+        public const int AllKeysMask = (1 << 6) - 1;
+
         int bits;
 
         public bool Give(PlayerKey key)
@@ -19,5 +22,13 @@ namespace Doom.Game
         public bool HasAny() => bits != 0;
 
         public void Reset() => bits = 0;
+
+        public int CaptureBits() => bits;
+
+        public void RestoreBits(int keyBits)
+        {
+            if (keyBits < 0) keyBits = 0;
+            bits = keyBits & AllKeysMask;
+        }
     }
 }

@@ -262,5 +262,56 @@ namespace Doom.Game
             moveDir = ChaseDir.NewChaseDir(dx, dy, moveDir, rng,
                 d => world.TryStep(d) == StepResult.Moved, out moveCount);
         }
+
+        public void Capture(
+            out MonsterState state, out int seqIndex, out int tics,
+            out Dir8 dir, out int moves, out int reactionTime,
+            out bool attacked, out bool hit)
+        {
+            state = State;
+            seqIndex = seqIdx;
+            tics = ticsLeft;
+            dir = moveDir;
+            moves = moveCount;
+            reactionTime = reaction;
+            attacked = justAttacked;
+            hit = justHit;
+        }
+
+        /// Restore chase bookkeeping after a save load. Sequence frames are
+        /// re-applied by the world via <see cref="IMonsterWorld.SetFrame"/> when
+        /// the controller restarts the matching sequence for <paramref name="state"/>.
+        public void RestoreChaseBookkeeping(
+            MonsterState state, int seqIndex, int tics,
+            Dir8 dir, int moves, int reactionTime,
+            bool attacked, bool hit)
+        {
+            State = state;
+            seqIdx = seqIndex < 0 ? 0 : seqIndex;
+            ticsLeft = tics < 0 ? 0 : tics;
+            moveDir = dir;
+            moveCount = moves;
+            reaction = reactionTime < 0 ? 0 : reactionTime;
+            justAttacked = attacked;
+            justHit = hit;
+
+            // Rebind the active sequence table for the restored state without
+            // firing entry hooks (those would re-attack / re-wake).
+            seq = state switch
+            {
+                MonsterState.Sleep => def.Stand,
+                MonsterState.Chase => def.Run,
+                MonsterState.Attack => def.Attack,
+                MonsterState.Pain => def.Pain,
+                MonsterState.Die => def.Death,
+                _ => def.Death,
+            };
+            seqLoop = state == MonsterState.Sleep || state == MonsterState.Chase;
+            if (seq.Frames != null && seq.Frames.Length > 0)
+            {
+                if (seqIdx >= seq.Frames.Length) seqIdx = seq.Frames.Length - 1;
+                world.SetFrame(seq.Frames[seqIdx]);
+            }
+        }
     }
 }
