@@ -52,6 +52,12 @@ namespace Doom.MapBuild
         public void NotifyDamaged() => brain.NotifyDamaged();
         public void NotifyKilled() => brain.NotifyKilled();
 
+        static float NormAngle(float deg)
+        {
+            deg %= 360f;
+            return deg < 0f ? deg + 360f : deg;
+        }
+
         void Update()
         {
             if (brain == null) return;
@@ -59,6 +65,12 @@ namespace Doom.MapBuild
             if (target != player && target == null) target = player;
             tickAccum += Time.deltaTime;
             while (tickAccum >= TicSeconds) { tickAccum -= TicSeconds; brain.Tick(); }
+            // Sprite rotation must track the target every render frame — not only on
+            // 35 Hz brain ticks — otherwise the billboard lags between chase steps.
+            var s = brain.State;
+            if (bb != null && target != null &&
+                (s == MonsterState.Chase || s == MonsterState.Attack || s == MonsterState.Pain))
+                Face();
         }
 
         // ── IMonsterWorld через адаптер (метод на метод) ──────────────────────
@@ -84,7 +96,16 @@ namespace Doom.MapBuild
 
         Vector3 EyePos() => transform.position + Vector3.up * (heightM * 0.75f);
         Vector3 TargetCenter()
-            => target.position + Vector3.up * (heightM * 0.5f);
+        {
+            if (target == null) return transform.position;
+            var cc = target.GetComponent<CharacterController>();
+            if (cc != null)
+                return target.position + Vector3.up * (cc.height * 0.5f);
+            var cap = target.GetComponent<CapsuleCollider>();
+            if (cap != null)
+                return cap.bounds.center;
+            return target.position + Vector3.up * (heightM * 0.5f);
+        }
 
         bool CanSee(bool frontOnly)
         {
@@ -140,8 +161,16 @@ namespace Doom.MapBuild
         void Face()
         {
             if (target == null || bb == null) return;
-            Vector3 d = target.position - transform.position;
-            bb.SetDoomAngle(Mathf.Atan2(d.z, d.x) * Mathf.Rad2Deg);
+            Vector3 aim = target.position;
+            if (target.GetComponent<PlayerHealth>() != null)
+            {
+                var cam = Camera.main;
+                if (cam != null) aim = cam.transform.position;
+            }
+            Vector3 d = aim - transform.position;
+            d.y = 0f;
+            if (d.sqrMagnitude < 1e-8f) return;
+            bb.SetDoomAngle(NormAngle(Mathf.Atan2(d.z, d.x) * Mathf.Rad2Deg));
         }
 
         static readonly Vector3[] DirVectors =

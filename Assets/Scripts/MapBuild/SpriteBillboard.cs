@@ -96,14 +96,14 @@ namespace Doom.MapBuild
             if (to.sqrMagnitude > 1e-6f)
                 transform.rotation = Quaternion.LookRotation(-to, Vector3.up);
 
-            // 2) Rotation index: DOOM angle from this object TO the camera, minus the
-            //    object's facing, offset by 202.5°, in 45° buckets → 0..7. Locked
-            //    (corpse) frames skip this and always use rotation 0.
+            // 2) Rotation index: angle from this object TO the camera, minus the
+            //    object's facing, +22.5° for bucket centering → 0..7.
+            //    When doomAngle == angToCam (facing the viewer) → rot 0 = DOOM '1' (front).
             int rotIndex = 0;
             if (!lockRotation)
             {
-                float angToCam = Mathf.Atan2(to.z, to.x) * Mathf.Rad2Deg; // CCW from +X (East)
-                float diff = angToCam - doomAngleDeg + 202.5f;
+                float angToCam = Mathf.Atan2(to.z, to.x) * Mathf.Rad2Deg;
+                float diff = Mod360(angToCam) - Mod360(doomAngleDeg) + 22.5f;
                 rotIndex = Mathf.FloorToInt(Mod360(diff) / 45f) & 7;
             }
 
@@ -111,8 +111,9 @@ namespace Doom.MapBuild
             var sm = cache.Get(sprite, frame, rotIndex);
             if (!sm.IsValid)
             {
-                // Fall back to the front rotation so something always shows.
+                // Prefer front (0 = DOOM '1'), then back (4 = '5').
                 sm = cache.Get(sprite, frame, 0);
+                if (!sm.IsValid) sm = cache.Get(sprite, frame, 4);
                 if (!sm.IsValid) { meshRenderer.enabled = false; return; }
             }
             meshRenderer.enabled = true;

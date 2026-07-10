@@ -150,6 +150,7 @@ namespace Doom.Game
         void ChaseThink()
         {
             if (reaction > 0) reaction--;
+            world.FaceTarget();
 
             if (justAttacked)
             {

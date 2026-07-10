@@ -8,11 +8,9 @@
 
 **Уточнение против спеки (утверждено при написании плана):** тайминг ВСЕХ кадров монстра ведёт `MonsterBrain` (по тикам, тестируемо в EditMode) и выставляет текущий кадр через `IMonsterWorld.SetFrame`. `SpriteBillboard` получает только метод `SetFrame(int)` (кадр с живыми ротациями); отдельный «проигрыватель последовательностей» в билборде не нужен. `Projectile` крутит свои 2 кадра сам (как `HitEffect`).
 
-**Статус (2026-07-09):** Tasks **1–10 ✅** (в git). Task **11** PlayMode (`MonsterAiPlayTests.cs`) — WIP в рабочей копии, не закоммичен. Task **12** — документация частично обновлена; визуальная приёмка отложена.
+**Статус (2026-07-10):** Tasks **1–11 ✅** (в git, Task 11 = `14ae50f`). **Facing-баг POSS/SPOS ✅** — причина: `SpriteBillboard` использовал `+202.5°` вместо `+22.5°` из спеки Stage 5 (сдвиг на 180° → всегда rot 4 = спина при взгляде на камеру). Исправлено; `Face()` каждый render-кадр в Chase/Attack/Pain. Task **12** — визуальная приёмка + docs (блокер снят).
 
-**Tech Stack:** Unity 6000.4.8f1, Unity Test Framework (EditMode + PlayMode), freedoom1.wad.
-
-**Запуск тестов** (фильтр меняется по задаче):
+**Тесты:** EditMode **193**/193, PlayMode **20**/20 (включая 5× `MonsterAiPlayTests`).
 
 ```powershell
 # EditMode
@@ -25,7 +23,11 @@
 
 Готчи: не добавлять `-quit` к `-runTests`; результаты только в XML; компил-ошибки — `error CS` в логе; код 198 «no valid license» или «project already open» → BLOCKED (интерактивный редактор закрывается `CloseMainWindow()`, см. memory `unity-headless-license`); таймаут 600000 мс; на каждый прогон — своё имя XML/лога, цитировать в отчёте правильные файлы.
 
-**Все DOOM-числа ниже выверены по linuxdoom-1.10 (info.c, p_enemy.c, p_map.c) — копировать из плана, не из исходников.** Точка старта: EditMode **193**/193, PlayMode **15**/15 (+ Task 11 WIP).
+**Все DOOM-числа ниже выверены по linuxdoom-1.10 (info.c, p_enemy.c, p_map.c) — копировать из плана, не из исходников.**
+
+**Tech Stack:** Unity 6000.4.8f1, Unity Test Framework (EditMode + PlayMode), freedoom1.wad.
+
+**Запуск тестов** (фильтр меняется по задаче):
 
 ---
 
@@ -2025,9 +2027,19 @@ namespace Doom.Stage3.PlayTests
 он закрыт EditMode-интеграцией NoiseAlert на E1M1 (Task 6), а PlayMode-вариант
 хрупок (зависит от геометрии конкретной двери).
 
-- [ ] **Step 2: Run PlayMode** (filter `Doom.Stage3.PlayTests.MonsterAiPlayTests`) — 5/5. Хрупкие места чинить телепортом в открытую зону, НЕ ослаблением ассертов.
-- [ ] **Step 3: Run ВСЁ** — полный EditMode + полный PlayMode: старые не сломаны (PlayMode ожидаемо 20 = 15 + 5).
-- [ ] **Step 4: Commit** — `git commit -m "Stage 6d: PlayMode tests - wake, attack, fireball, death, infighting"`.
+- [x] **Step 2: Run PlayMode** (filter `Doom.Stage3.PlayTests.MonsterAiPlayTests`) — 5/5. Хрупкие места чинить телепортом в открытую зону, НЕ ослаблением ассертов.
+- [x] **Step 3: Run ВСЁ** — полный EditMode + полный PlayMode: старые не сломаны (PlayMode ожидаемо 20 = 15 + 5).
+- [x] **Step 4: Commit** — `14ae50f` «Stage 6d Task 11: add stable MonsterAi PlayMode tests».
+
+---
+
+## Баг POSS/SPOS спиной к игроку — ИСПРАВЛЕН (2026-07-10)
+
+**Симптом:** зомби/сержант шли к игроку спиной; пистолет/дробовик визуально смотрели от игрока.
+
+**Причина:** в `SpriteBillboard` формула ротации была `angToCam - doomAngle + 202.5`, тогда как спека Stage 5 задаёт `+22.5`. При `doomAngle == angToCam` (монстр смотрит на камеру) получался rot 4 (DOOM `'5'`, спина) вместо rot 0 (DOOM `'1'`, лицо). Hitscan-лучи целились верно — ломался только выбор патча.
+
+**Фикс:** `+22.5°`; убран ошибочный `SyncSpriteFacing`; fallback сначала пробует rot 0; `MonsterController.Face()` каждый кадр в Chase/Attack/Pain (в т.ч. к позиции камеры, если цель — игрок).
 
 ---
 
