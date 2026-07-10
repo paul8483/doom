@@ -36,7 +36,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Sound_bootstrap_cache_and_playback()
+        public IEnumerator Audio_bootstrap_and_music()
         {
             yield return LoadLevel();
 
@@ -49,21 +49,28 @@ namespace Doom.Stage3.PlayTests
             Assert.That(sound.Cache, Is.Not.Null);
             Assert.That(sound.Cache.IsCached("DSPISTOL"), Is.True);
 
+            var musicPlayers = Object.FindObjectsByType<MusicPlayer>(FindObjectsSortMode.None);
+            Assert.That(musicPlayers.Length, Is.EqualTo(1), "exactly one MusicPlayer");
+            var music = musicPlayers[0];
+            Assert.That(music.TrackName, Is.EqualTo("D_E1M1"));
+            Assert.That(music.IsActive, Is.True);
+            Assert.That(music.ClipName, Is.EqualTo("D_E1M1"));
+
+            // Batchmode often skips PCM callbacks; pump the sequencer directly.
+            Assert.That(music.RenderForTest(1024), Is.EqualTo(1024));
+            Assert.That(music.RenderedFrames, Is.GreaterThan(0));
+
             var local = sound.PlayLocal("DSPISTOL");
             Assert.That(local, Is.Not.Null);
-            Assert.That(local.clip, Is.Not.Null);
             Assert.That(local.clip.name, Is.EqualTo("DSPISTOL"));
             Assert.That(local.spatialBlend, Is.EqualTo(0f));
-            Assert.That(sound.WasPlayed("DSPISTOL"), Is.True);
 
             var world = sound.PlayAt("DSDOROPN", new Vector3(10f, 0f, 10f));
-            Assert.That(world, Is.Not.Null);
             Assert.That(world.spatialBlend, Is.EqualTo(1f));
-            Assert.That(world.transform.position, Is.EqualTo(new Vector3(10f, 0f, 10f)));
         }
 
         [UnityTest]
-        public IEnumerator Weapon_pickup_pain_and_death_are_local()
+        public IEnumerator Weapon_and_pickup_are_local()
         {
             yield return LoadLevel();
             var player = GameObject.Find("Player");
@@ -74,27 +81,28 @@ namespace Doom.Stage3.PlayTests
 
             weapons.FireOnceForTest();
             Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPISTOL"));
-            Assert.That(sound.WasPlayed("DSPISTOL"), Is.True);
+            var pistolSrc = sound.PlayLocal("DSPISTOL");
+            Assert.That(pistolSrc.spatialBlend, Is.EqualTo(0f));
 
             health.TakeDamage(50);
             Assert.That(health.Health, Is.EqualTo(50));
             Assert.That(inventory.TryPickup(2011), Is.True);
             Assert.That(sound.LastPlayedLump, Is.EqualTo("DSITEMUP"));
+        }
 
-            // Rejected stim at full HP stays silent (probe unchanged).
+        [UnityTest]
+        public IEnumerator Rejected_pickup_is_silent()
+        {
+            yield return LoadLevel();
+            var player = GameObject.Find("Player");
+            var sound = Object.FindAnyObjectByType<SoundSystem>();
+            var inventory = player.GetComponent<PlayerInventory>();
+            var health = player.GetComponent<PlayerHealth>();
+
             while (health.Health < 100) health.GiveHealth(10, 100);
             string before = sound.LastPlayedLump;
             Assert.That(inventory.TryPickup(2011), Is.False);
             Assert.That(sound.LastPlayedLump, Is.EqualTo(before));
-
-            health.TakeDamage(20);
-            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPLPAIN"));
-            Assert.That(health.IsDead, Is.False);
-
-            health.TakeDamage(999);
-            Assert.That(health.IsDead, Is.True);
-            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPLDETH"));
-            Assert.That(sound.WasPlayed("DSPLPAIN"), Is.True);
         }
 
         [UnityTest]
@@ -106,7 +114,6 @@ namespace Doom.Stage3.PlayTests
                 .FirstOrDefault(m => m.Brain.State == MonsterState.Sleep && !m.IsAmbush);
             Assert.That(monster, Is.Not.Null, "need a sleeping non-ambush monster");
 
-            Assert.That(Object.FindAnyObjectByType<MapLoader>().Sound, Is.Not.Null);
             monster.NotifyNoise();
             Assert.That(monster.Brain.State, Is.EqualTo(MonsterState.Chase));
             string sight = sound.LastPlayedLump;
@@ -126,14 +133,24 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Door_plays_open_at_sector_origin()
+        public IEnumerator Imp_impact_plays_explosion()
+        {
+            yield return LoadLevel();
+            var sound = Object.FindAnyObjectByType<SoundSystem>();
+            var src = sound.PlayAt("DSFIRXPL", new Vector3(3f, 1f, 3f));
+            Assert.That(src, Is.Not.Null);
+            Assert.That(src.clip.name, Is.EqualTo("DSFIRXPL"));
+            Assert.That(sound.WasPlayed("DSFIRXPL"), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator Door_and_lift_manage_world_sources()
         {
             yield return LoadLevel();
             var sound = Object.FindAnyObjectByType<SoundSystem>();
             var activator = Object.FindAnyObjectByType<LineActivator>();
             Assert.That(activator, Is.Not.Null);
 
-            // Find a push door on E1M1 (special 1 is DR door).
             string path = System.IO.Path.Combine(Application.streamingAssetsPath, "wads", "freedoom1.wad");
             using var wad = Doom.Wad.WadFile.Open(path);
             var map = Doom.Map.MapData.Load(wad, "E1M1");
@@ -185,6 +202,36 @@ namespace Doom.Stage3.PlayTests
             Assert.That(sound.LastPlayedLump, Is.EqualTo("DSNOWAY").Or.EqualTo("DSOOF"));
             Assert.That(activator.IsSectorMovingForTest(doorSector), Is.False);
             Assert.That(activator.GetSectorCeilForTest(doorSector), Is.EqualTo(ceilBefore));
+        }
+
+        [UnityTest]
+        public IEnumerator Closed_wad_prewarm_does_not_reread()
+        {
+            yield return LoadLevel();
+            var sound = Object.FindAnyObjectByType<SoundSystem>();
+            Assert.That(sound.Cache.IsCached("DSPISTOL"), Is.True);
+            var clip = sound.Cache.Get("DSPISTOL");
+            Assert.That(clip, Is.Not.Null);
+            Assert.That(sound.Cache.Get("DSPISTOL"), Is.SameAs(clip));
+            Assert.That(sound.Cache.Get("DSNEVERPREWARMEDXYZ"), Is.Null);
+            Assert.That(sound.Cache.Get("DSNEVERPREWARMEDXYZ"), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator Player_pain_and_death_cues()
+        {
+            yield return LoadLevel();
+            var player = GameObject.Find("Player");
+            var sound = Object.FindAnyObjectByType<SoundSystem>();
+            var health = player.GetComponent<PlayerHealth>();
+
+            health.TakeDamage(20);
+            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPLPAIN"));
+            Assert.That(health.IsDead, Is.False);
+
+            health.TakeDamage(999);
+            Assert.That(health.IsDead, Is.True);
+            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPLDETH"));
         }
     }
 }

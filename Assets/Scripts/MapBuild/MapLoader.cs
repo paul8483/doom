@@ -1,9 +1,13 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Doom.Wad;
 using Doom.Map;
 using Doom.Graphics;
+using Doom.Audio;
+using Doom.Game;
+using Doom.Things;
 
 namespace Doom.MapBuild
 {
@@ -22,6 +26,9 @@ namespace Doom.MapBuild
         [Tooltip("DOOM unit × worldScale = Unity meter. 1/32 → player ~1.75m")]
         [SerializeField] float worldScale = 1f / 32f;
 
+        [SerializeField] [Range(0f, 1f)] float sfxVolume = 1f;
+        [SerializeField] [Range(0f, 1f)] float musicVolume = 0.55f;
+
         [SerializeField] Material floorMaterial;
         [SerializeField] Material ceilingMaterial;
         [SerializeField] Material wallMaterial;
@@ -33,6 +40,9 @@ namespace Doom.MapBuild
 
         /// Stage 6f SFX service. Created during Build() while the WAD is open.
         public SoundSystem Sound { get; private set; }
+
+        /// Stage 6f music service. Created during Build() while the WAD is open.
+        public MusicPlayer Music { get; private set; }
 
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
@@ -102,13 +112,15 @@ namespace Doom.MapBuild
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette);
 
-            // Stage 6f: decode DS* while the WAD is open; temporary fixed list
-            // until Tasks 3–6 replace it with table-driven collection.
+            // Stage 6f: decode DS* and copy music lumps while the WAD is open.
             var soundCache = new SoundCache(wad);
-            foreach (string sfx in TemporarySfxPrewarm)
+            foreach (string sfx in CollectSfxNames())
                 soundCache.Get(sfx);
             Sound = gameObject.GetComponent<SoundSystem>() ?? gameObject.AddComponent<SoundSystem>();
-            Sound.Init(soundCache, worldScale);
+            Sound.Init(soundCache, worldScale, volume: sfxVolume);
+
+            Music = gameObject.GetComponent<MusicPlayer>() ?? gameObject.AddComponent<MusicPlayer>();
+            InitMusic(wad, loadName);
 
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
@@ -184,20 +196,76 @@ namespace Doom.MapBuild
             soundCache.NotifyWadClosed();
         }
 
-        // Temporary until Task 10 gathers names from WeaponTable / MonsterTable /
-        // PickupSoundTable. Keep in sync with the Stage 6f source-of-truth table.
-        static readonly string[] TemporarySfxPrewarm =
+        void InitMusic(WadFile wad, string loadName)
         {
-            "DSPUNCH", "DSPISTOL", "DSSHOTGN",
-            "DSITEMUP", "DSWPNUP", "DSGETPOW",
-            "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
-            "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
-            "DSFIRSHT", "DSFIRXPL", "DSCLAW",
-            "DSPOSIT1", "DSPOSIT2", "DSPOSIT3", "DSPOSACT", "DSPOPAIN",
-            "DSPODTH1", "DSPODTH2", "DSPODTH3",
-            "DSBGSIT1", "DSBGSIT2", "DSDMACT", "DSDMPAIN", "DSBGDTH1", "DSBGDTH2",
-            "DSSGTSIT", "DSSGTATK", "DSSGTDTH",
-        };
+            if (!MusicLumpName.TryForMap(loadName, out string track))
+            {
+                Debug.LogWarning($"MapLoader: no music lump mapping for '{loadName}'");
+                return;
+            }
+
+            try
+            {
+                byte[] mus = wad.ReadLump(track);
+                byte[] genMidi = wad.ReadLump("GENMIDI");
+                // Copy so MusicPlayer owns independent buffers after WAD close.
+                var musCopy = new byte[mus.Length];
+                System.Buffer.BlockCopy(mus, 0, musCopy, 0, mus.Length);
+                var genCopy = new byte[genMidi.Length];
+                System.Buffer.BlockCopy(genMidi, 0, genCopy, 0, genMidi.Length);
+                Music.Init(musCopy, genCopy, track, musicVolume);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"MapLoader: music disabled ({track}): {e.Message}");
+            }
+        }
+
+        /// Collects every DS* name referenced by gameplay tables for pre-warm.
+        public static IEnumerable<string> CollectSfxNames()
+        {
+            var set = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            void Add(string name)
+            {
+                if (!string.IsNullOrEmpty(name)) set.Add(name.ToUpperInvariant());
+            }
+
+            void AddAll(IEnumerable<string> names)
+            {
+                if (names == null) return;
+                foreach (string n in names) Add(n);
+            }
+
+            foreach (WeaponId id in System.Enum.GetValues(typeof(WeaponId)))
+                Add(WeaponTable.Get(id).FireSound);
+
+            foreach (PickupSoundKind kind in System.Enum.GetValues(typeof(PickupSoundKind)))
+                Add(PickupSoundTable.LumpName(kind));
+
+            // Player / sector / projectile fixed set.
+            foreach (string n in new[]
+            {
+                "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
+                "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
+                "DSFIRSHT", "DSFIRXPL", "DSCLAW",
+            })
+                Add(n);
+
+            foreach (int doomed in new[] { 3004, 9, 3001, 3002 })
+            {
+                if (!MonsterTable.TryGet(doomed, out MonsterDef def) || def.Sounds == null)
+                    continue;
+                AddAll(def.Sounds.Sight);
+                Add(def.Sounds.Active);
+                Add(def.Sounds.RangedAttack);
+                Add(def.Sounds.MeleeAttack);
+                Add(def.Sounds.Pain);
+                AddAll(def.Sounds.Death);
+            }
+
+            return set;
+        }
 
         // ── Player spawn ──────────────────────────────────────────────────────
         void SpawnPlayer(MapData map, Bounds? bounds, SpriteCache spriteCache)
