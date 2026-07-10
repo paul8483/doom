@@ -49,6 +49,13 @@ namespace Doom.MapBuild
             if (special < 0) return 0;
             int dmg = SectorDamageTable.DamagePerTick(special);
             if (dmg > 0) health.TakeDamage(dmg);
+
+            if (ExitSectorRules.ShouldExitAfterDamage(special, health.Health))
+            {
+                var ctrl = LevelTransitionController.Ensure();
+                ctrl.TryRequestExit(new LevelExitRequest(Doom.Game.ExitKind.Normal, -1));
+            }
+
             return dmg;
         }
 

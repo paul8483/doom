@@ -44,5 +44,25 @@ namespace Doom.Game
             owned[(int)WeaponId.Pistol] = true;
             Current = WeaponId.Pistol;
         }
+
+        /// Authoritative restore for carry-over / save. Fist is always owned.
+        /// If <paramref name="current"/> is not owned, falls back to BestAvailable order
+        /// using a temporary ammo-agnostic preference (pistol if owned, else fist).
+        public void Restore(
+            bool fist, bool pistol, bool shotgun, bool chaingun, WeaponId current)
+        {
+            owned[(int)WeaponId.Fist] = true; // always
+            owned[(int)WeaponId.Pistol] = pistol;
+            owned[(int)WeaponId.Shotgun] = shotgun;
+            owned[(int)WeaponId.Chaingun] = chaingun;
+            _ = fist; // fist flag accepted for DTO symmetry; ownership forced true
+
+            if (owned[(int)current])
+                Current = current;
+            else if (owned[(int)WeaponId.Pistol])
+                Current = WeaponId.Pistol;
+            else
+                Current = WeaponId.Fist;
+        }
     }
 }

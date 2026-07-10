@@ -52,10 +52,11 @@ namespace Doom.Specials
             Category = category; Direction = direction; Speed = speed; Target = target; Key = key;
         }
 
-        /// True for categories Stage 6a actually animates.
+        /// True for categories that have a runtime executor.
         public bool IsExecutable =>
             Category == SpecialCategory.Door || Category == SpecialCategory.LockedDoor ||
             Category == SpecialCategory.Floor || Category == SpecialCategory.Ceiling ||
-            Category == SpecialCategory.Plat || Category == SpecialCategory.Stair;
+            Category == SpecialCategory.Plat || Category == SpecialCategory.Stair ||
+            Category == SpecialCategory.Exit;
     }
 }

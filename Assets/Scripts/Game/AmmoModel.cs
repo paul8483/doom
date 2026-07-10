@@ -65,6 +65,21 @@ namespace Doom.Game
             HasBackpack = false;
         }
 
+        /// Authoritative restore for carry-over / save. Counts are clamped to the
+        /// max implied by <paramref name="hasBackpack"/>.
+        public void Restore(int bulletCount, int shellCount, bool hasBackpack)
+        {
+            HasBackpack = hasBackpack;
+            bullets = Clamp(bulletCount, GetMax(AmmoType.Bullets));
+            shells = Clamp(shellCount, GetMax(AmmoType.Shells));
+        }
+
+        static int Clamp(int v, int max)
+        {
+            if (v < 0) return 0;
+            return v > max ? max : v;
+        }
+
         void Set(AmmoType t, int v)
         {
             if (t == AmmoType.Bullets) bullets = v;

@@ -50,6 +50,20 @@ namespace Doom.Game
             ArmorType = ArmorKind.None;
         }
 
+        /// Authoritative restore for carry-over / save (Task 7). Clamps to model limits.
+        public void Restore(int health, int armor, ArmorKind armorType)
+        {
+            if (health < 0) health = 0;
+            if (armor < 0) armor = 0;
+            if (armor > MaxArmor) armor = MaxArmor;
+            if (armorType == ArmorKind.None) armor = 0;
+            else if (armor == 0) armorType = ArmorKind.None;
+
+            Health = health;
+            Armor = armor;
+            ArmorType = armorType;
+        }
+
         /// P_GiveBody: add up to cap; false if already at cap.
         public bool GiveHealth(int amount, int cap)
         {

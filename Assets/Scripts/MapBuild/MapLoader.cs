@@ -20,8 +20,12 @@ namespace Doom.MapBuild
         [Tooltip("Map name (ExMy for DOOM 1, MAPxx for DOOM 2)")]
         [SerializeField] string mapName = "E1M1";
 
-        /// PlayMode test hook: when set, Build() loads this map instead of mapName.
+        /// PlayMode test hook: when set AND no active production session, Build()
+        /// loads this map instead of the serialized mapName. Cleared by test teardown.
         public static string MapNameOverride;
+
+        /// Map name actually loaded by the most recent Build().
+        public string LoadedMapName { get; private set; }
 
         [Tooltip("DOOM unit × worldScale = Unity meter. 1/32 → player ~1.75m")]
         [SerializeField] float worldScale = 1f / 32f;
@@ -102,8 +106,9 @@ namespace Doom.MapBuild
             }
 
             using var wad = WadFile.Open(path);
-            string loadName = string.IsNullOrEmpty(MapNameOverride) ? mapName : MapNameOverride;
+            string loadName = ResolveMapName();
             var map = MapData.Load(wad, loadName);
+            LoadedMapName = map.Name;
             Debug.Log($"MapLoader: loaded {map.Name} — " +
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
                       $"{map.Sectors.Length} sectors, {map.Things.Length} things");
@@ -374,6 +379,37 @@ namespace Doom.MapBuild
                 var playerSound = player.AddComponent<PlayerSoundController>();
                 playerSound.Init(Sound, weapons, inventory, health);
             }
+
+            ApplySessionCarry(health, weapons, inventory);
+        }
+
+        /// Active production session wins; otherwise MapNameOverride; else inspector field.
+        string ResolveMapName()
+        {
+            var host = GameSessionHost.Instance;
+            if (host != null && host.Session != null && host.Session.IsActive &&
+                !string.IsNullOrEmpty(host.Session.CurrentMap))
+                return host.Session.CurrentMap;
+
+            if (!string.IsNullOrEmpty(MapNameOverride))
+                return MapNameOverride;
+
+            return mapName;
+        }
+
+        void ApplySessionCarry(PlayerHealth health, PlayerWeapons weapons, PlayerInventory inventory)
+        {
+            var host = GameSessionHost.Instance;
+            if (host == null || host.Session == null || !host.Session.IsActive)
+                return;
+
+            var carry = host.Session.Carry;
+            if (carry == null) return;
+
+            carry.ApplyTo(health.Model, weapons.Ammo, weapons.Loadout);
+            // Keys and powers stay at spawn defaults (cleared on level advance).
+            inventory.Keys.Reset();
+            inventory.Powers.Reset();
         }
 
         enum ColliderMode { None, Render, ThickWall }

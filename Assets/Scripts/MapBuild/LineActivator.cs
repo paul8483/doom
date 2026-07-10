@@ -271,6 +271,21 @@ namespace Doom.MapBuild
                 if (!sp.Repeatable) onceFired[lineIndex] = true;
                 return;
             }
+
+            if (sp.Category == SpecialCategory.Exit)
+            {
+                var kind = LevelTransitionController.KindFromLinedefSpecial(ld.Special);
+                var ctrl = LevelTransitionController.Ensure();
+                if (!ctrl.TryRequestExit(new LevelExitRequest(kind, lineIndex)))
+                    return; // already transitioning — do not mark fired
+
+                if (sp.Trigger == TriggerKind.Switch)
+                    sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
+
+                if (!sp.Repeatable) onceFired[lineIndex] = true;
+                return;
+            }
+
             if (sp.Key != KeyKind.None)
             {
                 if (inventory == null || !KeyMapping.HasRequired(inventory.Keys, sp.Key))
