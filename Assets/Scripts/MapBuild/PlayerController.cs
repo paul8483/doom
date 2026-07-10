@@ -19,6 +19,7 @@ namespace Doom.MapBuild
         [Header("Look")]
         [SerializeField] float mouseSensitivity = 0.1f;  // degrees per pixel
         [SerializeField] float pitchLimit = 85f;
+        [SerializeField] bool invertY;
         [Tooltip("Child transform at eye height; pitch is applied here. Wired by MapLoader.")]
         [SerializeField] Transform cameraPivot;
 
@@ -33,6 +34,9 @@ namespace Doom.MapBuild
         float pitch;
         float verticalVelocity;
 
+        public float MouseSensitivity => mouseSensitivity;
+        public bool InvertY => invertY;
+
         void Awake()
         {
             cc = GetComponent<CharacterController>();
@@ -42,15 +46,12 @@ namespace Doom.MapBuild
         void OnEnable()
         {
             playerMap.Enable();
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // Cursor lock/unlock is owned by GameFlowController (Stage 7c).
         }
 
         void OnDisable()
         {
             playerMap.Disable();
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
 
         void OnDestroy()
@@ -60,6 +61,12 @@ namespace Doom.MapBuild
         }
 
         public void SetCameraPivot(Transform pivot) => cameraPivot = pivot;
+
+        public void ApplyLookSettings(float sensitivity, bool invertYAxis)
+        {
+            mouseSensitivity = Mathf.Clamp(sensitivity, 0.01f, 2f);
+            invertY = invertYAxis;
+        }
 
         void BuildInputActions()
         {
@@ -104,7 +111,8 @@ namespace Doom.MapBuild
             Vector2 look = lookAction.ReadValue<Vector2>() * mouseSensitivity;
             transform.Rotate(0f, look.x, 0f);             // yaw always applies
             if (cameraPivot == null) return;              // pitch needs the pivot
-            pitch = Mathf.Clamp(pitch - look.y, -pitchLimit, pitchLimit);
+            float pitchDelta = invertY ? look.y : -look.y;
+            pitch = Mathf.Clamp(pitch + pitchDelta, -pitchLimit, pitchLimit);
             cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 

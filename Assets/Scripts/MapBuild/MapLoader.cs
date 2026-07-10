@@ -88,14 +88,47 @@ namespace Doom.MapBuild
         // ── MonoBehaviour lifecycle ───────────────────────────────────────────
         void Start()
         {
+            var flow = GameFlowController.Ensure();
             MapLog.WarningHandler += OnWarning;
             MapLog.ErrorHandler   += OnError;
-            try   { Build(); }
+            try
+            {
+                if (GameFlowController.ShouldBuildMap())
+                {
+                    Build();
+                    SettingsController.Ensure().ApplyLoadedSettings();
+                    flow.NotifyLevelReady();
+                }
+                else
+                {
+                    LoadUiOnly();
+                    SettingsController.Ensure().ApplyLoadedSettings();
+                    flow.EnterMainMenu();
+                }
+            }
             finally
             {
                 MapLog.WarningHandler -= OnWarning;
                 MapLog.ErrorHandler   -= OnError;
             }
+        }
+
+        /// Decode HUD/menu patches without building map geometry (main-menu boot).
+        void LoadUiOnly()
+        {
+            string path = Path.Combine(Application.streamingAssetsPath, wadRelativePath);
+            if (!File.Exists(path))
+            {
+                Debug.LogError($"MapLoader: WAD not found at {path}");
+                return;
+            }
+
+            using var wad = WadFile.Open(path);
+            var palette = new Palette(wad.ReadLump("PLAYPAL"));
+            var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
+            HudTextures = new HudTextureCache(uiCatalog);
+            LoadedMapName = null;
+            Debug.Log("MapLoader: UI-only load for main menu");
         }
 
         // ── Build ─────────────────────────────────────────────────────────────
@@ -392,6 +425,9 @@ namespace Doom.MapBuild
             }
 
             ApplySessionCarry(health, weapons, inventory);
+
+            // Ensure flow exists; NotifyLevelReady is called from Start after Build.
+            GameFlowController.Ensure();
         }
 
         /// Active production session wins; otherwise MapNameOverride; else inspector field.

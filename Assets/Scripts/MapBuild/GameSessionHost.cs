@@ -24,6 +24,9 @@ namespace Doom.MapBuild
         public static void ResetForTests()
         {
             MapLoader.MapNameOverride = null;
+            GameFlowController.AutoStartPlaying = true;
+            GameFlowController.ForceMainMenuOnNextLoad = false;
+            Time.timeScale = 1f;
             if (Instance != null)
             {
                 var go = Instance.gameObject;

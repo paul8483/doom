@@ -28,12 +28,13 @@ namespace Doom.MapBuild
 
         public int ActiveLoopCount => loops.Count;
         public SoundCache Cache => cache;
+        public float Volume => sfxVolume;
 
         public void Init(SoundCache soundCache, float scale, int poolSize = 16, float volume = 1f)
         {
             cache = soundCache ?? throw new System.ArgumentNullException(nameof(soundCache));
             worldScale = scale;
-            sfxVolume = Mathf.Clamp01(volume);
+            SetVolume(volume);
 
             for (int i = pool.Count; i < poolSize; i++)
             {
@@ -45,6 +46,17 @@ namespace Doom.MapBuild
                 src.dopplerLevel = 0f;
                 src.rolloffMode = AudioRolloffMode.Linear;
                 pool.Add(src);
+            }
+        }
+
+        /// Runtime volume for existing and future pooled sources.
+        public void SetVolume(float volume)
+        {
+            sfxVolume = Mathf.Clamp01(volume);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var src = pool[i];
+                if (src != null) src.volume = sfxVolume;
             }
         }
 

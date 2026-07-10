@@ -3,15 +3,11 @@ using UnityEngine.InputSystem;
 
 namespace Doom.MapBuild
 {
-    /// On player death: freeze movement/use/floor-damage, show a "You died" overlay,
-    /// and respawn at the start when R is pressed.
+    /// On player death: notify GameFlow, show overlay, respawn on R.
+    /// Freeze/cursor ownership lives in <see cref="GameFlowController"/>.
     public sealed class PlayerDeathHandler : MonoBehaviour
     {
         PlayerHealth health;
-        PlayerController controller;
-        LineActivator activator;
-        FloorDamageSystem damage;
-        PlayerWeapons weapons;
         CharacterController cc;
         Vector3 startPos;
         Quaternion startRot;
@@ -26,20 +22,17 @@ namespace Doom.MapBuild
                          FloorDamageSystem damage, CharacterController cc,
                          Vector3 startPos, Quaternion startRot)
         {
+            // controller/activator/damage kept in signature for MapLoader compatibility;
+            // freeze is centralized in GameFlowController (Stage 7c).
             this.health = health;
-            this.controller = controller;
-            this.activator = activator;
-            this.damage = damage;
             this.cc = cc;
             this.startPos = startPos;
             this.startRot = startRot;
             health.Died += OnDied;
         }
 
-        /// Wire the weapons component into the death/respawn freeze path so a dead
-        /// player cannot fire or switch weapons. Set separately from Init because
-        /// MapLoader creates PlayerWeapons after PlayerDeathHandler (Stage 6c).
-        public void SetWeapons(PlayerWeapons weapons) => this.weapons = weapons;
+        /// Kept for MapLoader wiring compatibility; freeze is owned by GameFlow.
+        public void SetWeapons(PlayerWeapons weapons) { }
 
         void OnDestroy()
         {
@@ -49,7 +42,7 @@ namespace Doom.MapBuild
         void OnDied()
         {
             dead = true;
-            SetActive(false);
+            GameFlowController.Ensure().EnterDead();
         }
 
         void Update()
@@ -69,17 +62,9 @@ namespace Doom.MapBuild
             transform.position = startPos;
             transform.rotation = startRot;
             if (cc != null) cc.enabled = true;
-            SetActive(true);
             dead = false;
+            GameFlowController.Ensure().LeaveDeadToPlaying();
             Respawned?.Invoke();
-        }
-
-        void SetActive(bool on)
-        {
-            if (controller != null) controller.enabled = on;
-            if (activator != null) activator.enabled = on;
-            if (damage != null) damage.enabled = on;
-            if (weapons != null) weapons.enabled = on;
         }
 
         void OnGUI()

@@ -1,17 +1,13 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Doom.Game;
-using Doom.Wad;
 
 namespace Doom.MapBuild
 {
-    /// Freezes gameplay, advances the campaign session, and reloads the preview
-    /// scene. Intermission UI is added in Task 7; until then transitions confirm
-    /// immediately (or via <see cref="ConfirmIntermission"/>).
+    /// Freezes gameplay via GameFlow, advances the campaign session, and reloads
+    /// the preview scene after intermission confirm.
     public sealed class LevelTransitionController : MonoBehaviour
     {
         public const string PreviewSceneName = "Stage2_MapPreview";
@@ -82,7 +78,8 @@ namespace Doom.MapBuild
 
         IEnumerator RunTransition(LevelExitRequest request)
         {
-            FreezeGameplay();
+            var flow = GameFlowController.Ensure();
+            flow.EnterIntermission();
 
             var host = GameSessionHost.Ensure();
             EnsureSessionActive(host);
@@ -109,9 +106,9 @@ namespace Doom.MapBuild
 
             if (result.Outcome == CampaignOutcome.EpisodeComplete)
             {
-                // Task 8 adds main-menu return; for now stay frozen on current scene.
-                Debug.Log("[7a] Episode complete — main menu deferred to Task 8");
+                Debug.Log("[7c] Episode complete — returning to main menu");
                 IsTransitioning = false;
+                flow.ReturnToMainMenuAfterEpisode();
                 yield break;
             }
 
@@ -120,6 +117,7 @@ namespace Doom.MapBuild
                       (result.UsedSecretFallback ? " (secret fallback)" : ""));
 
             // Scene reload tears down the old map; session host survives.
+            flow.EnterLoading();
             IsTransitioning = false;
             SceneManager.LoadScene(PreviewSceneName, LoadSceneMode.Single);
         }
@@ -141,20 +139,6 @@ namespace Doom.MapBuild
                 Intermission.Hide();
         }
 
-        void FreezeGameplay()
-        {
-            var player = GameObject.Find("Player");
-            if (player == null) return;
-            var pc = player.GetComponent<PlayerController>();
-            if (pc != null) pc.enabled = false;
-            var act = player.GetComponent<LineActivator>();
-            if (act != null) act.enabled = false;
-            var weap = player.GetComponent<PlayerWeapons>();
-            if (weap != null) weap.enabled = false;
-            var floor = player.GetComponent<FloorDamageSystem>();
-            if (floor != null) floor.enabled = false;
-        }
-
         static PlayerCarryState CaptureCarry()
         {
             var player = GameObject.Find("Player");
@@ -174,27 +158,7 @@ namespace Doom.MapBuild
                 ? loader.LoadedMapName
                 : "E1M1";
 
-            host.Session.BeginNewGame(current, CollectAvailableMaps());
-        }
-
-        static List<string> CollectAvailableMaps()
-        {
-            var list = new List<string>();
-            string path = Path.Combine(Application.streamingAssetsPath, "wads", "freedoom1.wad");
-            if (!File.Exists(path))
-            {
-                for (int m = 1; m <= 9; m++) list.Add($"E1M{m}");
-                return list;
-            }
-
-            using var wad = WadFile.Open(path);
-            foreach (var lump in wad.Directory)
-            {
-                if (WadMapNames.IsMapMarker(lump.Name) &&
-                    CampaignRoute.TryNormalize(lump.Name, out string canonical))
-                    list.Add(canonical);
-            }
-            return list;
+            host.Session.BeginNewGame(current, GameFlowController.CollectAvailableMaps());
         }
 
         /// Map linedef special number → exit kind.

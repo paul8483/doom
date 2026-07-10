@@ -23,6 +23,9 @@ namespace Doom.MapBuild
         /// Lump name of the active track (e.g. D_E1M1), or null if disabled.
         public string TrackName { get; private set; }
 
+        public float Volume => volume;
+        public bool IsPaused { get; private set; }
+
         /// Cumulative stereo frames filled by the PCM callback (test probe).
         public long RenderedFrames => System.Threading.Interlocked.Read(ref renderedFrames);
 
@@ -88,7 +91,31 @@ namespace Doom.MapBuild
             stopped = false;
             System.Threading.Interlocked.Exchange(ref renderedFrames, 0);
             source.Play();
+            IsPaused = false;
             return true;
+        }
+
+        /// Runtime volume without restarting the sequencer.
+        public void SetVolume(float musicVolume)
+        {
+            volume = Mathf.Clamp01(musicVolume);
+            if (source != null) source.volume = volume;
+        }
+
+        /// Pause playback; sequencer and AudioSource position are preserved.
+        public void Pause()
+        {
+            if (source == null || stopped) return;
+            source.Pause();
+            IsPaused = true;
+        }
+
+        /// Resume after <see cref="Pause"/> without restarting the sequencer.
+        public void Resume()
+        {
+            if (source == null || stopped) return;
+            source.UnPause();
+            IsPaused = false;
         }
 
         void OnPcmRead(float[] data)
@@ -123,6 +150,7 @@ namespace Doom.MapBuild
         void StopInternal()
         {
             stopped = true;
+            IsPaused = false;
             if (source != null)
             {
                 source.Stop();
