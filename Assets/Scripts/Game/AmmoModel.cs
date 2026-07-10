@@ -1,15 +1,21 @@
 namespace Doom.Game
 {
     /// Счётчики патронов игрока. Значения DOOM: старт 50 пуль,
-    /// максимумы maxammo = 200 пуль / 50 дроби (p_inter.c, без рюкзака).
+    /// максимумы maxammo = 200 пуль / 50 дроби (p_inter.c, без рюкзака);
+    /// с рюкзаком — 400 / 100.
     public sealed class AmmoModel
     {
         public const int MaxBullets = 200;
         public const int MaxShells = 50;
+        public const int MaxBulletsBackpack = 400;
+        public const int MaxShellsBackpack = 100;
         public const int StartBullets = 50;
+        public const int BackpackClipBullets = 10;
+        public const int BackpackClipShells = 4;
 
         int bullets = StartBullets;
         int shells;
+        public bool HasBackpack { get; private set; }
 
         public int Get(AmmoType t) => t switch
         {
@@ -20,8 +26,8 @@ namespace Doom.Game
 
         public int GetMax(AmmoType t) => t switch
         {
-            AmmoType.Bullets => MaxBullets,
-            AmmoType.Shells => MaxShells,
+            AmmoType.Bullets => HasBackpack ? MaxBulletsBackpack : MaxBullets,
+            AmmoType.Shells => HasBackpack ? MaxShellsBackpack : MaxShells,
             _ => 0,
         };
 
@@ -42,7 +48,22 @@ namespace Doom.Game
             return true;
         }
 
-        public void Reset() { bullets = StartBullets; shells = 0; }
+        /// Doubles max ammo (idempotent) and always grants a clip of each type.
+        /// Always returns true so ItemRules accepts every backpack pickup.
+        public bool GiveBackpack()
+        {
+            HasBackpack = true;
+            Add(AmmoType.Bullets, BackpackClipBullets);
+            Add(AmmoType.Shells, BackpackClipShells);
+            return true;
+        }
+
+        public void Reset()
+        {
+            bullets = StartBullets;
+            shells = 0;
+            HasBackpack = false;
+        }
 
         void Set(AmmoType t, int v)
         {

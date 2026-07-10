@@ -16,6 +16,9 @@ namespace Doom.MapBuild
         [Tooltip("Map name (ExMy for DOOM 1, MAPxx for DOOM 2)")]
         [SerializeField] string mapName = "E1M1";
 
+        /// PlayMode test hook: when set, Build() loads this map instead of mapName.
+        public static string MapNameOverride;
+
         [Tooltip("DOOM unit × worldScale = Unity meter. 1/32 → player ~1.75m")]
         [SerializeField] float worldScale = 1f / 32f;
 
@@ -86,7 +89,8 @@ namespace Doom.MapBuild
             }
 
             using var wad = WadFile.Open(path);
-            var map = MapData.Load(wad, mapName);
+            string loadName = string.IsNullOrEmpty(MapNameOverride) ? mapName : MapNameOverride;
+            var map = MapData.Load(wad, loadName);
             Debug.Log($"MapLoader: loaded {map.Name} — " +
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
                       $"{map.Sectors.Length} sectors, {map.Things.Length} things");
@@ -249,12 +253,21 @@ namespace Doom.MapBuild
             var rider = player.AddComponent<PlayerLiftRider>();
             rider.Init(cc, worldScale);
 
-            // Weapons and shooting (Stage 6c).
+            // Weapons and shooting (Stage 6c) + inventory / pickups (Stage 6e).
             var weapons = player.AddComponent<PlayerWeapons>();
             weapons.Init(spriteCache, worldScale, cameraGO.transform);
             var weaponView = cameraGO.AddComponent<WeaponView>();
             weaponView.Init(weapons, spriteCache, worldScale, cc);
+
+            var inventory = player.AddComponent<PlayerInventory>();
+            inventory.Init(health, weapons);
+            weapons.SetInventory(inventory);
+            activator.SetInventory(inventory);
+            floorDamage.SetInventory(inventory);
+            hud.SetInventory(inventory);
+
             death.Respawned += weapons.ResetToStart;
+            death.Respawned += inventory.OnRespawn;
             death.SetWeapons(weapons);
             hud.SetWeapons(weapons);
         }

@@ -15,6 +15,7 @@ namespace Doom.MapBuild
         float worldScale;
         PlayerHealth health;
         CharacterController cc;
+        PlayerInventory inventory;
         float timer;
 
         public void Init(MapData map, float worldScale, PlayerHealth health, CharacterController cc)
@@ -25,6 +26,8 @@ namespace Doom.MapBuild
             this.cc = cc;
             timer = 0f;
         }
+
+        public void SetInventory(PlayerInventory inv) => inventory = inv;
 
         void Update()
         {
@@ -41,6 +44,7 @@ namespace Doom.MapBuild
         public int TryApplyFloorDamageOnce()
         {
             if (cc != null && !cc.isGrounded) return 0;
+            if (inventory != null && inventory.Powers.IronFeetTics > 0) return 0;
             int special = SectorSpecialUnderPlayer();
             if (special < 0) return 0;
             int dmg = SectorDamageTable.DamagePerTick(special);

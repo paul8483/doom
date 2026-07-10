@@ -18,6 +18,7 @@ namespace Doom.MapBuild
         Vector3 lastPos;
         bool[] onceFired;        // per linedef
         bool[] moving;           // per sector: a mover is active
+        PlayerInventory inventory;
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
                          float worldScale, Transform cam)
@@ -29,6 +30,8 @@ namespace Doom.MapBuild
             lastPos = transform.position;
             instance = this;
         }
+
+        public void SetInventory(PlayerInventory inv) => inventory = inv;
 
         void OnDestroy()
         {
@@ -87,27 +90,38 @@ namespace Doom.MapBuild
         /// Test hook: is a mover currently active on this sector?
         public bool IsSectorMovingForTest(int sector) => moving[sector];
 
-        /// Called when the player presses Use. Raycasts forward into a wall.
+        /// Called when the player presses Use. Raycasts forward into a wall; if that
+        /// misses or resolves to a non-special linedef (common with texture-grouped
+        /// walls / closed door faces), falls back to the nearest Push/Switch special
+        /// in front of the camera — same idea as monster door-use.
         public void TryUse()
         {
             if (map == null || cam == null) return;
             float range = 64f * worldScale;
             // Ignore triggers: pickup spheres (ThingPickup) would otherwise eat the
             // ray before it reaches the wall behind them.
-            if (!Physics.Raycast(cam.position, cam.forward, out var hit, range,
-                                 ~0, QueryTriggerInteraction.Ignore)) return;
+            if (Physics.Raycast(cam.position, cam.forward, out var hit, range,
+                                ~0, QueryTriggerInteraction.Ignore))
+            {
+                var lineRef = hit.collider.GetComponentInParent<LineRef>();
+                if (lineRef != null)
+                {
+                    int lineIndex = ResolveLine(lineRef, hit.point);
+                    if (lineIndex >= 0 && IsPlayerUseSpecial(map.LineDefs[lineIndex].Special))
+                    {
+                        Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
+                        return;
+                    }
+                }
+            }
 
-            var lineRef = hit.collider.GetComponentInParent<LineRef>();
-            if (lineRef == null) return;
-
-            int lineIndex = ResolveLine(lineRef, hit.point);
-            if (lineIndex < 0) return;
-            Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
+            UseNearestSpecialInFront(range);
         }
 
         /// Walls are texture-grouped, so a collider may cover several linedefs of the
         /// same sector. Prefer an exact LineIndex if one was recorded; otherwise pick
-        /// the linedef of LineRef.SectorIndex whose segment is closest to the hit point.
+        /// the linedef of LineRef.SectorIndex whose segment is closest to the hit point,
+        /// preferring Use-activatable specials when nearly tied (door vs doortrack).
         int ResolveLine(LineRef lineRef, Vector3 hitPoint)
         {
             if (lineRef.LineIndex >= 0 && lineRef.LineIndex < map.LineDefs.Length)
@@ -119,6 +133,8 @@ namespace Doom.MapBuild
             Vector2 p = new(hitPoint.x, hitPoint.z);
             int best = -1;
             float bestDist = float.MaxValue;
+            int bestUse = -1;
+            float bestUseDist = float.MaxValue;
             for (int i = 0; i < map.LineDefs.Length; i++)
             {
                 var ld = map.LineDefs[i];
@@ -129,6 +145,60 @@ namespace Doom.MapBuild
                 Vector2 b = new(v2.X * worldScale, v2.Y * worldScale);
                 float d = DistPointSegmentSq(p, a, b);
                 if (d < bestDist) { bestDist = d; best = i; }
+                if (IsPlayerUseSpecial(ld.Special) && d < bestUseDist)
+                { bestUseDist = d; bestUse = i; }
+            }
+            // 8 DU slack: grouped colliders often make a special=0 neighbor "closer".
+            float slack = 8f * worldScale;
+            slack *= slack;
+            if (bestUse >= 0 && bestUseDist <= bestDist + slack)
+                return bestUse;
+            return best;
+        }
+
+        static bool IsPlayerUseSpecial(int special)
+        {
+            if (special == 0 || !LineSpecialTable.TryGet(special, out var sp)) return false;
+            if (!sp.IsExecutable) return false;
+            return sp.Trigger == TriggerKind.Push || sp.Trigger == TriggerKind.Switch;
+        }
+
+        /// Nearest Push/Switch executable linedef in front of the camera within range.
+        void UseNearestSpecialInFront(float radius)
+        {
+            int best = FindNearestSpecialInFront(radius);
+            if (best >= 0)
+                Activate(best, TriggerKind.Push, alsoSwitch: true);
+        }
+
+        int FindNearestSpecialInFront(float radius)
+        {
+            if (cam == null || map == null) return -1;
+
+            Vector3 origin = cam.position;
+            Vector3 flatFwd = cam.forward;
+            flatFwd.y = 0f;
+            if (flatFwd.sqrMagnitude < 1e-8f) return -1;
+            flatFwd.Normalize();
+
+            int best = -1;
+            float bestDistSq = float.MaxValue;
+            float radiusSq = radius * radius;
+            for (int i = 0; i < map.LineDefs.Length; i++)
+            {
+                var ld = map.LineDefs[i];
+                if (!IsPlayerUseSpecial(ld.Special)) continue;
+                if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) continue;
+                var v1 = map.Vertexes[ld.V1]; var v2 = map.Vertexes[ld.V2];
+                Vector2 a = new(v1.X * worldScale, v1.Y * worldScale);
+                Vector2 b = new(v2.X * worldScale, v2.Y * worldScale);
+                Vector2 o = new(origin.x, origin.z);
+                float dSq = DistPointSegmentSq(o, a, b);
+                if (dSq > radiusSq) continue;
+                Vector2 mid = (a + b) * 0.5f;
+                Vector3 to = new Vector3(mid.x - origin.x, 0f, mid.y - origin.z);
+                if (Vector3.Dot(flatFwd, to) <= 0f) continue;
+                if (dSq < bestDistSq) { bestDistSq = dSq; best = i; }
             }
             return best;
         }
@@ -199,7 +269,14 @@ namespace Doom.MapBuild
                 return;
             }
             if (sp.Key != KeyKind.None)
-                Debug.Log($"[6a] locked door (key {sp.Key}) — key check deferred to Stage 6e; opening anyway");
+            {
+                if (inventory == null || !KeyMapping.HasRequired(inventory.Keys, sp.Key))
+                {
+                    if (inventory != null)
+                        Debug.Log($"need key {sp.Key}");
+                    return;
+                }
+            }
 
             System.Collections.Generic.IEnumerable<int> targets =
                 ld.Tag == 0 ? SectorActions.FindManualDoorTarget(map, lineIndex)

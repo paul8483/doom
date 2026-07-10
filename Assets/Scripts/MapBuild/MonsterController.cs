@@ -27,6 +27,8 @@ namespace Doom.MapBuild
         EnemyHealth health;
         float tickAccum;
         float radiusM, heightM;
+        int doomEdNum;
+        bool dropSpawned;
 
         public MonsterBrain Brain => brain;
         public bool IsAmbush => ambush;
@@ -34,12 +36,12 @@ namespace Doom.MapBuild
         public void Init(MonsterDef def, bool ambush, int corpseFrame,
                          SpriteCache cache, float worldScale,
                          Transform player, SpriteBillboard bb, CapsuleCollider capsule,
-                         EnemyHealth health, DoomRandom rng)
+                         EnemyHealth health, DoomRandom rng, int doomEdNum = 0)
         {
             this.def = def; this.ambush = ambush; this.corpseFrame = corpseFrame;
             this.cache = cache; this.worldScale = worldScale;
             this.player = player; this.bb = bb; this.capsule = capsule;
-            this.health = health; this.rng = rng;
+            this.health = health; this.rng = rng; this.doomEdNum = doomEdNum;
             target = player;
             radiusM = capsule != null ? capsule.radius : 0.5f;
             heightM = capsule != null ? capsule.height : 56f * worldScale;
@@ -89,9 +91,21 @@ namespace Doom.MapBuild
             public void FireHitscan(int n) => c.Hitscan(n);
             public void LaunchMissile() => c.Missile();
             public void SetFrame(int f) { if (c.bb != null) c.bb.SetFrame(f); }
-            public void OnDeathStarted() { if (c.capsule != null) c.capsule.enabled = false; }
+            public void OnDeathStarted()
+            {
+                if (c.capsule != null) c.capsule.enabled = false;
+                c.SpawnDeathDrop();
+            }
             public void OnBecameCorpse()
             { if (c.bb != null && c.corpseFrame >= 0) c.bb.SetStaticFrame(c.corpseFrame); }
+        }
+
+        void SpawnDeathDrop()
+        {
+            if (dropSpawned) return;
+            dropSpawned = true;
+            if (!DeathDropTable.TryGet(doomEdNum, out int dropNum)) return;
+            PickupFactory.Spawn(cache, worldScale, dropNum, transform.position, transform.parent);
         }
 
         Vector3 EyePos() => transform.position + Vector3.up * (heightM * 0.75f);

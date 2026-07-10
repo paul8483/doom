@@ -83,7 +83,7 @@ namespace Doom.MapBuild
                         bool ambush = (t.Flags & 0x0008) != 0;
                         var mc = go.AddComponent<MonsterController>();
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
-                                bb, col, eh, new DoomRandom(seedCounter++));
+                                bb, col, eh, new DoomRandom(seedCounter++), t.Type);
                         eh.SetController(mc);
                         foreach (var seq in new[] { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death })
                             foreach (int f in seq.Frames)
@@ -96,13 +96,15 @@ namespace Doom.MapBuild
                     }
                 }
 
-                // Weapon/ammo pickups (Stage 6c).
-                switch (t.Type)
-                {
-                    case 2001: case 2002: case 2007: case 2008: case 2048: case 2049:
-                        go.AddComponent<ThingPickup>().Init(t.Type, worldScale);
-                        break;
-                }
+                // E1 pickups (Stage 6e) — full ItemRules set.
+                if (ItemRules.IsPickup(t.Type))
+                    go.AddComponent<ThingPickup>().Init(t.Type, worldScale);
+
+                // Pre-warm death-drop sprites while the WAD is still open.
+                if (DeathDropTable.TryGet(t.Type, out int dropNum) &&
+                    ThingTable.TryGet(dropNum, out var dropDef))
+                    cache.Get(dropDef.Sprite, dropDef.Frame, 0);
+
                 count++;
             }
             if (floorMisses > 0)

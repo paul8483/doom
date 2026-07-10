@@ -12,8 +12,10 @@ namespace Doom.MapBuild
         readonly HealthModel model = new HealthModel();
         bool deadAnnounced;
 
+        public HealthModel Model => model;
         public int Health => model.Health;
         public int Armor => model.Armor;
+        public ArmorKind ArmorType => model.ArmorType;
         public bool IsDead => model.IsDead;
 
         /// Raised once when the player dies (health hits 0).
@@ -29,6 +31,10 @@ namespace Doom.MapBuild
                 Died?.Invoke();
             }
         }
+
+        public bool GiveHealth(int amount, int cap) => model.GiveHealth(amount, cap);
+        public bool GiveArmor(ArmorKind kind) => model.GiveArmor(kind);
+        public bool GiveArmorBonus(int amount) => model.GiveArmorBonus(amount);
 
         /// Respawn: restore full health and re-arm the Died event.
         public void ResetHealth()

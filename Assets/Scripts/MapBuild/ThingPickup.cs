@@ -1,12 +1,15 @@
 using UnityEngine;
+using Doom.Game;
 
 namespace Doom.MapBuild
 {
-    /// Pickup trigger for weapon/ammo things (Stage 6c: weapons and ammo only).
+    /// Pickup trigger for items (Stage 6e: full E1 set via PlayerInventory / ItemRules).
     /// Touch radius in the spirit of DOOM (16-unit item + 16-unit player radius).
     public sealed class ThingPickup : MonoBehaviour
     {
         int doomedNum;
+
+        public int DoomedNum => doomedNum;
 
         public void Init(int doomedNum, float worldScale)
         {
@@ -19,9 +22,9 @@ namespace Doom.MapBuild
 
         void OnTriggerEnter(Collider other)
         {
-            var weapons = other.GetComponent<PlayerWeapons>();
-            if (weapons == null) return;
-            if (weapons.Pickup(doomedNum))
+            var inv = other.GetComponent<PlayerInventory>();
+            if (inv == null) return;
+            if (inv.TryPickup(doomedNum))
                 Destroy(gameObject);
         }
     }

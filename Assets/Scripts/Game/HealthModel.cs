@@ -49,5 +49,33 @@ namespace Doom.Game
             Armor = 0;
             ArmorType = ArmorKind.None;
         }
+
+        /// P_GiveBody: add up to cap; false if already at cap.
+        public bool GiveHealth(int amount, int cap)
+        {
+            if (amount <= 0 || Health >= cap) return false;
+            Health = System.Math.Min(Health + amount, cap);
+            return true;
+        }
+
+        /// P_GiveArmor: hits = kind rank * 100; false if Armor >= hits.
+        public bool GiveArmor(ArmorKind kind)
+        {
+            if (kind == ArmorKind.None) return false;
+            int hits = kind == ArmorKind.Green ? 100 : 200;
+            if (Armor >= hits) return false;
+            ArmorType = kind;
+            Armor = hits;
+            return true;
+        }
+
+        /// Armor bonus +N ≤ MaxArmor; if no type yet → Green.
+        public bool GiveArmorBonus(int amount)
+        {
+            if (amount <= 0 || Armor >= MaxArmor) return false;
+            if (ArmorType == ArmorKind.None) ArmorType = ArmorKind.Green;
+            Armor = System.Math.Min(Armor + amount, MaxArmor);
+            return true;
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace Doom.MapBuild
         Transform cam;
         readonly DoomRandom rng = new DoomRandom();
         readonly List<HitscanShot> volley = new List<HitscanShot>();
+        PlayerInventory inventory;
 
         InputActionMap map;
         InputAction fireAction;
@@ -43,6 +44,8 @@ namespace Doom.MapBuild
             }
             map.Enable();
         }
+
+        public void SetInventory(PlayerInventory inv) => inventory = inv;
 
         // Pair the action map with component enable state (as PlayerController does),
         // so disabling this component (e.g. on death) also mutes weapon input.
@@ -77,7 +80,8 @@ namespace Doom.MapBuild
             }
 
             volley.Clear();
-            HitscanRules.FireVolley(def, refire, rng, volley);
+            bool berserk = inventory != null && inventory.Powers.Berserk;
+            HitscanRules.FireVolley(def, refire, rng, volley, berserk);
             float rangeDoom = def.Melee ? HitscanRules.MeleeRangeDoom
                                         : HitscanRules.HitscanRangeDoom;
             float range = rangeDoom * worldScale;
@@ -109,27 +113,9 @@ namespace Doom.MapBuild
             Fired?.Invoke(def);
         }
 
-        /// Weapon/ammo pickup. Returns true if the item was consumed (destroy the GO).
+        /// Weapon/ammo/item pickup. Delegates to PlayerInventory / ItemRules.
         public bool Pickup(int doomedNum)
-        {
-            switch (doomedNum)
-            {
-                case 2001: return PickWeapon(WeaponId.Shotgun, AmmoType.Shells, 8);
-                case 2002: return PickWeapon(WeaponId.Chaingun, AmmoType.Bullets, 20);
-                case 2007: return Ammo.Add(AmmoType.Bullets, 10);
-                case 2048: return Ammo.Add(AmmoType.Bullets, 50);
-                case 2008: return Ammo.Add(AmmoType.Shells, 4);
-                case 2049: return Ammo.Add(AmmoType.Shells, 20);
-                default: return false;
-            }
-        }
-
-        bool PickWeapon(WeaponId id, AmmoType ammo, int give)
-        {
-            bool gotWeapon = Loadout.Give(id);      // auto-selects if new
-            bool gotAmmo = Ammo.Add(ammo, give);
-            return gotWeapon || gotAmmo;            // weapon owned AND ammo full -> stays on the ground
-        }
+            => inventory != null && inventory.TryPickup(doomedNum);
 
         public void ResetToStart() { Ammo.Reset(); Loadout.Reset(); cooldown = 0f; refire = false; }
 

@@ -28,6 +28,16 @@ namespace Doom.Game.Tests
         }
 
         [Test]
+        public void Berserk_multiplies_punch_by_10()
+        {
+            var rng = new DoomRandom(0);
+            int normal = HitscanRules.PunchDamage(rng, berserk: false);
+            rng = new DoomRandom(0);
+            int strong = HitscanRules.PunchDamage(rng, berserk: true);
+            Assert.That(strong, Is.EqualTo(normal * 10));
+        }
+
+        [Test]
         public void Shotgun_volley_is_7_pellets_within_spread()
         {
             var r = new DoomRandom();

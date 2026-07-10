@@ -68,5 +68,48 @@ namespace Doom.Game.Tests
             Assert.That(h.Armor, Is.EqualTo(0));
             Assert.That(h.ArmorType, Is.EqualTo(ArmorKind.None));
         }
+
+        [Test]
+        public void GiveHealth_stim_caps_at_100()
+        {
+            var h = new HealthModel(90, 0, ArmorKind.None);
+            Assert.That(h.GiveHealth(10, cap: 100), Is.True);
+            Assert.That(h.Health, Is.EqualTo(100));
+            Assert.That(h.GiveHealth(10, cap: 100), Is.False);
+            Assert.That(h.Health, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void GiveHealth_bonus_allows_up_to_200()
+        {
+            var h = new HealthModel(100, 0, ArmorKind.None);
+            Assert.That(h.GiveHealth(1, cap: 200), Is.True);
+            Assert.That(h.Health, Is.EqualTo(101));
+        }
+
+        [Test]
+        public void GiveArmor_green_and_blue_rules()
+        {
+            var h = new HealthModel();
+            Assert.That(h.GiveArmor(ArmorKind.Green), Is.True);
+            Assert.That(h.Armor, Is.EqualTo(100));
+            Assert.That(h.ArmorType, Is.EqualTo(ArmorKind.Green));
+            Assert.That(h.GiveArmor(ArmorKind.Green), Is.False);
+
+            Assert.That(h.GiveArmor(ArmorKind.Blue), Is.True);
+            Assert.That(h.Armor, Is.EqualTo(200));
+            Assert.That(h.ArmorType, Is.EqualTo(ArmorKind.Blue));
+            Assert.That(h.GiveArmor(ArmorKind.Green), Is.False);
+            Assert.That(h.GiveArmor(ArmorKind.Blue), Is.False);
+        }
+
+        [Test]
+        public void GiveArmorBonus_sets_green_if_none()
+        {
+            var h = new HealthModel();
+            Assert.That(h.GiveArmorBonus(1), Is.True);
+            Assert.That(h.Armor, Is.EqualTo(1));
+            Assert.That(h.ArmorType, Is.EqualTo(ArmorKind.Green));
+        }
     }
 }
