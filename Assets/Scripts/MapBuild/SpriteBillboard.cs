@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -21,6 +22,7 @@ namespace Doom.MapBuild
         Transform cam;
         readonly Vector3[] quadVerts = new Vector3[4];
         bool lockRotation;
+        int emissionLightHandle = -1;
 
         public void Init(SpriteCache cache, string sprite, int frame, float worldScale,
                          float doomAngleDeg, bool spawnCeiling, float ceilingY)
@@ -48,9 +50,18 @@ namespace Doom.MapBuild
         // (HitEffect PUFF/BLUD) would leak one native Mesh.
         void OnDestroy()
         {
+            if (emissionLightHandle > 0)
+            {
+                EnhancedLightSystem.Instance?.Release(emissionLightHandle);
+                emissionLightHandle = -1;
+            }
+
             if (meshFilter != null && meshFilter.sharedMesh != null)
                 Destroy(meshFilter.sharedMesh);
         }
+
+        /// Sticky Enhanced decoration light handle; released on destroy.
+        public void BindEmissionLight(int handle) => emissionLightHandle = handle;
 
         /// Switch the billboard to a static frame with no rotation selection (corpse:
         /// DOOM death frames have no rotations — always rotation 0).

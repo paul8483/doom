@@ -44,6 +44,7 @@ namespace Doom.MapBuild.Rendering
             Instance = this;
             factory = new DoomMaterialFactory();
             enhancedVolumeProfile = LoadVolumeProfile();
+            capabilities = GraphicsCapabilityPolicy.Probe();
         }
 
         void OnDestroy()
@@ -56,14 +57,25 @@ namespace Doom.MapBuild.Rendering
 #if UNITY_EDITOR
             var fromSettings = UnityEditor.AssetDatabase.LoadAssetAtPath<VolumeProfile>(
                 "Assets/Settings/Rendering/DoomEnhancedVolume.asset");
-            if (fromSettings != null) return fromSettings;
+            if (fromSettings != null)
+            {
+                // Ensure bloom/grading overrides exist on the shared asset.
+                var bootstrap = new EnhancedPostController();
+                bootstrap.Bind(fromSettings);
+                return fromSettings;
+            }
 #endif
-            // Empty profile until Task 10 fills post overrides; still toggles cleanly.
-            return ScriptableObject.CreateInstance<VolumeProfile>();
+            var runtime = ScriptableObject.CreateInstance<VolumeProfile>();
+            var post = new EnhancedPostController();
+            post.Bind(runtime);
+            return runtime;
         }
 
-        public void SetCapabilities(GraphicsCapabilityReport report) =>
+        public void SetCapabilities(GraphicsCapabilityReport report)
+        {
             capabilities = report;
+            context?.CameraRenderer?.SetCapabilities(report);
+        }
 
         public void SetEnhancedVolumeProfile(VolumeProfile profile) =>
             enhancedVolumeProfile = profile;
@@ -79,6 +91,8 @@ namespace Doom.MapBuild.Rendering
 
             if (factory == null) factory = new DoomMaterialFactory();
             context.BindFactory(factory);
+            capabilities = GraphicsCapabilityPolicy.Probe();
+            context.CameraRenderer?.SetCapabilities(capabilities);
 
             // Re-apply the persisted mode to the new scene context.
             ApplyInternal(current, force: true);

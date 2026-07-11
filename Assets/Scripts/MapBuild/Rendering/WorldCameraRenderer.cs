@@ -13,10 +13,14 @@ namespace Doom.MapBuild.Rendering
         Volume volume;
         VolumeProfile enhancedProfile;
         bool ownsVolume;
+        readonly EnhancedPostController post = new EnhancedPostController();
+        GraphicsCapabilityReport capabilities = GraphicsCapabilityReport.Full;
 
         public Camera WorldCamera => worldCamera;
         public bool PostProcessingEnabled =>
             cameraData != null && cameraData.renderPostProcessing;
+        public EnhancedPostController Post => post;
+        public bool VolumeEnabled => volume != null && volume.enabled;
 
         public void Init(Camera camera, VolumeProfile enhancedVolumeProfile)
         {
@@ -32,8 +36,12 @@ namespace Doom.MapBuild.Rendering
             camera.allowMSAA = false;
 
             EnsureVolume();
+            post.Bind(enhancedProfile);
             ApplyProfile(GraphicsProfile.Classic);
         }
+
+        public void SetCapabilities(GraphicsCapabilityReport report) =>
+            capabilities = report;
 
         void EnsureVolume()
         {
@@ -54,18 +62,27 @@ namespace Doom.MapBuild.Rendering
             if (worldCamera == null || cameraData == null) return;
 
             bool enhanced = profile.Mode == Doom.Game.GraphicsMode.Enhanced;
-            bool post = enhanced && profile.PostProcessing;
-            bool hdr = enhanced && profile.Hdr;
+            bool postOn = enhanced && profile.PostProcessing;
+            bool hdr = enhanced && profile.Hdr && capabilities.Hdr;
 
-            cameraData.renderPostProcessing = post;
+            post.Apply(profile, capabilities);
+
+            cameraData.renderPostProcessing = postOn;
             worldCamera.allowHDR = hdr;
-            worldCamera.allowMSAA = enhanced && profile.Msaa;
+            worldCamera.allowMSAA = enhanced && profile.Msaa && capabilities.Msaa;
 
             if (volume != null)
             {
-                volume.enabled = post && enhancedProfile != null;
+                volume.enabled = postOn && enhancedProfile != null;
                 volume.profile = enhancedProfile;
             }
+        }
+
+        /// Re-apply after resize/fullscreen so Enhanced does not keep stale RT scale.
+        public void NotifyDisplayChanged()
+        {
+            if (GraphicsModeController.Instance == null) return;
+            ApplyProfile(GraphicsModeController.Instance.ActiveProfile);
         }
 
         void OnDestroy()

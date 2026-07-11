@@ -36,7 +36,7 @@ namespace Doom.MapBuild.Editor
                 AssetDatabase.CreateAsset(renderer, RendererPath);
             }
 
-            // SSAO / Decal stay off until later tasks; depth/opaque available for Enhanced.
+            // Depth/opaque available for Enhanced; SSAO feature added below.
             renderer.depthPrimingMode = DepthPrimingMode.Disabled;
 
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelinePath);
@@ -57,10 +57,21 @@ namespace Doom.MapBuild.Editor
             }
 
             pipeline.supportsHDR = true;
-            pipeline.msaaSampleCount = 1; // Classic default; Enhanced may raise later
+            pipeline.msaaSampleCount = 1; // Classic default; Enhanced raises via EnhancedPostController
             pipeline.useSRPBatcher = true;
             pipeline.supportsCameraDepthTexture = true;
             pipeline.supportsCameraOpaqueTexture = true;
+
+            // Task 9: additional lights + shadows (no directional sun at runtime).
+            var pipeSo = new SerializedObject(pipeline);
+            var addShadows = pipeSo.FindProperty("m_AdditionalLightShadowsSupported");
+            if (addShadows != null) addShadows.boolValue = true;
+            var perObject = pipeSo.FindProperty("m_AdditionalLightsPerObjectLimit");
+            if (perObject != null) perObject.intValue = 8;
+            pipeSo.ApplyModifiedPropertiesWithoutUndo();
+
+            EnsureSsaoFeature(renderer);
+
             EditorUtility.SetDirty(pipeline);
             EditorUtility.SetDirty(renderer);
 
@@ -70,6 +81,8 @@ namespace Doom.MapBuild.Editor
                 volume = ScriptableObject.CreateInstance<VolumeProfile>();
                 AssetDatabase.CreateAsset(volume, VolumePath);
             }
+
+            EnsureVolumeOverrides();
 
             GraphicsSettings.defaultRenderPipeline = pipeline;
             QualitySettings.renderPipeline = pipeline;
@@ -92,6 +105,43 @@ namespace Doom.MapBuild.Editor
             Debug.Log(
                 $"[Stage8] URP configured: package Universal RP, Linear color space, " +
                 $"pipeline={PipelinePath}, renderer={RendererPath}, volume={VolumePath}");
+        }
+
+        static void EnsureSsaoFeature(UniversalRendererData renderer)
+        {
+            if (renderer == null) return;
+            try
+            {
+                foreach (var feature in renderer.rendererFeatures)
+                {
+                    if (feature is ScreenSpaceAmbientOcclusion)
+                    {
+                        feature.SetActive(true);
+                        EditorUtility.SetDirty(renderer);
+                        return;
+                    }
+                }
+
+                var ssao = ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
+                ssao.name = "ScreenSpaceAmbientOcclusion";
+                ssao.SetActive(true);
+                AssetDatabase.AddObjectToAsset(ssao, renderer);
+                renderer.rendererFeatures.Add(ssao);
+                EditorUtility.SetDirty(renderer);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[Stage8] Could not add SSAO renderer feature: {ex.Message}");
+            }
+        }
+
+        static void EnsureVolumeOverrides()
+        {
+            var volume = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumePath);
+            if (volume == null) return;
+            var post = new Doom.MapBuild.Rendering.EnhancedPostController();
+            post.Bind(volume);
+            EditorUtility.SetDirty(volume);
         }
 
         static void IncludeShader(string assetPath)

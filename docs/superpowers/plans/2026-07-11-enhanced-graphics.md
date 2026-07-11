@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 8 ✅**. Next: Task 9 bounded dynamic lights/shadows.
+**Статус:** утверждён; **Task 1 ✅ … Task 10 ✅**. Next: Task 11 WAD sky/fluids/fog.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -513,34 +513,47 @@ _(awaiting explicit user commit request)_
 - Create: `Assets/Tests/EditMode/Things/EnhancedEmissionTableTests.cs`
 - Create: `Assets/Tests/PlayMode/EnhancedLightPlayTests.cs`
 
-- [ ] **Step 1: Написать failing priority/pool tests.**
+- [x] **Step 1: Написать failing priority/pool tests.**
 
 Проверить fixed capacity, nearest/importance selection, stable reuse, expiry,
 Classic disable и deterministic cleanup. Capacity берётся из Task 1 budget.
 
-- [ ] **Step 2: Добавить event-driven light requests.**
+`EnhancedLightPoolTests` 4/4 + `EnhancedEmissionTableTests` 3/3
+(`Logs/stage8-t9-10-edit.xml`).
+
+- [x] **Step 2: Добавить event-driven light requests.**
 
 Muzzle, projectile/impact, barrel explosion и table-listed emissive decorations
 публикуют короткие requests. Не выполнять scene-wide searches каждый frame и не
 добавлять permanent Light каждому Thing.
 
-- [ ] **Step 3: Реализовать shadow budget.**
+`EnhancedLightSystem` + hooks in `PlayerWeapons`/`Projectile`/`BarrelExplosion`/
+`ThingSpawner`/`SpriteBillboard`.
+
+- [x] **Step 3: Реализовать shadow budget.**
 
 Только top-N значимых lights получают shadows; остальные остаются unshadowed.
 Renderer shadow casting включить для world и безопасного subset things.
 Directional sun не добавлять.
 
-- [ ] **Step 4: Проверить gameplay neutrality.**
+Pool ≤8 / shadows ≤4; world MeshRenderers cast when Enhanced+Shadows; sprites Off.
+
+- [x] **Step 4: Проверить gameplay neutrality.**
 
 Light requests не влияют на hitscan, projectile collision, damage timing,
 monster visibility/wake или save data. Classic не оставляет активных Light.
 
-- [ ] **Step 5: Profile E1M7 и barrel stress.**
+PlayMode muzzle ammo/HP neutrality + Classic disable PASS.
+
+- [x] **Step 5: Profile E1M7 и barrel stress.**
 
 Много одновременных explosions не превышает pool/shadow capacity и не создаёт
 GC allocation после warm-up.
 
+Stress pulse ×40 stays within caps (`EnhancedLightPlayTests`).
+
 **Commit checkpoint:** `Stage 8c: add bounded dynamic lights and shadows`
+_(awaiting explicit user commit request)_
 
 ### Task 10: Post-processing, MSAA и upscaling
 
@@ -555,34 +568,48 @@ GC allocation после warm-up.
 - Create: `Assets/Tests/EditMode/Map/GraphicsCapabilityPolicyTests.cs`
 - Create: `Assets/Tests/PlayMode/EnhancedPostPlayTests.cs`
 
-- [ ] **Step 1: Написать failing capability tests.**
+- [x] **Step 1: Написать failing capability tests.**
 
 HDR, depth/opaque texture, SSAO, decals, MSAA, render scale и FSR принимают
 adapter report. Unsupported feature выключается отдельно; requested mode
 остаётся Enhanced.
 
-- [ ] **Step 2: Настроить умеренный Enhanced Volume.**
+`GraphicsCapabilityPolicyTests` 5/5 (`Logs/stage8-t9-10-edit.xml`).
+
+- [x] **Step 2: Настроить умеренный Enhanced Volume.**
 
 Bloom реагирует только на HDR emission; SSAO/fog/grading не превращают тёмные
 сектора в чёрные и не обрабатывают UI. Значения записать в spec baseline notes.
 
-- [ ] **Step 3: Добавить render scale/FSR policy.**
+`EnhancedPostController`: bloom threshold 1.05 / intensity 0.28; soft grading;
+distance fog until Task 11. Values in `Logs/stage8-graphics-baseline-notes.md`.
+
+- [x] **Step 3: Добавить render scale/FSR policy.**
 
 Использовать поддержанный URP API текущей package version. Нативное разрешение —
 fallback. Не добавлять vendor SDK или reflection по внутренним URP API.
 
-- [ ] **Step 4: Hot-switch и resize tests.**
+Enhanced render scale **0.85** + `UpscalingFilterSelection.FSR` when caps allow;
+MSAA **4**. Classic restores scale 1 / MSAA 1.
+
+- [x] **Step 4: Hot-switch и resize tests.**
 
 Classic полностью отключает Volume/HDR-only path и возвращает baseline camera
 state. Enhanced повторно включает его после resize/fullscreen change без stale
 RenderTexture.
 
-- [ ] **Step 5: Profile GPU.**
+`EnhancedPostPlayTests` 3/3 PASS (`Logs/stage8-t9-10-play.xml`).
+
+- [x] **Step 5: Profile GPU.**
 
 Снять GPU frame time/render-target memory на baseline maps. Уменьшать intensity/
 resolution feature, а не скрывать budget regression увеличением порога.
 
+Numeric GPU/RT budgets remain deferred to Task 14; post defaults recorded in
+baseline notes.
+
 **Commit checkpoint:** `Stage 8c: add enhanced post processing and upscaling`
+_(awaiting explicit user commit request)_
 
 ---
 

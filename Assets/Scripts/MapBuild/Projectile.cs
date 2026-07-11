@@ -74,6 +74,9 @@ namespace Doom.MapBuild
                 ? remainingLife
                 : def.MissileFlyTics[0] / 35f;
 
+            Rendering.EnhancedLightSystem.Instance?.PulseProjectile(
+                from, worldScale, impact: false);
+
             var registry = WorldStateRegistry.Instance;
             if (registry != null)
             {
@@ -143,6 +146,10 @@ namespace Doom.MapBuild
             if (player != null) player.TakeDamage(damage);
             else if (enemy != null && !enemy.IsDead)
                 enemy.TakeDamage(damage, owner != null ? DamageSource.Monster(owner) : DamageSource.Player());
+
+            // Presentation only — after damage attribution.
+            Rendering.EnhancedLightSystem.Instance?.PulseProjectile(
+                transform.position, worldScale, impact: true);
 
             exploding = true;
             boomIdx = 0;

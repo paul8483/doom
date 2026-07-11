@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.MapBuild.Rendering;
 using Doom.Things;
 
 namespace Doom.MapBuild
@@ -48,8 +49,12 @@ namespace Doom.MapBuild
 
             // Blast origin at mid-height (vanilla mobj z + height/2 approx).
             float midY = capsule != null ? capsule.height * 0.5f : 20f * worldScale;
+            Vector3 blastOrigin = pos + Vector3.up * midY;
             RadiusDamageExecutor.ApplyBarrelBlast(
-                pos + Vector3.up * midY, worldScale, transform, source);
+                blastOrigin, worldScale, transform, source);
+
+            // Presentation only — after damage so timing/rules stay unchanged.
+            EnhancedLightSystem.Instance?.PulseExplosion(blastOrigin, worldScale);
 
             idx = 0;
             left = BarrelRules.ExplodeTics[0] / 35f;

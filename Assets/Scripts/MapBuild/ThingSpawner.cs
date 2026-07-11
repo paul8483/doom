@@ -1,6 +1,7 @@
 using UnityEngine;
 using Doom.Game;
 using Doom.Map;
+using Doom.MapBuild.Rendering;
 using Doom.Things;
 
 namespace Doom.MapBuild
@@ -117,6 +118,24 @@ namespace Doom.MapBuild
                 // E1 pickups (Stage 6e) — full ItemRules set.
                 if (ItemRules.IsPickup(t.Type))
                     go.AddComponent<ThingPickup>().Init(t.Type, worldScale, thingIndex);
+
+                // Enhanced sticky decoration lights (presentation only; pooled).
+                if (EnhancedEmissionTable.TryGet(t.Type, out var emission))
+                {
+                    var lights = EnhancedLightSystem.Instance;
+                    if (lights != null)
+                    {
+                        float midY = def.Height * worldScale * 0.5f;
+                        var offset = new Vector3(0f, midY, 0f);
+                        int handle = lights.RegisterSticky(
+                            go.transform.position + offset,
+                            emission,
+                            worldScale,
+                            go.transform,
+                            offset);
+                        bb.BindEmissionLight(handle);
+                    }
+                }
 
                 // Pre-warm death-drop sprites while the WAD is still open.
                 if (DeathDropTable.TryGet(t.Type, out int dropNum) &&

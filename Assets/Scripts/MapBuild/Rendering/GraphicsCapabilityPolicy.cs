@@ -1,3 +1,7 @@
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+
 namespace Doom.MapBuild.Rendering
 {
     /// Hardware/API capability report. Individual features may be forced off
@@ -38,6 +42,29 @@ namespace Doom.MapBuild.Rendering
 
     public static class GraphicsCapabilityPolicy
     {
+        /// Probe runtime/device support. Never rewrites the requested GraphicsMode.
+        public static GraphicsCapabilityReport Probe()
+        {
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset
+                ?? QualitySettings.renderPipeline as UniversalRenderPipelineAsset
+                ?? GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset;
+            bool depth = pipeline == null || pipeline.supportsCameraDepthTexture;
+            bool opaque = pipeline == null || pipeline.supportsCameraOpaqueTexture;
+            bool hdr = pipeline == null || pipeline.supportsHDR;
+            bool msaa = SystemInfo.supportsMultisampledTextures > 0;
+            // SSAO needs a renderer feature (added by Configure URP); treat depth as proxy.
+            // Decals need opaque texture + feature (Task 13); opaque is the runtime gate.
+            bool ssao = depth;
+            bool decals = opaque;
+            // Render scale / FSR are URP asset options — keep enabled unless a later
+            // probe proves the device cannot sample (never clear just because Awake
+            // ran before the pipeline asset was bound).
+            bool fsr = true;
+            bool renderScale = true;
+            return new GraphicsCapabilityReport(
+                hdr, depth, opaque, ssao, decals, msaa, renderScale, fsr);
+        }
+
         /// Returns a profile with unsupported Enhanced flags cleared. Mode is preserved.
         public static GraphicsProfile Apply(GraphicsProfile requested, GraphicsCapabilityReport caps)
         {

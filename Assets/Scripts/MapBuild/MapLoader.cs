@@ -240,6 +240,10 @@ namespace Doom.MapBuild
                 ?? gameObject.AddComponent<RuntimeSectorLights>();
             SectorLights.Init(map, Geometry, renderContext);
 
+            var lightSystem = gameObject.GetComponent<EnhancedLightSystem>()
+                ?? gameObject.AddComponent<EnhancedLightSystem>();
+            lightSystem.Init(renderContext);
+
             // ── Sprites (Stage 5) ─────────────────────────────────────────────
             // Created BEFORE SpawnPlayer so the player's weapon view can share the
             // same SpriteCache instance (viewmodel/effect sprites are pre-warmed
@@ -534,6 +538,7 @@ namespace Doom.MapBuild
             var worldCam = cameraGO.AddComponent<WorldCameraRenderer>();
             worldCam.Init(cam, gfx != null ? gfx.EnhancedVolumeProfile : null);
             renderContext?.SetWorldCamera(cam, worldCam);
+            EnhancedLightSystem.Instance?.SetWorldCamera(cam);
 
             var pc = player.AddComponent<PlayerController>();
             pc.SetCameraPivot(cameraGO.transform);

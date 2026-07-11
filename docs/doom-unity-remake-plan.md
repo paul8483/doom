@@ -188,10 +188,10 @@ effect textures существуют только в runtime memory; authored и
 replacement assets не добавляются. Classic остаётся режимом по умолчанию и
 эталоном визуальной регрессии.
 
-**Статус:** в работе на ветке `enhanced`. **Tasks 1–8 ✅** (2026-07-12):
-8a baseline/settings; 8b URP/Classic/hot-switch; 8c Task 7 Enhanced materials
-(`6d6b0dd`); Task 8 runtime sector lights + save schema v5. Next: Task 9
-bounded dynamic lights/shadows.
+**Статус:** в работе на ветке `enhanced`. **Tasks 1–10 ✅** (2026-07-12):
+8a baseline/settings; 8b URP/Classic/hot-switch; 8c Tasks 7–10 — Enhanced
+materials/normals, runtime sector lights + save v5, bounded dynamic lights/
+shadows (≤8/≤4), post/MSAA/render-scale/FSR. Next: **Task 11** WAD sky/fluids/fog.
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`

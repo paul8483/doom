@@ -80,6 +80,8 @@ namespace Doom.MapBuild.Rendering
 
             var lights = UnityEngine.Object.FindFirstObjectByType<RuntimeSectorLights>();
             lights?.NotifyProfileChanged();
+
+            EnhancedLightSystem.Instance?.ApplyProfile(profile);
         }
 
         public void Dispose()

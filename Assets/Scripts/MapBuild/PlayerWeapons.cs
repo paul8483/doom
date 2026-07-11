@@ -115,6 +115,23 @@ namespace Doom.MapBuild
                 pendingShotDirection = Vector3.forward;
 
             Fired?.Invoke(def);
+
+            // Presentation muzzle flash light — same event as WeaponView/sound, before damage.
+            if (cam != null && def.FlashSprite != null)
+            {
+                float tics = 4f;
+                if (def.FlashTics != null && def.FlashTics.Length > 0)
+                {
+                    tics = 0f;
+                    for (int i = 0; i < def.FlashTics.Length; i++)
+                        tics += def.FlashTics[i];
+                }
+                Rendering.EnhancedLightSystem.Instance?.PulseMuzzle(
+                    cam.position + cam.forward * (12f * worldScale),
+                    worldScale,
+                    tics);
+            }
+
             if (scheduler.IsCommitted)
                 CommitAction(def);
         }
