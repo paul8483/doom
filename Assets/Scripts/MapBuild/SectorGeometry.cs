@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Profiling;
 using Doom.Map;
 using Doom.Graphics;
 using Doom.Specials;
@@ -10,6 +11,10 @@ namespace Doom.MapBuild
     /// construction so rebuilt GameObjects match the initial build exactly.
     public sealed class SectorGeometry
     {
+        static readonly ProfilerMarker RebuildMarker = new("Doom.SectorGeometry.Rebuild");
+        static readonly ProfilerMarker BuildWallsMarker = new("Doom.SectorGeometry.BuildWallData");
+        static readonly ProfilerMarker ApplyWallsMarker = new("Doom.SectorGeometry.ApplyWallMeshes");
+
         private readonly MapData map;
         private readonly SectorPolygon[] polys;
         private readonly RuntimeSectorHeights heights;
@@ -58,27 +63,30 @@ namespace Doom.MapBuild
 
         private void Rebuild(int s)
         {
-            var root = sectorRoots[s];
-            if (root == null) return;
+            using (RebuildMarker.Auto())
+            {
+                var root = sectorRoots[s];
+                if (root == null) return;
 
-            // Floor and ceiling meshes don't change SHAPE when a sector moves, only
-            // their Y. Translate their GameObjects so the floor MeshCollider persists
-            // across moves (no PhysX re-cook → no ground-contact churn / jitter /
-            // fall-through). The baked mesh carries the WAD-initial absolute Y, so the
-            // local offset is (current − initial) * worldScale.
-            var floorChild = root.Find("Floor");
-            if (floorChild != null)
-                floorChild.localPosition = new Vector3(
-                    0f, (heights.FloorRaw(s) - map.Sectors[s].FloorHeight) * worldScale, 0f);
+                // Floor and ceiling meshes don't change SHAPE when a sector moves, only
+                // their Y. Translate their GameObjects so the floor MeshCollider persists.
+                var floorChild = root.Find("Floor");
+                if (floorChild != null)
+                    floorChild.localPosition = new Vector3(
+                        0f, (heights.FloorRaw(s) - map.Sectors[s].FloorHeight) * worldScale, 0f);
 
-            var ceilChild = root.Find("Ceiling");
-            if (ceilChild != null)
-                ceilChild.localPosition = new Vector3(
-                    0f, (heights.CeilRaw(s) - map.Sectors[s].CeilingHeight) * worldScale, 0f);
+                var ceilChild = root.Find("Ceiling");
+                if (ceilChild != null)
+                    ceilChild.localPosition = new Vector3(
+                        0f, (heights.CeilRaw(s) - map.Sectors[s].CeilingHeight) * worldScale, 0f);
 
-            // Walls genuinely change shape as the gap grows/shrinks → rebuild only them.
-            var sm = MapGeometryBuilder.RebuildSector(map, s, polys[s], heights, worldScale, sizes);
-            MapLoader.RebuildSectorWalls(root, sm, textures, worldScale);
+                SectorMeshes sm;
+                using (BuildWallsMarker.Auto())
+                    sm = MapGeometryBuilder.RebuildSector(
+                        map, s, polys[s], heights, worldScale, sizes);
+                using (ApplyWallsMarker.Auto())
+                    MapLoader.RebuildSectorWalls(root, sm, textures, worldScale);
+            }
         }
     }
 }

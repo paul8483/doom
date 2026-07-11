@@ -570,22 +570,46 @@ namespace Doom.MapBuild
                                               TextureCache cache, float worldScale)
         {
             if (sectorRoot == null) return;
-            for (int i = sectorRoot.childCount - 1; i >= 0; i--)
+
+            var pooledWalls = new System.Collections.Generic.List<GameObject>();
+            for (int i = 0; i < sectorRoot.childCount; i++)
             {
                 var child = sectorRoot.GetChild(i);
-                if (child.name.StartsWith("Wall_")) Destroy(child.gameObject);
+                if (child.name.StartsWith("Wall_"))
+                    pooledWalls.Add(child.gameObject);
             }
+
             int wi = 0;
             Bounds? ignore = null;
             foreach (var ws in sm.Walls)
             {
                 if (ws.Mesh.IsEmpty) continue;
-                var wall = AddChild(sectorRoot, $"Wall_{wi++}_{ws.Texture}", ws.Mesh,
-                         cache.GetMaterial(ws.Texture, ws.Masked),
-                         ws.Blocks ? ColliderMode.ThickWall : ColliderMode.None, worldScale, ref ignore);
-                if (wall != null && ws.Blocks)
-                    wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
+                string name = $"Wall_{wi}_{ws.Texture}";
+                Material material = cache.GetMaterial(ws.Texture, ws.Masked);
+                GameObject wall;
+
+                if (wi < pooledWalls.Count)
+                {
+                    wall = pooledWalls[wi];
+                    UpdateWallChild(wall, name, ws.Mesh, material, ws.Blocks,
+                                    sm.SectorIdx, worldScale);
+                }
+                else
+                {
+                    wall = AddChild(sectorRoot, name, ws.Mesh, material,
+                                    ws.Blocks ? ColliderMode.ThickWall : ColliderMode.None,
+                                    worldScale, ref ignore);
+                    if (wall != null && ws.Blocks)
+                        wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
+                }
+                wi++;
             }
+
+            // Keep surplus wall objects as an inactive per-sector pool. Door/lift
+            // topology can temporarily remove a texture section and need it again
+            // when returning, so destroying it would reintroduce churn and leaks.
+            for (int i = wi; i < pooledWalls.Count; i++)
+                pooledWalls[i].SetActive(false);
         }
 
         /// Build the Floor/Ceiling/Wall child GameObjects for one sector under
@@ -628,37 +652,7 @@ namespace Doom.MapBuild
 
             var mesh = new Mesh();
             mesh.name = $"{parent.name}/{name}";
-            mesh.indexFormat = data.Vertices.Length > 65535
-                ? UnityEngine.Rendering.IndexFormat.UInt32
-                : UnityEngine.Rendering.IndexFormat.UInt16;
-
-            var unityVerts = new Vector3[data.Vertices.Length];
-            for (int i = 0; i < unityVerts.Length; i++)
-                unityVerts[i] = new Vector3(
-                    data.Vertices[i].X,
-                    data.Vertices[i].Y,
-                    data.Vertices[i].Z);
-            mesh.vertices  = unityVerts;
-            mesh.triangles = data.Triangles;
-
-            if (data.Uv.Length == data.Vertices.Length)
-            {
-                var uvs = new Vector2[data.Uv.Length];
-                for (int i = 0; i < uvs.Length; i++)
-                    uvs[i] = new Vector2(data.Uv[i].X, data.Uv[i].Y);
-                mesh.uv = uvs;
-            }
-
-            if (data.Colors.Length == data.Vertices.Length)
-            {
-                var colors = new Color[data.Colors.Length];
-                for (int i = 0; i < colors.Length; i++)
-                    colors[i] = new Color(data.Colors[i].X, data.Colors[i].Y, data.Colors[i].Z, 1f);
-                mesh.colors = colors;
-            }
-
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
+            ApplyMeshData(mesh, data);
 
             child.AddComponent<MeshFilter>().sharedMesh   = mesh;
             child.AddComponent<MeshRenderer>().sharedMaterial = material;
@@ -681,6 +675,90 @@ namespace Doom.MapBuild
             return child;
         }
 
+        static void UpdateWallChild(GameObject wall, string name, MeshData data,
+                                    Material material, bool blocks, int sectorIndex,
+                                    float worldScale)
+        {
+            wall.name = name;
+            wall.SetActive(true);
+
+            var filter = wall.GetComponent<MeshFilter>();
+            if (filter == null) filter = wall.AddComponent<MeshFilter>();
+            var renderMesh = filter.sharedMesh;
+            if (renderMesh == null)
+            {
+                renderMesh = new Mesh { name = $"{wall.transform.parent.name}/{name}" };
+                filter.sharedMesh = renderMesh;
+            }
+            else
+            {
+                renderMesh.name = $"{wall.transform.parent.name}/{name}";
+            }
+            ApplyMeshData(renderMesh, data);
+
+            var renderer = wall.GetComponent<MeshRenderer>();
+            if (renderer == null) renderer = wall.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+
+            var collider = wall.GetComponent<MeshCollider>();
+            if (blocks)
+            {
+                if (collider == null) collider = wall.AddComponent<MeshCollider>();
+                Mesh colliderMesh = collider.sharedMesh;
+                if (colliderMesh == null || colliderMesh == renderMesh)
+                    colliderMesh = new Mesh { name = $"{renderMesh.name}/Collider" };
+
+                // Clearing the assignment tells PhysX to recook the updated mesh.
+                // The Mesh object itself is retained across every mover frame.
+                collider.sharedMesh = null;
+                ApplyThickColliderMesh(colliderMesh, data, 4f * worldScale);
+                collider.sharedMesh = colliderMesh;
+                collider.enabled = true;
+
+                var lineRef = wall.GetComponent<LineRef>();
+                if (lineRef == null) lineRef = wall.AddComponent<LineRef>();
+                lineRef.SectorIndex = sectorIndex;
+            }
+            else if (collider != null)
+            {
+                collider.enabled = false;
+            }
+        }
+
+        static void ApplyMeshData(Mesh mesh, MeshData data)
+        {
+            mesh.Clear();
+            mesh.indexFormat = data.Vertices.Length > 65535
+                ? UnityEngine.Rendering.IndexFormat.UInt32
+                : UnityEngine.Rendering.IndexFormat.UInt16;
+
+            var unityVerts = new Vector3[data.Vertices.Length];
+            for (int i = 0; i < unityVerts.Length; i++)
+                unityVerts[i] = ToVec(data.Vertices[i]);
+            mesh.vertices = unityVerts;
+            mesh.triangles = data.Triangles;
+
+            if (data.Uv.Length == data.Vertices.Length)
+            {
+                var uvs = new Vector2[data.Uv.Length];
+                for (int i = 0; i < uvs.Length; i++)
+                    uvs[i] = new Vector2(data.Uv[i].X, data.Uv[i].Y);
+                mesh.uv = uvs;
+            }
+
+            if (data.Colors.Length == data.Vertices.Length)
+            {
+                var colors = new Color[data.Colors.Length];
+                for (int i = 0; i < colors.Length; i++)
+                    colors[i] = new Color(
+                        data.Colors[i].X, data.Colors[i].Y, data.Colors[i].Z, 1f);
+                mesh.colors = colors;
+            }
+
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+        }
+
         static Bounds Combine(Bounds a, Bounds b) { a.Encapsulate(b); return a; }
 
         // Объёмный коллайдер из тонкого стенового меша: каждый треугольник
@@ -689,11 +767,28 @@ namespace Doom.MapBuild
         // застрять внутри тонкой колонны. Рендер-меш остаётся плоским.
         static Mesh BuildThickColliderMesh(MeshData data, float thickness)
         {
+            var mesh = new Mesh();
+            ApplyThickColliderMesh(mesh, data, thickness);
+            return mesh;
+        }
+
+        static readonly System.Collections.Generic.List<Vector3> ThickColliderVertices =
+            new System.Collections.Generic.List<Vector3>();
+        static readonly System.Collections.Generic.List<int> ThickColliderTriangles =
+            new System.Collections.Generic.List<int>();
+
+        static void ApplyThickColliderMesh(Mesh mesh, MeshData data, float thickness)
+        {
             var v = data.Vertices;
             var t = data.Triangles;
             float h = thickness * 0.5f;
-            var verts = new System.Collections.Generic.List<Vector3>(t.Length * 2);
-            var tris  = new System.Collections.Generic.List<int>(t.Length * 8);
+            var verts = ThickColliderVertices;
+            var tris = ThickColliderTriangles;
+            verts.Clear();
+            tris.Clear();
+            if (verts.Capacity < t.Length * 2) verts.Capacity = t.Length * 2;
+            if (tris.Capacity < t.Length * 8) tris.Capacity = t.Length * 8;
+
             for (int i = 0; i < t.Length; i += 3)
             {
                 Vector3 a = ToVec(v[t[i]]);
@@ -711,13 +806,14 @@ namespace Doom.MapBuild
                 tris.Add(bi + 1); tris.Add(bi + 2); tris.Add(bi + 5); tris.Add(bi + 1); tris.Add(bi + 5); tris.Add(bi + 4);
                 tris.Add(bi + 2); tris.Add(bi + 0); tris.Add(bi + 3); tris.Add(bi + 2); tris.Add(bi + 3); tris.Add(bi + 5);
             }
-            var m = new Mesh();
-            m.indexFormat = verts.Count > 65535
+
+            mesh.Clear();
+            mesh.indexFormat = verts.Count > 65535
                 ? UnityEngine.Rendering.IndexFormat.UInt32
                 : UnityEngine.Rendering.IndexFormat.UInt16;
-            m.SetVertices(verts);
-            m.SetTriangles(tris, 0);
-            return m;
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
         }
 
         static Vector3 ToVec(Float3 p) => new Vector3(p.X, p.Y, p.Z);

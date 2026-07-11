@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
@@ -75,6 +76,8 @@ namespace Doom.Stage3.PlayTests
             // The ceiling child must carry a persistent MeshFilter mesh (we won't touch it).
             var beforeMesh = ceilingChild.GetComponent<MeshFilter>()?.sharedMesh;
             Assert.That(beforeMesh, Is.Not.Null, "Ceiling child should have a mesh");
+            var beforeWalls = CaptureWallMeshes();
+            Assert.That(beforeWalls.Count, Is.GreaterThan(0));
 
             // Deterministic stepping only around the motion.
             Time.captureDeltaTime = 1f / 60f;
@@ -99,6 +102,27 @@ namespace Doom.Stage3.PlayTests
                 "Ceiling mesh must persist (no re-cook) across the move");
             Assert.That(ceilAfter.localPosition.y, Is.GreaterThan(beforeY + 1e-4f),
                 "Ceiling should have been translated UP as the door opened");
+
+            var afterWalls = CaptureWallMeshes();
+            foreach (var pair in beforeWalls)
+            {
+                Assert.That(afterWalls.TryGetValue(pair.Key, out var mesh), Is.True,
+                    $"Wall GameObject {pair.Key} must be pooled, not destroyed");
+                Assert.That(mesh, Is.SameAs(pair.Value),
+                    $"Wall mesh on GameObject {pair.Key} must be updated in place");
+            }
+        }
+
+        static Dictionary<int, Mesh> CaptureWallMeshes()
+        {
+            var result = new Dictionary<int, Mesh>();
+            foreach (var filter in Object.FindObjectsByType<MeshFilter>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (!filter.gameObject.name.StartsWith("Wall_")) continue;
+                result[filter.gameObject.GetInstanceID()] = filter.sharedMesh;
+            }
+            return result;
         }
     }
 }

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using UnityEngine;
 using Doom.Map;
 using Doom.Specials;
@@ -26,7 +28,8 @@ namespace Doom.MapBuild
         PlayerController playerLook;
         WalkLineIndex walkIndex;
         readonly List<int> walkQuery = new List<int>(32);
-        LineRef[] cachedLineRefs;
+        readonly List<int> monsterDoorLines = new List<int>();
+        readonly Dictionary<LineRef, int> resolvedLineRefs = new Dictionary<LineRef, int>();
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
                          float worldScale, Transform cam, SoundSystem sound = null)
@@ -39,7 +42,8 @@ namespace Doom.MapBuild
             teleportLandings = TeleportRules.CollectLandings(map);
             playerLook = GetComponent<PlayerController>();
             walkIndex = new WalkLineIndex(map, worldScale);
-            cachedLineRefs = null;
+            BuildMonsterDoorLines();
+            resolvedLineRefs.Clear();
             instance = this;
         }
 
@@ -56,12 +60,9 @@ namespace Doom.MapBuild
             if (instance == null || lineRef == null || instance.map == null) return false;
             int lineIndex = lineRef.LineIndex;
             if (lineIndex < 0)
-                lineIndex = instance.ResolveLine(lineRef, lineRef.transform.position);
+                lineIndex = instance.ResolveLineCached(lineRef);
             if (lineIndex < 0) return false;
-            var ld = instance.map.LineDefs[lineIndex];
-            if (!LineSpecialTable.TryGet(ld.Special, out var sp)) return false;
-            if (sp.Trigger != TriggerKind.Push) return false;
-            return sp.Category == SpecialCategory.Door || sp.Category == SpecialCategory.LockedDoor;
+            return IsMonsterUsableDoorSpecial(instance.map.LineDefs[lineIndex].Special);
         }
 
         /// Activate the nearest push-door within range (monster door use).
@@ -90,26 +91,60 @@ namespace Doom.MapBuild
 
         void UseNearestDoorAt(Vector3 pos, float radius)
         {
-            LineRef best = null;
-            float bestDist = float.MaxValue;
-            foreach (var lr in CachedLineRefs())
+            Vector2 point = new Vector2(pos.x, pos.z);
+            float radiusSq = radius * radius;
+            float bestDistSq = float.MaxValue;
+            int bestLine = -1;
+
+            for (int i = 0; i < monsterDoorLines.Count; i++)
             {
-                if (!IsUsableDoor(lr)) continue;
-                float d = Vector3.Distance(pos, lr.transform.position);
-                if (d > radius || d >= bestDist) continue;
-                bestDist = d;
-                best = lr;
+                int lineIndex = monsterDoorLines[i];
+                var ld = map.LineDefs[lineIndex];
+                if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) continue;
+
+                var v1 = map.Vertexes[ld.V1];
+                var v2 = map.Vertexes[ld.V2];
+                Vector2 a = new Vector2(v1.X * worldScale, v1.Y * worldScale);
+                Vector2 b = new Vector2(v2.X * worldScale, v2.Y * worldScale);
+                float distanceSq = DistPointSegmentSq(point, a, b);
+                if (distanceSq > radiusSq || distanceSq >= bestDistSq) continue;
+
+                bestDistSq = distanceSq;
+                bestLine = lineIndex;
             }
-            if (best == null) return;
-            int lineIndex = ResolveLine(best, pos);
-            if (lineIndex >= 0) Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
+
+            if (bestLine >= 0)
+                Activate(bestLine, TriggerKind.Push, alsoSwitch: true);
         }
 
-        LineRef[] CachedLineRefs()
+        void BuildMonsterDoorLines()
         {
-            if (cachedLineRefs == null)
-                cachedLineRefs = FindObjectsByType<LineRef>(FindObjectsSortMode.None);
-            return cachedLineRefs;
+            monsterDoorLines.Clear();
+            if (map == null) return;
+
+            for (int i = 0; i < map.LineDefs.Length; i++)
+            {
+                if (IsMonsterUsableDoorSpecial(map.LineDefs[i].Special))
+                    monsterDoorLines.Add(i);
+            }
+        }
+
+        static bool IsMonsterUsableDoorSpecial(int special)
+        {
+            if (!LineSpecialTable.TryGet(special, out var sp)) return false;
+            if (sp.Trigger != TriggerKind.Push) return false;
+            return sp.Category == SpecialCategory.Door ||
+                   sp.Category == SpecialCategory.LockedDoor;
+        }
+
+        int ResolveLineCached(LineRef lineRef)
+        {
+            if (resolvedLineRefs.TryGetValue(lineRef, out int lineIndex))
+                return lineIndex;
+
+            lineIndex = ResolveLine(lineRef, lineRef.transform.position);
+            resolvedLineRefs[lineRef] = lineIndex;
+            return lineIndex;
         }
 
         void Update()
@@ -190,6 +225,178 @@ namespace Doom.MapBuild
             }
 
             UseNearestSpecialInFront(range);
+        }
+
+        /// Writes a structured snapshot of the player's map location and view.
+        /// Intended for interactive bug reports: press T, then attach Player.log
+        /// or doom-location-dumps.log from Application.persistentDataPath.
+        public void DumpLocation()
+        {
+            if (map == null || cam == null) return;
+
+            var sb = new StringBuilder(4096);
+            Vector3 p = transform.position;
+            Vector3 cp = cam.position;
+            Vector3 fwd = cam.forward;
+            sb.AppendLine("========== DOOM LOCATION DUMP ==========");
+            sb.AppendLine($"utc={System.DateTime.UtcNow:O}");
+            sb.AppendLine($"map={map.Name}");
+            sb.AppendLine($"player.unity=({p.x:F4}, {p.y:F4}, {p.z:F4})");
+            sb.AppendLine($"player.doom=({p.x / worldScale:F1}, {p.z / worldScale:F1}, y={p.y / worldScale:F1})");
+            sb.AppendLine($"view.yaw={transform.eulerAngles.y:F2} pitch={(playerLook != null ? playerLook.PitchDegrees : 0f):F2}");
+            sb.AppendLine($"camera.pos=({cp.x:F4}, {cp.y:F4}, {cp.z:F4}) forward=({fwd.x:F4}, {fwd.y:F4}, {fwd.z:F4})");
+
+            AppendFloorInfo(sb);
+            AppendViewHits(sb);
+            AppendNearbyPickups(sb, 256f);
+            AppendNearbyLines(sb, 128f);
+            sb.AppendLine("========== END DOOM LOCATION DUMP ==========");
+
+            string dump = sb.ToString();
+            Debug.Log(dump);
+            try
+            {
+                string path = Path.Combine(Application.persistentDataPath, "doom-location-dumps.log");
+                File.AppendAllText(path, dump + System.Environment.NewLine);
+                Debug.Log($"[LocationDump] saved to: {path}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[LocationDump] could not write dedicated log: {ex.Message}");
+            }
+        }
+
+        void AppendFloorInfo(StringBuilder sb)
+        {
+            Vector3 origin = transform.position + Vector3.up * (8f * worldScale);
+            float range = 256f * worldScale;
+            if (!Physics.Raycast(origin, Vector3.down, out var hit, range, ~0,
+                                 QueryTriggerInteraction.Ignore))
+            {
+                sb.AppendLine("floor.hit=none");
+                return;
+            }
+
+            var sectorRef = hit.collider.GetComponentInParent<SectorRef>();
+            int s = sectorRef != null ? sectorRef.SectorIndex : -1;
+            sb.AppendLine($"floor.hit={HierarchyPath(hit.collider.transform)} distanceDU={hit.distance / worldScale:F1} sector={s}");
+            if (s >= 0 && s < map.Sectors.Length)
+            {
+                var sector = map.Sectors[s];
+                sb.AppendLine(
+                    $"sector[{s}]=floor:{heights.FloorRaw(s):F1} ceil:{heights.CeilRaw(s):F1} " +
+                    $"staticFloor:{sector.FloorHeight} staticCeil:{sector.CeilingHeight} " +
+                    $"special:{sector.Special} tag:{sector.Tag} moving:{moving[s]}");
+            }
+        }
+
+        void AppendViewHits(StringBuilder sb)
+        {
+            float range = 2048f * worldScale;
+            RaycastHit[] hits = Physics.RaycastAll(cam.position, cam.forward, range, ~0,
+                                                   QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            sb.AppendLine($"view.hits={hits.Length} rangeDU=2048");
+            int count = System.Math.Min(hits.Length, 12);
+            for (int i = 0; i < count; i++)
+            {
+                var hit = hits[i];
+                var lr = hit.collider.GetComponentInParent<LineRef>();
+                int line = lr != null ? ResolveLine(lr, hit.point) : -1;
+                string lineInfo = line >= 0 ? FormatLine(line) : "line:none";
+                sb.AppendLine(
+                    $"  hit[{i}] distanceDU={hit.distance / worldScale:F1} trigger={hit.collider.isTrigger} " +
+                    $"object={HierarchyPath(hit.collider.transform)} {lineInfo}");
+            }
+        }
+
+        void AppendNearbyPickups(StringBuilder sb, float radiusDU)
+        {
+            Vector3 p = transform.position;
+            float radius = radiusDU * worldScale;
+            float radiusSq = radius * radius;
+            var pickups = FindObjectsByType<ThingPickup>(FindObjectsSortMode.None);
+            var nearby = new List<(ThingPickup pickup, float distanceSq)>();
+            for (int i = 0; i < pickups.Length; i++)
+            {
+                var pu = pickups[i];
+                if (pu == null) continue;
+                Vector3 d = pu.transform.position - p;
+                float dSq = d.x * d.x + d.z * d.z;
+                if (dSq <= radiusSq) nearby.Add((pu, dSq));
+            }
+            nearby.Sort((a, b) => a.distanceSq.CompareTo(b.distanceSq));
+
+            sb.AppendLine($"nearby.pickups={nearby.Count} radiusDU={radiusDU:F0}");
+            int count = System.Math.Min(nearby.Count, 12);
+            for (int i = 0; i < count; i++)
+            {
+                var pu = nearby[i].pickup;
+                Vector3 ip = pu.transform.position;
+                sb.AppendLine(
+                    $"  pickup[{i}] doomed={pu.DoomedNum} xyDU={Mathf.Sqrt(nearby[i].distanceSq) / worldScale:F1} " +
+                    $"dyDU={(ip.y - p.y) / worldScale:F1} " +
+                    $"pos=({ip.x / worldScale:F1}, {ip.z / worldScale:F1}, y={ip.y / worldScale:F1}) " +
+                    $"object={HierarchyPath(pu.transform)}");
+            }
+        }
+
+        void AppendNearbyLines(StringBuilder sb, float radiusDU)
+        {
+            Vector2 p = new(transform.position.x, transform.position.z);
+            float radius = radiusDU * worldScale;
+            float radiusSq = radius * radius;
+            var nearby = new List<(int index, float distanceSq)>();
+            for (int i = 0; i < map.LineDefs.Length; i++)
+            {
+                var ld = map.LineDefs[i];
+                if (!IsValidVertex(ld.V1) || !IsValidVertex(ld.V2)) continue;
+                var v1 = map.Vertexes[ld.V1];
+                var v2 = map.Vertexes[ld.V2];
+                Vector2 a = new(v1.X * worldScale, v1.Y * worldScale);
+                Vector2 b = new(v2.X * worldScale, v2.Y * worldScale);
+                float d = DistPointSegmentSq(p, a, b);
+                if (d <= radiusSq) nearby.Add((i, d));
+            }
+            nearby.Sort((a, b) => a.distanceSq.CompareTo(b.distanceSq));
+
+            sb.AppendLine($"nearby.lines={nearby.Count} radiusDU={radiusDU:F0}");
+            int count = System.Math.Min(nearby.Count, 20);
+            for (int i = 0; i < count; i++)
+            {
+                int line = nearby[i].index;
+                sb.AppendLine(
+                    $"  near[{i}] distanceDU={Mathf.Sqrt(nearby[i].distanceSq) / worldScale:F1} {FormatLine(line)}");
+            }
+        }
+
+        string FormatLine(int lineIndex)
+        {
+            var ld = map.LineDefs[lineIndex];
+            int front = SideSector(ld.FrontSideIdx);
+            int back = SideSector(ld.BackSideIdx);
+            string definition = LineSpecialTable.TryGet(ld.Special, out var sp)
+                ? $"{sp.Trigger}/{sp.Category}/repeat:{sp.Repeatable}/exec:{sp.IsExecutable}"
+                : "unclassified";
+            return $"line:{lineIndex} special:{ld.Special}({definition}) tag:{ld.Tag} flags:0x{ld.Flags:X4} " +
+                   $"frontSector:{front} backSector:{back} fired:{onceFired[lineIndex]}";
+        }
+
+        int SideSector(int sideIndex) =>
+            sideIndex >= 0 && sideIndex < map.SideDefs.Length
+                ? map.SideDefs[sideIndex].SectorIdx
+                : -1;
+
+        static string HierarchyPath(Transform t)
+        {
+            if (t == null) return "<null>";
+            var names = new Stack<string>();
+            while (t != null)
+            {
+                names.Push(t.name);
+                t = t.parent;
+            }
+            return string.Join("/", names);
         }
 
         /// Walls are texture-grouped, so a collider may cover several linedefs of the

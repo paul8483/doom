@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Profiling;
 using Doom.Game;
 using Doom.Things;
 
@@ -12,6 +13,16 @@ namespace Doom.MapBuild
         const float TicSeconds = 1f / 35f;
         const float StepUpUnits = 24f;    // монстр перешагивает <= 24 юнитов
         const float SightRangeM = 1000f;
+
+        static readonly ProfilerMarker BrainTickMarker = new("Doom.Monster.BrainTick");
+        static readonly ProfilerMarker SightMarker = new("Doom.Monster.Sight");
+        static readonly ProfilerMarker FaceMarker = new("Doom.Monster.Face");
+        static readonly ProfilerMarker StepMarker = new("Doom.Monster.Step");
+        static readonly ProfilerMarker DoorUseMarker = new("Doom.Monster.DoorUse");
+        static readonly ProfilerMarker MeleeMarker = new("Doom.Monster.Melee");
+        static readonly ProfilerMarker HitscanMarker = new("Doom.Monster.Hitscan");
+        static readonly ProfilerMarker MissileMarker = new("Doom.Monster.Missile");
+        static readonly ProfilerMarker SoundMarker = new("Doom.Monster.Sound");
 
         MonsterDef def;
         bool ambush;
@@ -98,7 +109,12 @@ namespace Doom.MapBuild
             // Цель умерла (монстр): назад на игрока.
             if (target != player && target == null) target = player;
             tickAccum += Time.deltaTime;
-            while (tickAccum >= TicSeconds) { tickAccum -= TicSeconds; brain.Tick(); }
+            while (tickAccum >= TicSeconds)
+            {
+                tickAccum -= TicSeconds;
+                using (BrainTickMarker.Auto())
+                    brain.Tick();
+            }
             // Sprite rotation must track the target every render frame — not only on
             // 35 Hz brain ticks — otherwise the billboard lags between chase steps.
             var s = brain.State;
@@ -112,16 +128,44 @@ namespace Doom.MapBuild
         {
             readonly MonsterController c;
             public WorldAdapter(MonsterController c) { this.c = c; }
-            public bool CanSeeTarget(bool frontOnly) => c.CanSee(frontOnly);
+            public bool CanSeeTarget(bool frontOnly)
+            {
+                using (SightMarker.Auto())
+                    return c.CanSee(frontOnly);
+            }
             public float DistanceToTarget() => c.DistUnits();
             public float TargetRadiusUnits() => c.TargetRadius();
             public void TargetDelta(out float dx, out float dy) => c.Delta(out dx, out dy);
-            public void FaceTarget() => c.Face();
-            public StepResult TryStep(Dir8 d) => c.Step(d);
-            public void UseDoor() => c.UseDoorAhead();
-            public void MeleeHit(int dmg) => c.Melee(dmg);
-            public void FireHitscan(int n) => c.Hitscan(n);
-            public void LaunchMissile() => c.Missile();
+            public void FaceTarget()
+            {
+                using (FaceMarker.Auto())
+                    c.Face();
+            }
+            public StepResult TryStep(Dir8 d)
+            {
+                using (StepMarker.Auto())
+                    return c.Step(d);
+            }
+            public void UseDoor()
+            {
+                using (DoorUseMarker.Auto())
+                    c.UseDoorAhead();
+            }
+            public void MeleeHit(int dmg)
+            {
+                using (MeleeMarker.Auto())
+                    c.Melee(dmg);
+            }
+            public void FireHitscan(int n)
+            {
+                using (HitscanMarker.Auto())
+                    c.Hitscan(n);
+            }
+            public void LaunchMissile()
+            {
+                using (MissileMarker.Auto())
+                    c.Missile();
+            }
             public void SetFrame(int f) { if (c.bb != null) c.bb.SetFrame(f); }
             public void OnDeathStarted()
             {
@@ -130,7 +174,11 @@ namespace Doom.MapBuild
             }
             public void OnBecameCorpse()
             { if (c.bb != null && c.corpseFrame >= 0) c.bb.SetStaticFrame(c.corpseFrame); }
-            public void PlaySound(MonsterSoundCue cue, int variant) => c.PlayCue(cue, variant);
+            public void PlaySound(MonsterSoundCue cue, int variant)
+            {
+                using (SoundMarker.Auto())
+                    c.PlayCue(cue, variant);
+            }
         }
 
         void PlayCue(MonsterSoundCue cue, int variant)
