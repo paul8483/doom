@@ -77,6 +77,9 @@ namespace Doom.MapBuild.Rendering
             }
 
             CameraRenderer?.ApplyProfile(profile);
+
+            var lights = UnityEngine.Object.FindFirstObjectByType<RuntimeSectorLights>();
+            lights?.NotifyProfileChanged();
         }
 
         public void Dispose()

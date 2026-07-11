@@ -23,7 +23,7 @@ namespace Doom.Specials.Tests
             Assert.That(door.IsExecutable, Is.True);
             Assert.That(exit.IsExecutable, Is.True);
             Assert.That(teleport.IsExecutable, Is.True);
-            Assert.That(light.IsExecutable, Is.False);
+            Assert.That(light.IsExecutable, Is.True);
             Assert.That(door.Repeatable, Is.True);
             Assert.That(door.Trigger, Is.EqualTo(TriggerKind.Push));
         }

@@ -164,7 +164,7 @@ spectre/baron AI, `WalkLineIndex` + LineRef cache, E1M1–E1M9 smoke,
 Windows standalone (`Tools > Doom > Build Windows Standalone`), baseline
 `Logs/stage7e-baseline-notes.md`. Музыка в player: `OnAudioFilterRead`
 (streaming PCM callbacks молчали в standalone). **413 EditMode + 67 PlayMode**
-(2026-07-12). Known limits: light 138 / scroll 48 / spectre translucency.
+(2026-07-12). Known limits: scroll 48 / spectre translucency (light 138 done in Stage 8 Task 8).
 
 **Результат этапа:** завершённый ремейк с играбельным Freedoom E1 и Windows build.
 
@@ -188,9 +188,10 @@ effect textures существуют только в runtime memory; authored и
 replacement assets не добавляются. Classic остаётся режимом по умолчанию и
 эталоном визуальной регрессии.
 
-**Статус:** в работе на ветке `enhanced`. **Tasks 1–6 ✅** (8a settings/baseline +
-8b URP/Classic parity/hot-switch/HUD composite, commit `1e9cc4c`, 2026-07-12).
-Next: Task 7 Enhanced materials.
+**Статус:** в работе на ветке `enhanced`. **Tasks 1–8 ✅** (2026-07-12):
+8a baseline/settings; 8b URP/Classic/hot-switch; 8c Task 7 Enhanced materials
+(`6d6b0dd`); Task 8 runtime sector lights + save schema v5. Next: Task 9
+bounded dynamic lights/shadows.
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`

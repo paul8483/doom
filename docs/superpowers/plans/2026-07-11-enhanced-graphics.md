@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 7 ✅**. Next: Task 8 runtime sector lights.
+**Статус:** утверждён; **Task 1 ✅ … Task 8 ✅**. Next: Task 9 bounded dynamic lights/shadows.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -456,35 +456,48 @@ _(awaiting explicit user commit request)_
 - Create: `Assets/Tests/PlayMode/SectorLightPlayTests.cs`
 - Modify: `Assets/Tests/PlayMode/SaveLoadPlayTests.cs`
 
-- [ ] **Step 1: Inventory E1 light specials.**
+- [x] **Step 1: Inventory E1 light specials.**
 
 Сверить types из Stage 7 compatibility matrix и реализовывать сначала реально
 встречающийся E1 subset. State machine/timing rules держать в pure layer, Unity
 presentation — отдельно.
 
-- [ ] **Step 2: Написать failing state tests.**
+E1 sector lights 1/2/3/4/8/12/13/17 + linedef 12/13/17/35/79–81/104/138/139
+via `RuntimeLightRules` (`Logs/stage8-t8-edit2.xml`).
+
+- [x] **Step 2: Написать failing state tests.**
 
 Initial light from SECTORS, deterministic blink/transition, profile-independent
 state, bounds/tag behavior и отсутствие mesh recreation.
 
-- [ ] **Step 3: Реализовать runtime state и shader binding.**
+`RuntimeLightRulesTests` 8/8; PlayMode mesh-stable tick PASS.
+
+- [x] **Step 3: Реализовать runtime state и shader binding.**
 
 Enhanced получает current sector ambient через MaterialPropertyBlock или другой
 batched-safe механизм. Classic продолжает baseline vertex light; скрытый runtime
 state нужен для корректного последующего switch в Enhanced.
 
-- [ ] **Step 4: Исправить snapshot restore.**
+`RuntimeSectorLights` + Enhanced `_SectorAmbient` MPB; Classic clears blocks.
+
+- [x] **Step 4: Исправить snapshot restore.**
 
 Существующий `SectorSnapshot.LightLevel` должен реально применяться до simulation
 resume. Save/load mid-light-cycle восстанавливает значение/phase, если phase
 является authoritative state.
 
-- [ ] **Step 5: Прогнать light/save suites.**
+Save schema **v5** adds `LightCount`; capture/restore wired
+(`Save_load_restores_runtime_sector_light_level` PASS).
+
+- [x] **Step 5: Прогнать light/save suites.**
 
 Проверить двери/movers/sector rebuild: свет не декодирует textures и не создаёт
 новый Mesh каждый tic.
 
+PlayMode filter 7/7 PASS (`Logs/stage8-t8-play.xml`).
+
 **Commit checkpoint:** `Stage 8c: add runtime sector lighting`
+_(awaiting explicit user commit request)_
 
 ### Task 9: Bounded dynamic lights и shadows
 

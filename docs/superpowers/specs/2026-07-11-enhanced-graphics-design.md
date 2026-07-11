@@ -1,7 +1,8 @@
 # Этап 8. Classic и Enhanced графика — дизайн
 
 **Дата:** 2026-07-11  
-**Статус:** в реализации — Tasks 1–6 ✅ (URP Classic + hot-switch); next Task 7  
+**Статус:** в реализации — Tasks 1–8 ✅ (Enhanced materials + runtime sector lights);
+next Task 9 bounded dynamic lights/shadows  
 **Предыдущие этапы:** Stages 0–7 завершены (Stage 7e Task 15 closed 2026-07-12)  
 **Контекст:** пост-релизная графическая веха после закрытия Stage 7. Продолжает
 Stage 4 и закрывает отложенные небо, анимацию поверхностей и расширенный рендер.

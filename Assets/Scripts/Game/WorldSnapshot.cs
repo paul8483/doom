@@ -23,6 +23,8 @@ namespace Doom.Game
         public float FloorHeight { get; }
         public float CeilingHeight { get; }
         public int LightLevel { get; }
+        /// Remaining thinker count / phase for sector light effects (0 = n/a).
+        public int LightCount { get; }
 
         public bool HasMover { get; }
         public MoverPlane MoverPlane { get; }
@@ -39,12 +41,14 @@ namespace Doom.Game
             float floorHeight, float ceilingHeight, int lightLevel,
             bool hasMover,
             MoverPlane moverPlane, MoverPhase moverPhase,
-            int moverDirection, float moverTarget, float moverSpeed, int moverWaitTics)
+            int moverDirection, float moverTarget, float moverSpeed, int moverWaitTics,
+            int lightCount = 0)
         {
             Index = index;
             FloorHeight = floorHeight;
             CeilingHeight = ceilingHeight;
             LightLevel = lightLevel;
+            LightCount = lightCount < 0 ? 0 : lightCount;
             HasMover = hasMover;
             MoverPlane = moverPlane;
             MoverPhase = moverPhase;
@@ -61,6 +65,7 @@ namespace Doom.Game
                    && FloorHeight.Equals(other.FloorHeight)
                    && CeilingHeight.Equals(other.CeilingHeight)
                    && LightLevel == other.LightLevel
+                   && LightCount == other.LightCount
                    && HasMover == other.HasMover
                    && MoverPlane == other.MoverPlane
                    && MoverPhase == other.MoverPhase
@@ -71,9 +76,22 @@ namespace Doom.Game
         }
 
         public override bool Equals(object obj) => Equals(obj as SectorSnapshot);
-        public override int GetHashCode() =>
-            HashCode.Combine(Index, FloorHeight, CeilingHeight, LightLevel, HasMover,
-                (int)MoverPhase, MoverTarget, MoverWaitTics);
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = Index;
+                hash = (hash * 397) ^ FloorHeight.GetHashCode();
+                hash = (hash * 397) ^ CeilingHeight.GetHashCode();
+                hash = (hash * 397) ^ LightLevel;
+                hash = (hash * 397) ^ LightCount;
+                hash = (hash * 397) ^ HasMover.GetHashCode();
+                hash = (hash * 397) ^ (int)MoverPhase;
+                hash = (hash * 397) ^ MoverTarget.GetHashCode();
+                hash = (hash * 397) ^ MoverWaitTics;
+                return hash;
+            }
+        }
     }
 
     public sealed class LineSnapshot : IEquatable<LineSnapshot>

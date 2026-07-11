@@ -504,7 +504,7 @@ namespace Doom.Game
                 return false;
             var sectors = new SectorSnapshot[sectorCount];
             for (int i = 0; i < sectorCount; i++)
-                sectors[i] = ReadSector(r);
+                sectors[i] = ReadSector(r, version);
 
             if (!TryReadCount(r, MaxLineCount, "lines", out int lineCount, out error))
                 return false;
@@ -575,9 +575,10 @@ namespace Doom.Game
             w.Write(s.MoverTarget);
             w.Write(s.MoverSpeed);
             w.Write(s.MoverWaitTics);
+            w.Write(s.LightCount);
         }
 
-        static SectorSnapshot ReadSector(BinaryReader r)
+        static SectorSnapshot ReadSector(BinaryReader r, int version)
         {
             int index = r.ReadInt32();
             float floor = r.ReadSingle();
@@ -590,12 +591,13 @@ namespace Doom.Game
             float target = r.ReadSingle();
             float speed = r.ReadSingle();
             int wait = r.ReadInt32();
+            int lightCount = version >= 5 ? r.ReadInt32() : 0;
             if (!Enum.IsDefined(typeof(MoverPlane), plane)
                 || !Enum.IsDefined(typeof(MoverPhase), phase))
                 throw new SaveFormatException("Invalid mover enum in sector snapshot.");
             return new SectorSnapshot(
                 index, floor, ceiling, light, hasMover,
-                (MoverPlane)plane, (MoverPhase)phase, dir, target, speed, wait);
+                (MoverPlane)plane, (MoverPhase)phase, dir, target, speed, wait, lightCount);
         }
 
         static void WriteLine(BinaryWriter w, LineSnapshot line)

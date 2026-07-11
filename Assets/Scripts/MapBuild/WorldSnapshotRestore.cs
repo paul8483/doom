@@ -39,7 +39,7 @@ namespace Doom.MapBuild
 
             try
             {
-                RestoreSectors(world, map, heights, geometry, player, registry.Lines);
+                RestoreSectors(world, map, heights, geometry, player, registry.Lines, loader.SectorLights);
                 RestoreLines(world, map, registry.Lines);
                 RestoreMapThings(world, registry);
                 RestoreSpawnedPickups(world, registry, spriteCache, worldScale, player);
@@ -61,7 +61,8 @@ namespace Doom.MapBuild
 
         static void RestoreSectors(
             WorldSnapshot world, MapData map, RuntimeSectorHeights heights,
-            SectorGeometry geometry, GameObject player, LineActivator lines)
+            SectorGeometry geometry, GameObject player, LineActivator lines,
+            RuntimeSectorLights lights)
         {
             if (world.Sectors == null) return;
 
@@ -73,6 +74,9 @@ namespace Doom.MapBuild
                 float prevCeil = heights.CeilRaw(s.Index);
                 heights.SetFloor(s.Index, s.FloorHeight);
                 heights.SetCeil(s.Index, s.CeilingHeight);
+
+                // Apply light before movers resume so Enhanced MPB / later ticks see it.
+                lights?.RestoreFromSnapshot(s.Index, s.LightLevel, s.LightCount);
 
                 bool changed = !Mathf.Approximately(prevFloor, s.FloorHeight)
                                || !Mathf.Approximately(prevCeil, s.CeilingHeight);

@@ -16,6 +16,7 @@ namespace Doom.MapBuild
         MapData map;
         RuntimeSectorHeights heights;
         SectorGeometry geometry;
+        RuntimeSectorLights lights;
         float worldScale;
         Transform cam;
         Vector3 lastPos;
@@ -32,10 +33,12 @@ namespace Doom.MapBuild
         readonly Dictionary<LineRef, int> resolvedLineRefs = new Dictionary<LineRef, int>();
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
-                         float worldScale, Transform cam, SoundSystem sound = null)
+                         float worldScale, Transform cam, SoundSystem sound = null,
+                         RuntimeSectorLights lights = null)
         {
             this.map = map; this.heights = heights; this.geometry = geometry;
             this.worldScale = worldScale; this.cam = cam; this.sound = sound;
+            this.lights = lights;
             onceFired = new bool[map.LineDefs.Length];
             moving = new bool[map.Sectors.Length];
             lastPos = transform.position;
@@ -619,6 +622,20 @@ namespace Doom.MapBuild
                 var look = actor == TeleportActorKind.Player ? playerLook : null;
                 if (!TeleportExecutor.TryTeleport(map, landing, body, worldScale, cc, look, sound))
                     return;
+
+                if (!sp.Repeatable) onceFired[lineIndex] = true;
+                return;
+            }
+
+            if (sp.Category == SpecialCategory.Light)
+            {
+                System.Collections.Generic.IEnumerable<int> lightTargets =
+                    ld.Tag == 0 ? SectorActions.FindManualDoorTarget(map, lineIndex)
+                                : SectorActions.FindTaggedSectors(map, ld.Tag);
+                lights?.ApplyLinedef(ld.Special, lightTargets);
+
+                if (sp.Trigger == TriggerKind.Switch)
+                    sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
 
                 if (!sp.Repeatable) onceFired[lineIndex] = true;
                 return;

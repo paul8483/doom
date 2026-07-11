@@ -30,12 +30,13 @@ namespace Doom.MapBuild
             }
 
             var moversBySector = IndexMovers();
+            var lights = UnityEngine.Object.FindFirstObjectByType<RuntimeSectorLights>();
 
             var sectors = new SectorSnapshot[map.Sectors.Length];
             for (int i = 0; i < map.Sectors.Length; i++)
             {
                 moversBySector.TryGetValue(i, out var mover);
-                sectors[i] = CaptureSector(i, map, heights, mover);
+                sectors[i] = CaptureSector(i, map, heights, mover, lights);
             }
 
             var lines = CaptureLines(registry.Lines, map.LineDefs.Length);
@@ -138,11 +139,18 @@ namespace Doom.MapBuild
         }
 
         static SectorSnapshot CaptureSector(
-            int index, MapData map, RuntimeSectorHeights heights, SectorMover mover)
+            int index, MapData map, RuntimeSectorHeights heights, SectorMover mover,
+            RuntimeSectorLights lights)
         {
             float floor = heights.FloorRaw(index);
             float ceil = heights.CeilRaw(index);
-            int light = map.Sectors[index].LightLevel;
+            int light = lights != null ? lights.GetLight(index) : map.Sectors[index].LightLevel;
+            int lightCount = 0;
+            if (lights != null)
+            {
+                var st = lights.GetState(index);
+                lightCount = st.Kind != Doom.Specials.SectorLightKind.None ? st.Count : 0;
+            }
 
             if (mover == null || !mover.TryCapture(
                     out _, out var plane, out var phase, out int dir,
@@ -152,12 +160,12 @@ namespace Doom.MapBuild
                 return new SectorSnapshot(
                     index, floor, ceil, light,
                     hasMover: false, MoverPlane.Floor, MoverPhase.None,
-                    0, 0f, 0f, 0);
+                    0, 0f, 0f, 0, lightCount);
             }
 
             return new SectorSnapshot(
                 index, floor, ceil, light,
-                hasMover: true, plane, phase, dir, target, speed, waitTics);
+                hasMover: true, plane, phase, dir, target, speed, waitTics, lightCount);
         }
 
         static LineSnapshot[] CaptureLines(LineActivator activator, int lineCount)

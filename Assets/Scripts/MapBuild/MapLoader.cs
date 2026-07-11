@@ -52,6 +52,9 @@ namespace Doom.MapBuild
         public SectorGeometry Geometry { get; private set; }
         public RuntimeSectorHeights RuntimeHeights { get; private set; }
 
+        /// Stage 8 sector light thinkers. Profile-independent; Enhanced binds via MPB.
+        public RuntimeSectorLights SectorLights { get; private set; }
+
         /// Stage 6f SFX service. Created during Build() while the WAD is open.
         public SoundSystem Sound { get; private set; }
 
@@ -233,6 +236,10 @@ namespace Doom.MapBuild
             Geometry = new SectorGeometry(map, polys, runtimeHeights, worldScale,
                                           cache, textures, sectorRoots);
 
+            SectorLights = gameObject.GetComponent<RuntimeSectorLights>()
+                ?? gameObject.AddComponent<RuntimeSectorLights>();
+            SectorLights.Init(map, Geometry, renderContext);
+
             // ── Sprites (Stage 5) ─────────────────────────────────────────────
             // Created BEFORE SpawnPlayer so the player's weapon view can share the
             // same SpriteCache instance (viewmodel/effect sprites are pre-warmed
@@ -314,6 +321,7 @@ namespace Doom.MapBuild
                 {
                     host.SetNextSpawnId(registry.NextSpawnId);
                     host.SyncSpawnIdFrom(registry);
+                    SectorLights?.NotifyProfileChanged();
                 }
             }
 
@@ -534,7 +542,8 @@ namespace Doom.MapBuild
             // for Walk detection. Init with the runtime height/geometry registries
             // (set just before SpawnPlayer) and the player's camera transform.
             var activator = player.AddComponent<LineActivator>();
-            activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform, Sound);
+            activator.Init(map, RuntimeHeights, Geometry, worldScale, cameraGO.transform, Sound,
+                SectorLights);
 
             // Health, floor damage, death/respawn, and WAD status bar (Stage 7b).
             var health = player.AddComponent<PlayerHealth>();

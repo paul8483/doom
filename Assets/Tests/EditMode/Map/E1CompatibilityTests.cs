@@ -180,8 +180,8 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.Unsupported,
                         "Donut classified; not present on E1 (deferred)");
                 case SpecialCategory.Light:
-                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.HarmlessVisual,
-                        "Light special — cosmetic (static lightlevel still applies)");
+                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.Implemented,
+                        "Light special — RuntimeSectorLights");
                 case SpecialCategory.Scroll:
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.HarmlessVisual,
                         "Scroll special — cosmetic UV motion deferred");
@@ -199,6 +199,9 @@ namespace Doom.Map.Tests
                 if (special == 11)
                     return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
                         "floor damage + low-HP exit (special 11)");
+                if (special == 4)
+                    return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
+                        "floor damage 20/tic + strobe light");
                 return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
                     $"floor damage {SectorDamageTable.DamagePerTick(special)}/tic");
             }
@@ -209,8 +212,8 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
                         "secret sector — counted by LevelStatsTracker");
                 case 1: case 2: case 3: case 8: case 12: case 13: case 17:
-                    return new CompatibilityEntry("sector", special, CompatibilityStatus.HarmlessVisual,
-                        "sector light effect — static lightlevel still applies");
+                    return new CompatibilityEntry("sector", special, CompatibilityStatus.Implemented,
+                        "sector light effect — RuntimeSectorLights");
                 case 10: case 14:
                     // Not present on Freedoom E1; keep classified for completeness.
                     return new CompatibilityEntry("sector", special, CompatibilityStatus.Unsupported,

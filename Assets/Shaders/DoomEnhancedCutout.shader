@@ -8,6 +8,8 @@ Shader "Doom/EnhancedCutout"
         _Roughness ("Roughness", Range(0,1)) = 0.75
         _EmissionStrength ("Emission", Range(0,2)) = 0
         _Cutoff ("Alpha Cutoff", Range(0,1)) = 0.5
+        _SectorAmbient ("Sector Ambient", Color) = (1,1,1,1)
+        _SectorAmbientWeight ("Sector Ambient Weight", Range(0,1)) = 0
     }
 
     SubShader
@@ -50,6 +52,8 @@ Shader "Doom/EnhancedCutout"
                 half _Roughness;
                 half _EmissionStrength;
                 half _Cutoff;
+                half4 _SectorAmbient;
+                half _SectorAmbientWeight;
             CBUFFER_END
 
             struct Attributes
@@ -129,8 +133,9 @@ Shader "Doom/EnhancedCutout"
                 float3x3 tbn = float3x3(input.tangentWS.xyz, bitangent, input.normalWS);
                 float3 normalWS = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tbn));
 
+                half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);
                 half3 color = DoomShade(
-                    albedo, input.color.rgb, normalWS, input.positionWS,
+                    albedo, sectorAmbient, normalWS, input.positionWS,
                     _Roughness, _EmissionStrength);
                 return half4(color, 1.0h);
             }
@@ -163,6 +168,8 @@ Shader "Doom/EnhancedCutout"
                 half _Roughness;
                 half _EmissionStrength;
                 half _Cutoff;
+                half4 _SectorAmbient;
+                half _SectorAmbientWeight;
             CBUFFER_END
 
             struct Attributes
@@ -226,6 +233,8 @@ Shader "Doom/EnhancedCutout"
                 half _Roughness;
                 half _EmissionStrength;
                 half _Cutoff;
+                half4 _SectorAmbient;
+                half _SectorAmbientWeight;
             CBUFFER_END
 
             float3 _LightDirection;

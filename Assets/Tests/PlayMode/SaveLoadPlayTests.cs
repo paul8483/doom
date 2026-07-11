@@ -213,6 +213,33 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Save_load_restores_runtime_sector_light_level()
+        {
+            yield return LoadLevel();
+            WireTestStore();
+
+            var loader = Object.FindAnyObjectByType<MapLoader>();
+            Assert.That(loader.SectorLights, Is.Not.Null);
+
+            int sector = 0;
+            loader.SectorLights.ApplyLinedef(139, new[] { sector }); // force 35
+            Assert.That(loader.SectorLights.GetLight(sector), Is.EqualTo(35));
+
+            var flow = GameFlowController.Ensure();
+            flow.RequestPause();
+            yield return null;
+
+            var saves = SaveGameController.Ensure();
+            Assert.That(saves.TrySave(4), Is.True, saves.LastError);
+            Assert.That(saves.TryLoad(4), Is.True, saves.LastError);
+            yield return WaitForPlayer("E1M1");
+
+            var after = Object.FindAnyObjectByType<MapLoader>();
+            Assert.That(after.SectorLights.GetLight(sector), Is.EqualTo(35),
+                "SectorSnapshot.LightLevel must restore into RuntimeSectorLights");
+        }
+
+        [UnityTest]
         public IEnumerator Corrupt_or_wrong_wad_save_rejected_without_changing_level()
         {
             yield return LoadLevel();

@@ -86,6 +86,10 @@ namespace Doom.MapBuild
                         map, s, polys[s], heights, worldScale, sizes);
                 using (ApplyWallsMarker.Auto())
                     MapLoader.RebuildSectorWalls(root, sm, textures, worldScale);
+
+                // Wall MeshRenderers are new — re-bind Enhanced ambient for this sector.
+                var lights = Object.FindFirstObjectByType<RuntimeSectorLights>();
+                lights?.RefreshSectorVisual(s);
             }
         }
     }
