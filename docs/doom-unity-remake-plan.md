@@ -163,6 +163,35 @@ WAD-identity preflight; scene reload и phased restore. PlayMode
 
 ---
 
+## Этап 8. Режимы графики Classic и Enhanced
+
+Пост-релизная графическая веха после завершения Stage 7. В Options появляется
+одна настройка `Graphics Mode` с двумя значениями:
+
+- **Classic** — текущий WAD-driven вид: Point filtering, секторная яркость,
+  Unlit opaque/cutout, без современного света и post-processing.
+- **Enhanced** — тот же WAD и gameplay world через URP: procedural normal maps,
+  секторный ambient и ограниченные динамические lights/shadows, HDR/SSAO/bloom/
+  fog, MSAA/render scale/FSR, WAD SKY1, анимированные emissive fluids,
+  улучшенные sprites, pooled particles и decals.
+
+Оба режима работают в одном URP pipeline и переключаются без отдельной сцены,
+повторного WAD decode или изменения gameplay/save state. Производные normal/
+effect textures существуют только в runtime memory; authored и AI-upscaled
+replacement assets не добавляются. Classic остаётся режимом по умолчанию и
+эталоном визуальной регрессии.
+
+**Статус:** запланирован; реализация начинается после закрытия Stage 7e.
+
+**Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
+**План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
+
+**Результат этапа:** пользователь может сравнить Classic и Enhanced на
+E1M1–E1M9; Classic сохраняет текущий вид, Enhanced использует современные
+возможности GPU без замены WAD-контента.
+
+---
+
 ## Рекомендации по ведению проекта
 
 - **Маленькие вехи.** Первая цель — серая геометрия E1M1, по которой можно ходить. Большинство ремейков бросают именно на текстурах, спрайтах и ИИ — поэтому каждый шаг должен давать видимый результат.

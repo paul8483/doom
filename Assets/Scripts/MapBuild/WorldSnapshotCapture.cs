@@ -75,9 +75,9 @@ namespace Doom.MapBuild
                 var proj = identity.GetComponent<IProjectileSnapshotSource>();
                 if (proj != null)
                 {
-                    var snapshot = proj.CaptureSnapshot(spawnId, registry);
-                    if (snapshot != null)
-                        projectiles.Add(snapshot);
+                    var projSnap = proj.CaptureSnapshot(spawnId, registry);
+                    if (projSnap != null)
+                        projectiles.Add(projSnap);
                     continue;
                 }
 
