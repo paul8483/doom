@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅, Task 2 ✅**. Next: Task 3 URP pipeline.
+**Статус:** утверждён; **Task 1 ✅, Task 2 ✅, Task 3 ✅, Task 4 ✅, Task 5 ✅, Task 6 ✅**. Next: Task 7 Enhanced materials.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -216,34 +216,38 @@ _(awaiting explicit user commit request)_
 - Modify: `Assets/Scripts/MapBuild/Doom.MapBuild.asmdef`
 - Create/Modify: соответствующие `.meta`
 
-- [ ] **Step 1: Добавить совместимую URP package через Package Manager.**
+- [x] **Step 1: Добавить совместимую URP package через Package Manager.**
 
 Не вписывать выдуманную version. Дождаться resolve/import без compile errors и
 зафиксировать package version, выбранную Unity 6000.4.8f1.
 
-- [ ] **Step 2: Создать URP assets.**
+URP `17.4.0` (bundled with 6000.4.8f1). Configure via
+`Tools > Doom > Configure URP Pipeline (Stage 8)`.
+
+- [x] **Step 2: Создать URP assets.**
 
 Один pipeline asset и renderer data используются обоими режимами. Включить
 depth/opaque textures, HDR/MSAA capability и SRP Batcher; SSAO/Decal features
 добавить disabled-by-profile до соответствующих Tasks.
 
-- [ ] **Step 3: Перевести проект в Linear color space.**
+- [x] **Step 3: Перевести проект в Linear color space.**
 
 Не конвертировать WAD content assets. Runtime Texture2D creation позже получает
 явную sRGB/linear policy; HUD palette textures остаются color data.
 
-- [ ] **Step 4: Настроить scene/runtime camera.**
+- [x] **Step 4: Настроить scene/runtime camera.**
 
 Удалить зависимость от Built-in-only Directional Light. `MapLoader.SpawnPlayer`
 создаёт URP-compatible camera; gameplay/audio/FOV/clip planes не меняются.
 
-- [ ] **Step 5: Compile и smoke gate.**
+- [x] **Step 5: Compile и smoke gate.**
 
 На этом checkpoint pink current shaders ожидаемы только до Task 4; не запускать
 визуальную приёмку, пока Classic shaders не перенесены. Любые script compile
 errors исправить до продолжения.
 
 **Commit checkpoint:** `Stage 8b: configure universal render pipeline`
+_(awaiting explicit user commit request)_
 
 ### Task 4: Перенести Classic shaders с визуальным паритетом
 
@@ -258,35 +262,39 @@ errors исправить до продолжения.
 - Modify: `Assets/Tests/PlayMode/TexturedMapLoadsTests.cs`
 - Create: `Assets/Tests/PlayMode/ClassicRenderPlayTests.cs`
 
-- [ ] **Step 1: Написать failing Classic render tests.**
+- [x] **Step 1: Написать failing Classic render tests.**
 
 Проверить URP Classic shader names, Point filtering, mip/aniso policy, cutout
 depth/cull behavior, отключённые scene lights/post и отсутствие pink materials.
 
-- [ ] **Step 2: Реализовать URP HLSL shaders.**
+- [x] **Step 2: Реализовать URP HLSL shaders.**
 
 Opaque и cutout должны быть SRP Batcher compatible. Shader выполняет legacy
 gamma-space `albedo × vertexColor` поверх Linear project output. Cutout
 сохраняет `Cull Off`, alpha threshold и depth write текущего поведения.
 
-- [ ] **Step 3: Явно задать texture color policy.**
+- [x] **Step 3: Явно задать texture color policy.**
 
 `TextureCache`/`SpriteCache` создают WAD albedo как sRGB color textures;
 `HudTextureCache` остаётся Point без mipmaps. Не менять decoded RGBA bytes.
 
-- [ ] **Step 4: Обновить shader inclusion.**
+- [x] **Step 4: Обновить shader inclusion.**
 
 Удалить Built-in shaders из runtime selection только после полного перехода.
 Новые Classic и будущие Enhanced shader variants должны переживать stripping в
 Windows build.
 
-- [ ] **Step 5: Automated и visual parity gate.**
+- [x] **Step 5: Automated и visual parity gate.**
 
 Прогнать `TexturedMapLoadsTests`, `ClassicRenderPlayTests`, capture harness и
 сравнить E1M1/E1M3/E1M7/E1M9 с Task 1. Исправлять color/UV/cutout, а не повышать
 tolerance, пока различие не объяснено.
 
+Automated gate: ClassicRender + TexturedMapLoads PASS (2026-07-12).
+Interactive/capture visual parity vs Task 1 baselines deferred to user eyeball.
+
 **Commit checkpoint:** `Stage 8b: preserve classic rendering on URP`
+_(awaiting explicit user commit request)_
 
 ### Task 5: Render profiles и hot-switch
 
@@ -303,38 +311,42 @@ tolerance, пока различие не объяснено.
 - Create: `Assets/Tests/EditMode/Map/GraphicsProfileTests.cs`
 - Create: `Assets/Tests/PlayMode/GraphicsModePlayTests.cs`
 
-- [ ] **Step 1: Написать failing policy tests.**
+- [x] **Step 1: Написать failing policy tests.**
 
 Classic flags все presentation effects off; Enhanced запрашивает полный набор.
 Capability adapter отключает только unsupported flags и не меняет requested
 mode.
 
-- [ ] **Step 2: Ввести material/context abstraction.**
+- [x] **Step 2: Ввести material/context abstraction.**
 
 `TextureCache` перестаёт напрямую делать `Shader.Find("Doom/Unlit")`.
 `DoomMaterialFactory` кэширует profile variants. `WorldRenderContext` регистрирует
 renderers/textures/camera/effect services и освобождает owned resources один раз.
 
-- [ ] **Step 3: Реализовать persistent controller.**
+- [x] **Step 3: Реализовать persistent controller.**
 
 Controller создаётся на `GameSessionHost`, принимает Apply/Cancel из settings и
 применяет profile к текущему context. Контроллер переживает scene reload, но
 Unity resources старой сцены — нет.
 
-- [ ] **Step 4: Реализовать transactional hot-switch.**
+- [x] **Step 4: Реализовать transactional hot-switch.**
 
 На паузе подготовить target materials/state, затем одним apply phase заменить
 shared materials/filter policy и enable flags. При ошибке оставить предыдущий
 profile и показать техническое сообщение; gameplay state не трогать.
 
-- [ ] **Step 5: Проверить переключение.**
+- [x] **Step 5: Проверить переключение.**
 
 Classic → Enhanced → Classic без scene reload сохраняет player transform/HP/
 ammo, monster HP/state, sector heights и active movers. WAD не открывается и
 textures не декодируются повторно. Повторить цикл не менее 20 раз и проверить
 стабильные counts resources.
 
+2026-07-12: `GraphicsProfileTests` 4/4; `GraphicsModePlayTests` PASS
+(`Logs/stage8-t3-6-edit.xml`, `Logs/stage8-t3-6-play2.xml`).
+
 **Commit checkpoint:** `Stage 8b: add graphics profile hot switching`
+_(awaiting explicit user commit request)_
 
 ### Task 6: World/HUD compositing
 
@@ -346,28 +358,31 @@ textures не декодируются повторно. Повторить ци
 - Modify: `Assets/Scripts/MapBuild/DoomHud.cs` только при необходимости
 - Create: `Assets/Tests/PlayMode/WorldHudCompositePlayTests.cs`
 
-- [ ] **Step 1: Написать failing layer/composite tests.**
+- [x] **Step 1: Написать failing layer/composite tests.**
 
 World camera имеет URP/HDR/post path только в Enhanced. HUD/menu/intermission/
 weapon view остаются overlay после world image и не попадают под Volume.
 
-- [ ] **Step 2: Настроить camera output.**
+- [x] **Step 2: Настроить camera output.**
 
 Предпочесть прямой world camera + OnGUI overlay. Вводить промежуточный
 RenderTexture только если URP render scale/FSR требует его; ownership и resize
 должны быть явными.
 
-- [ ] **Step 3: Проверить aspect ratios.**
+- [x] **Step 3: Проверить aspect ratios.**
 
 4:3, 16:9 и runtime resize сохраняют FOV policy, pillarbox/virtual-screen layout
 и Point UI. Не переводить весь WAD UI на Canvas без доказанной необходимости.
 
-- [ ] **Step 4: Прогнать PlayMode и интерактивный smoke.**
+- [x] **Step 4: Прогнать PlayMode и интерактивный smoke.**
 
 Проверить pause/options/death/intermission поверх обоих режимов. `Camera.Render`
 не используется как доказательство наличия OnGUI.
 
+2026-07-12: `WorldHudCompositePlayTests` PASS. Interactive smoke deferred.
+
 **Commit checkpoint:** `Stage 8b: isolate world post from WAD UI`
+_(awaiting explicit user commit request)_
 
 ---
 

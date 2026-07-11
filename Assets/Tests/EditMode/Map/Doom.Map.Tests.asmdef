@@ -8,6 +8,7 @@
         "Doom.Specials",
         "Doom.Things",
         "Doom.Game",
+        "Doom.MapBuild",
         "Doom.Wad.Tests",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

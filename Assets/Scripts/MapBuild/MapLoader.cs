@@ -8,6 +8,7 @@ using Doom.Graphics;
 using Doom.Audio;
 using Doom.Game;
 using Doom.Things;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -170,9 +171,18 @@ namespace Doom.MapBuild
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
                       $"{map.Sectors.Length} sectors, {map.Things.Length} things");
 
+            // Stage 8: no authored scene lights; strip any leftover Directional Lights.
+            StripSceneDirectionalLights();
+
+            var gfx = GraphicsModeController.Ensure();
+            var renderContext = new WorldRenderContext();
+            var materialFactory = gfx.Factory ?? new DoomMaterialFactory();
+            materialFactory.SetActiveProfile(GraphicsProfile.ForMode(gfx.Current));
+            renderContext.BindFactory(materialFactory);
+
             var palette  = new Palette(wad.ReadLump("PLAYPAL"));
             var textures = TextureSet.Load(wad);
-            var cache    = new TextureCache(wad, textures, palette);
+            var cache    = new TextureCache(wad, textures, palette, materialFactory, renderContext);
 
             // Stage 7b: decode HUD/menu/intermission patches while the WAD is open.
             var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
@@ -210,6 +220,9 @@ namespace Doom.MapBuild
             }
             Debug.Log($"MapLoader: built {builtSectors}/{meshes.Length} sectors");
 
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+                renderContext.RegisterRenderer(r);
+
             RuntimeHeights = runtimeHeights;
             // `cache` (TextureCache) supplies materials; `textures` (TextureSet) is
             // the ITextureSizeSource for wall-UV sizing — same source used by Build().
@@ -221,7 +234,7 @@ namespace Doom.MapBuild
             // same SpriteCache instance (viewmodel/effect sprites are pre-warmed
             // below while the WAD is still open).
             var spriteSet = SpriteSet.Load(wad);
-            var spriteCache = new SpriteCache(wad, spriteSet, palette);
+            var spriteCache = new SpriteCache(wad, spriteSet, palette, materialFactory, renderContext);
 
             // Pre-warm weapon/flash/effect sprites: the WAD closes at the end of
             // Build(), and WeaponView/HitEffect fetch these lazily at runtime.
@@ -243,8 +256,11 @@ namespace Doom.MapBuild
             })
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
 
-            SpawnPlayer(map, bounds, spriteCache);
+            SpawnPlayer(map, bounds, spriteCache, renderContext, gfx);
             InitMusic(wad, loadName);
+
+            // Register after camera exists so hot-switch can retarget the live context.
+            gfx.RegisterContext(renderContext);
 
             var registry = gameObject.GetComponent<WorldStateRegistry>()
                 ?? gameObject.AddComponent<WorldStateRegistry>();
@@ -309,6 +325,17 @@ namespace Doom.MapBuild
             Debug.Log($"MapLoader: build {LastBuildSeconds:F3}s — " +
                       $"meshes={LastMeshCount} renderers={LastMaterialCount} " +
                       $"colliders={LastColliderCount} transforms={LastGameObjectCount}");
+        }
+
+        static void StripSceneDirectionalLights()
+        {
+            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            for (int i = 0; i < lights.Length; i++)
+            {
+                var light = lights[i];
+                if (light == null || light.type != LightType.Directional) continue;
+                Object.Destroy(light.gameObject);
+            }
         }
 
         void InitMusic(WadFile wad, string loadName)
@@ -416,7 +443,12 @@ namespace Doom.MapBuild
         }
 
         // ── Player spawn ──────────────────────────────────────────────────────
-        void SpawnPlayer(MapData map, Bounds? bounds, SpriteCache spriteCache)
+        void SpawnPlayer(
+            MapData map,
+            Bounds? bounds,
+            SpriteCache spriteCache,
+            WorldRenderContext renderContext,
+            GraphicsModeController gfx)
         {
             Thing? start = null;
             foreach (var t in map.Things)
@@ -483,7 +515,13 @@ namespace Doom.MapBuild
             cam.nearClipPlane = 0.05f;
             cam.farClipPlane = 2000f;
             cam.fieldOfView = 75f;
+            cam.allowHDR = false;
+            cam.allowMSAA = false;
             cameraGO.AddComponent<AudioListener>();
+
+            var worldCam = cameraGO.AddComponent<WorldCameraRenderer>();
+            worldCam.Init(cam, gfx != null ? gfx.EnhancedVolumeProfile : null);
+            renderContext?.SetWorldCamera(cam, worldCam);
 
             var pc = player.AddComponent<PlayerController>();
             pc.SetCameraPivot(cameraGO.transform);

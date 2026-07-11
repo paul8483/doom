@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Doom.Wad;
 using Doom.Graphics;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -27,24 +28,28 @@ namespace Doom.MapBuild
         private readonly WadFile wad;
         private readonly SpriteSet sprites;
         private readonly Palette palette;
-        private readonly Shader cutoutShader;
+        private readonly DoomMaterialFactory materials;
+        private readonly WorldRenderContext context;
         private readonly int anisoLevel;
 
         private readonly Dictionary<int, Material> matByLump = new();
         private readonly Dictionary<int, PatchHeader> headerByLump = new();
         private readonly HashSet<int> failedLumps = new();
 
-        public SpriteCache(WadFile wad, SpriteSet sprites, Palette palette, int anisoLevel = 9)
+        public SpriteCache(
+            WadFile wad,
+            SpriteSet sprites,
+            Palette palette,
+            DoomMaterialFactory materials = null,
+            WorldRenderContext context = null,
+            int anisoLevel = 9)
         {
             this.wad = wad;
             this.sprites = sprites;
             this.palette = palette;
+            this.materials = materials ?? new DoomMaterialFactory();
+            this.context = context;
             this.anisoLevel = anisoLevel;
-            cutoutShader = Shader.Find("Doom/UnlitCutout");
-            if (cutoutShader == null)
-                throw new System.InvalidOperationException(
-                    "Shader 'Doom/UnlitCutout' not found in player build. " +
-                    "Add it to Project Settings → Graphics → Always Included Shaders.");
         }
 
         /// Resolve (sprite, frame, rotationIndex 0..7). Returns an invalid
@@ -54,9 +59,6 @@ namespace Doom.MapBuild
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
 
-            // Reads from the WAD are lazy; after MapLoader disposes the WAD a cache
-            // miss would throw ObjectDisposedException from LateUpdate every frame.
-            // Cache the failure so each missing lump warns once and never retries.
             if (failedLumps.Contains(refr.LumpIndex))
                 return default;
 
@@ -74,8 +76,10 @@ namespace Doom.MapBuild
                 {
                     var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
                     var tex = ToTexture2D(img);
-                    mat = new Material(cutoutShader) { mainTexture = tex };
+                    mat = materials.CreateMaterial(tex, masked: true);
                     matByLump[refr.LumpIndex] = mat;
+                    context?.RegisterTexture(tex);
+                    context?.RegisterMaterial(mat, masked: true);
                 }
             }
             catch (System.ObjectDisposedException)
@@ -91,15 +95,12 @@ namespace Doom.MapBuild
                                       header.LeftOffset, header.TopOffset, refr.Mirrored);
         }
 
-        // Same point+mip+aniso upload as TextureCache, with row-flip (DecodedImage
-        // is top-to-bottom; Unity textures are bottom-to-top). Sprites use Clamp
-        // so the transparent border never wraps.
         private Texture2D ToTexture2D(DecodedImage img)
         {
             int w = Mathf.Max(1, img.Width), h = Mathf.Max(1, img.Height);
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false);
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: false);
             tex.wrapMode = TextureWrapMode.Clamp;
-            tex.filterMode = FilterMode.Point;
+            tex.filterMode = materials.WorldFilterMode;
             tex.anisoLevel = anisoLevel;
 
             var src = img.Rgba;

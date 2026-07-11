@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Doom.Wad;
 using Doom.Graphics;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -12,40 +13,37 @@ namespace Doom.MapBuild
         private readonly WadFile wad;
         private readonly TextureSet textures;
         private readonly Palette palette;
-        private readonly Shader opaqueShader;
-        private readonly Shader cutoutShader;
+        private readonly DoomMaterialFactory materials;
+        private readonly WorldRenderContext context;
         private readonly int anisoLevel;
 
         private readonly Dictionary<string, Texture2D> texCache = new();
         private readonly Dictionary<(string, bool), Material> matCache = new();
 
-        public TextureCache(WadFile wad, TextureSet textures, Palette palette, int anisoLevel = 9)
+        public TextureCache(
+            WadFile wad,
+            TextureSet textures,
+            Palette palette,
+            DoomMaterialFactory materials = null,
+            WorldRenderContext context = null,
+            int anisoLevel = 9)
         {
             this.wad = wad;
             this.textures = textures;
             this.palette = palette;
+            this.materials = materials ?? new DoomMaterialFactory();
+            this.context = context;
             this.anisoLevel = anisoLevel;
-            opaqueShader = RequireShader("Doom/Unlit");
-            cutoutShader = RequireShader("Doom/UnlitCutout");
-        }
-
-        static Shader RequireShader(string name)
-        {
-            var s = Shader.Find(name);
-            if (s == null)
-                throw new System.InvalidOperationException(
-                    $"Shader '{name}' not found in player build. " +
-                    "Add it to Project Settings → Graphics → Always Included Shaders.");
-            return s;
         }
 
         public Material GetMaterial(string name, bool masked)
         {
             var key = (name, masked);
             if (matCache.TryGetValue(key, out var m)) return m;
-            var mat = new Material(masked ? cutoutShader : opaqueShader);
-            mat.mainTexture = GetTexture(name);
+            var tex = GetTexture(name);
+            var mat = materials.CreateMaterial(tex, masked);
             matCache[key] = mat;
+            context?.RegisterMaterial(mat, masked);
             return mat;
         }
 
@@ -64,6 +62,7 @@ namespace Doom.MapBuild
                 tex = ToTexture2D(Placeholder.Magenta(64, 64));
             }
             texCache[name] = tex;
+            context?.RegisterTexture(tex);
             return tex;
         }
 
@@ -82,20 +81,17 @@ namespace Doom.MapBuild
 
         private Texture2D ToTexture2D(DecodedImage img)
         {
-            // Guard: Unity rejects zero-dimension textures; fall back to magenta placeholder.
             if (img.Width <= 0 || img.Height <= 0)
                 img = Placeholder.Magenta(64, 64);
 
             int w = img.Width, h = img.Height;
-            // mipChain: false → LoadRawTextureData only needs w*h*4 bytes (base level).
-            // Apply(updateMipmaps: true) generates mip maps from the base level after upload.
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false);
+            // linear: false → sRGB color texture (WAD albedo). Linear project
+            // samples convert sRGB→linear; Classic shader restores gamma multiply.
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: false);
             tex.wrapMode = TextureWrapMode.Repeat;
-            tex.filterMode = FilterMode.Point;
+            tex.filterMode = materials.WorldFilterMode;
             tex.anisoLevel = anisoLevel;
 
-            // DecodedImage is top-to-bottom; Unity textures are bottom-to-top.
-            // Flip rows so the image displays upright.
             var flipped = new byte[img.Rgba.Length];
             int stride = w * 4;
             for (int y = 0; y < h; y++)

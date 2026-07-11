@@ -72,7 +72,9 @@ namespace Doom.MapBuild
         {
             int w = Mathf.Max(1, img.Width);
             int h = Mathf.Max(1, img.Height);
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false);
+            // HUD stays Point, no mipmaps. linear:false keeps palette colors as
+            // sRGB color data for OnGUI (not world Linear sampling).
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: false);
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.filterMode = FilterMode.Point;
             tex.anisoLevel = anisoLevel;

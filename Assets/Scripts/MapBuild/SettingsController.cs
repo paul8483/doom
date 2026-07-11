@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Doom.Game;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -77,7 +78,7 @@ namespace Doom.MapBuild
             Instance = this;
             store = new SettingsStore();
             display = new UnityDisplayAdapter();
-            graphics = new NoOpGraphicsModeAdapter();
+            graphics = GraphicsModeController.Ensure();
             current = store.Load();
         }
 
@@ -94,7 +95,7 @@ namespace Doom.MapBuild
         {
             this.store = store ?? this.store;
             this.display = display ?? this.display;
-            this.graphics = graphics ?? this.graphics ?? new NoOpGraphicsModeAdapter();
+            this.graphics = graphics ?? this.graphics ?? (IGraphicsModeAdapter)GraphicsModeController.Ensure();
             current = this.store.Load();
             ApplyRuntime(current);
         }
