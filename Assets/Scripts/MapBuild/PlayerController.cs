@@ -27,12 +27,14 @@ namespace Doom.MapBuild
         InputAction lookAction;
         InputAction sprintAction;
         InputAction useAction;
+        InputAction locationDumpAction;
         InputActionMap playerMap;
 
         LineActivator activator;
         CharacterController cc;
         float pitch;
         float verticalVelocity;
+        float maxStepOffset;
 
         public float MouseSensitivity => mouseSensitivity;
         public bool InvertY => invertY;
@@ -40,6 +42,10 @@ namespace Doom.MapBuild
         void Awake()
         {
             cc = GetComponent<CharacterController>();
+            // Unity CC treats stepOffset as extra headroom during Move (issue 576605):
+            // openings shorter than height+stepOffset block even when the capsule fits.
+            // Keep the authored DOOM 24-unit max and clamp per-frame under lintels.
+            maxStepOffset = cc.stepOffset;
             BuildInputActions();
         }
 
@@ -57,6 +63,7 @@ namespace Doom.MapBuild
         void OnDestroy()
         {
             if (useAction != null) useAction.performed -= OnUse;
+            if (locationDumpAction != null) locationDumpAction.performed -= OnLocationDump;
             playerMap?.Dispose();
         }
 
@@ -101,6 +108,10 @@ namespace Doom.MapBuild
                 InputActionType.Button, "<Keyboard>/e");
             useAction.AddBinding("<Gamepad>/buttonWest");
             useAction.performed += OnUse;
+
+            locationDumpAction = playerMap.AddAction("LocationDump",
+                InputActionType.Button, "<Keyboard>/t");
+            locationDumpAction.performed += OnLocationDump;
         }
 
         // LineActivator is added to the Player by MapLoader AFTER this controller's
@@ -109,6 +120,12 @@ namespace Doom.MapBuild
         {
             if (activator == null) activator = GetComponent<LineActivator>();
             if (activator != null) activator.TryUse();
+        }
+
+        void OnLocationDump(InputAction.CallbackContext _)
+        {
+            if (activator == null) activator = GetComponent<LineActivator>();
+            if (activator != null) activator.DumpLocation();
         }
 
         void Update()
@@ -140,7 +157,38 @@ namespace Doom.MapBuild
                 verticalVelocity = groundStickSpeed;
             verticalVelocity += gravity * Time.deltaTime;
 
+            AdaptStepOffset(horizontal);
             cc.Move((horizontal + Vector3.up * verticalVelocity) * Time.deltaTime);
+        }
+
+        /// Clamps stepOffset so height+step fits under any lintel ahead of the move.
+        /// Without this, E1M2's 64-unit doorway (56 height + 24 step) is impassable.
+        void AdaptStepOffset(Vector3 horizontalVelocity)
+        {
+            Vector3 dir = horizontalVelocity;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-6f || maxStepOffset <= 0f)
+            {
+                cc.stepOffset = maxStepOffset;
+                return;
+            }
+            dir.Normalize();
+
+            Vector3 head = transform.position + Vector3.up * cc.height;
+            float probeForward = cc.radius + 0.35f;
+            float clearance = maxStepOffset;
+            const float step = 0.05f;
+            for (float up = step; up <= maxStepOffset + step; up += step)
+            {
+                if (Physics.Raycast(head + Vector3.up * up, dir, probeForward, ~0,
+                                    QueryTriggerInteraction.Ignore))
+                {
+                    clearance = up - step;
+                    break;
+                }
+            }
+
+            cc.stepOffset = Mathf.Clamp(clearance, 0f, maxStepOffset);
         }
     }
 }

@@ -433,9 +433,9 @@ namespace Doom.MapBuild
             player.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
             var cc = player.AddComponent<CharacterController>();
-            // Полная высота DOOM-игрока (56 юнитов). Заклинивание о потолок снято
-            // тем, что потолкам не навешивается коллайдер (см. AddChild), а не
-            // укорачиванием капсулы.
+            // Полная высота DOOM-игрока (56 юнитов). Потолкам коллайдер не вешаем
+            // (см. AddChild). stepOffset=24 — DOOM step-up; PlayerController clamps
+            // it under low lintels (Unity CC needs height+stepOffset ≤ opening).
             cc.height = 56f * worldScale;
             cc.radius = 16f * worldScale;
             cc.stepOffset = 24f * worldScale;
