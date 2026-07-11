@@ -12,17 +12,27 @@ namespace Doom.MapBuild.Rendering
         public const string ClassicCutoutName = "Doom/ClassicCutout";
         public const string EnhancedOpaqueName = "Doom/EnhancedWorld";
         public const string EnhancedCutoutName = "Doom/EnhancedCutout";
+        public const string EnhancedSpriteName = "Doom/EnhancedSprite";
+        public const string SpectreName = "Doom/Spectre";
+        public const string FluidName = "Doom/Fluid";
 
         public const string BumpMapProperty = "_BumpMap";
         public const string BumpScaleProperty = "_BumpScale";
         public const string RoughnessProperty = "_Roughness";
         public const string EmissionProperty = "_EmissionStrength";
         public const string CutoffProperty = "_Cutoff";
+        public const string SoftFloorFadeProperty = "_SoftFloorFade";
+        public const string CrossFadeProperty = "_CrossFade";
+        public const string CrossTexProperty = "_CrossTex";
+        public const float SoftFloorFadeAmount = 0.08f;
 
         Shader classicOpaque;
         Shader classicCutout;
         Shader enhancedOpaque;
         Shader enhancedCutout;
+        Shader enhancedSprite;
+        Shader spectre;
+        Shader fluid;
         bool resolved;
 
         GraphicsProfile active = GraphicsProfile.Classic;
@@ -51,6 +61,11 @@ namespace Doom.MapBuild.Rendering
             classicCutout = Require(ClassicCutoutName);
             enhancedOpaque = Require(EnhancedOpaqueName);
             enhancedCutout = Require(EnhancedCutoutName);
+            // Task 11–12 shaders: fall back so Classic world materials still load
+            // if a new shader has not been imported yet.
+            enhancedSprite = Shader.Find(EnhancedSpriteName) ?? classicCutout;
+            spectre = Shader.Find(SpectreName) ?? classicCutout;
+            fluid = Shader.Find(FluidName) ?? enhancedOpaque;
             resolved = true;
         }
 
@@ -61,6 +76,12 @@ namespace Doom.MapBuild.Rendering
                 throw new InvalidOperationException(
                     $"Shader '{name}' not found. Add it to Always Included Shaders.");
             return s;
+        }
+
+        public Shader FluidShader()
+        {
+            EnsureShaders();
+            return fluid;
         }
 
         public void SetActiveProfile(GraphicsProfile profile) => active = profile;
@@ -96,6 +117,51 @@ namespace Doom.MapBuild.Rendering
             if (material.shader != shader)
                 material.shader = shader;
             ConfigureSurface(material, material.mainTexture as Texture2D, masked);
+        }
+
+        public Shader SpriteShader(bool spectreFlag)
+        {
+            EnsureShaders();
+            if (spectreFlag && active.SpectreMaterial)
+                return spectre;
+            if (active.Mode == GraphicsMode.Enhanced && active.LitSprites)
+                return enhancedSprite;
+            return classicCutout;
+        }
+
+        public Material CreateSpriteMaterial(Texture2D texture, bool spectreFlag)
+        {
+            var mat = new Material(SpriteShader(spectreFlag));
+            mat.mainTexture = texture;
+            ConfigureSpriteSurface(mat);
+            return mat;
+        }
+
+        public void RetargetSpriteMaterial(Material material, bool spectreFlag)
+        {
+            if (material == null) return;
+            var shader = SpriteShader(spectreFlag);
+            if (material.shader != shader)
+                material.shader = shader;
+            ConfigureSpriteSurface(material);
+        }
+
+        void ConfigureSpriteSurface(Material material)
+        {
+            if (material.HasProperty(CutoffProperty))
+                material.SetFloat(CutoffProperty, 0.5f);
+
+            float soft = active.SoftFloorIntersection ? SoftFloorFadeAmount : 0f;
+            if (material.HasProperty(SoftFloorFadeProperty))
+                material.SetFloat(SoftFloorFadeProperty, soft);
+
+            if (material.HasProperty(CrossFadeProperty))
+                material.SetFloat(CrossFadeProperty, 0f);
+
+            if (material.HasProperty(RoughnessProperty))
+                material.SetFloat(RoughnessProperty, 0.85f);
+            if (material.HasProperty(EmissionProperty))
+                material.SetFloat(EmissionProperty, 0f);
         }
 
         void ConfigureSurface(Material material, Texture2D albedo, bool masked)

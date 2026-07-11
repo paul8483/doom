@@ -18,6 +18,7 @@ namespace Doom.MapBuild.Rendering
         public Camera WorldCamera { get; private set; }
         public WorldCameraRenderer CameraRenderer { get; private set; }
         public DoomMaterialFactory Materials { get; private set; }
+        public WadSkyRenderer Sky { get; set; }
         public bool IsDisposed { get; private set; }
 
         public IReadOnlyList<Renderer> Renderers => renderers;
@@ -82,6 +83,17 @@ namespace Doom.MapBuild.Rendering
             lights?.NotifyProfileChanged();
 
             EnhancedLightSystem.Instance?.ApplyProfile(profile);
+            AnimatedSurfaceSystem.Instance?.ApplyProfile(profile);
+
+            var caps = GraphicsModeController.Instance != null
+                ? GraphicsModeController.Instance.Capabilities
+                : GraphicsCapabilityReport.Full;
+            SectorFogSystem.Instance?.ApplyProfile(profile, caps);
+
+            Sky?.ApplyProfile(profile);
+
+            ParticleEffectPool.Instance?.ApplyProfile(profile);
+            DecalEffectPool.Instance?.ApplyProfile(profile);
         }
 
         public void Dispose()

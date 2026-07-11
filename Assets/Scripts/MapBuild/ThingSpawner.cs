@@ -60,13 +60,19 @@ namespace Doom.MapBuild
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
+                if (t.Type == 58)
+                    bb.SetSpectre(true);
 
                 // Pre-warm the cache for all 8 rotations while the WAD is still open.
                 // SpriteCache.Get is lazy and reads from the WAD on first access; by the
                 // time LateUpdate runs, MapLoader's `using var wad` has disposed the stream.
                 // Fetching all rotations now bakes them into the in-memory material cache.
                 for (int rot = 0; rot < 8; rot++)
+                {
                     cache.Get(def.Sprite, def.Frame, rot);
+                    if (t.Type == 58)
+                        cache.GetSpectre(def.Sprite, def.Frame, rot);
+                }
 
                 CapsuleCollider col = null;
                 if (def.Has(ThingFlags.Solid))

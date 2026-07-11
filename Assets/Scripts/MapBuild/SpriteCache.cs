@@ -33,8 +33,11 @@ namespace Doom.MapBuild
         private readonly int anisoLevel;
 
         private readonly Dictionary<int, Material> matByLump = new();
+        private readonly Dictionary<int, Material> spectreMatByLump = new();
         private readonly Dictionary<int, PatchHeader> headerByLump = new();
         private readonly HashSet<int> failedLumps = new();
+
+        public DoomMaterialFactory Materials => materials;
 
         public SpriteCache(
             WadFile wad,
@@ -52,9 +55,12 @@ namespace Doom.MapBuild
             this.anisoLevel = anisoLevel;
         }
 
+        public SpriteMaterial GetSpectre(string sprite, int frame, int rotationIndex) =>
+            Get(sprite, frame, rotationIndex, spectre: true);
+
         /// Resolve (sprite, frame, rotationIndex 0..7). Returns an invalid
         /// SpriteMaterial (IsValid == false) if the frame/rotation is missing.
-        public SpriteMaterial Get(string sprite, int frame, int rotationIndex)
+        public SpriteMaterial Get(string sprite, int frame, int rotationIndex, bool spectre = false)
         {
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
@@ -72,14 +78,31 @@ namespace Doom.MapBuild
                     headerByLump[refr.LumpIndex] = header;
                 }
 
-                if (!matByLump.TryGetValue(refr.LumpIndex, out mat))
+                var cache = spectre ? spectreMatByLump : matByLump;
+                if (!cache.TryGetValue(refr.LumpIndex, out mat))
                 {
-                    var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
-                    var tex = ToTexture2D(img);
-                    mat = materials.CreateMaterial(tex, masked: true);
-                    matByLump[refr.LumpIndex] = mat;
-                    context?.RegisterTexture(tex);
-                    context?.RegisterMaterial(mat, masked: true);
+                    Texture2D tex;
+                    if (matByLump.TryGetValue(refr.LumpIndex, out var existing) &&
+                        existing != null && existing.mainTexture is Texture2D shared)
+                    {
+                        tex = shared;
+                    }
+                    else if (spectreMatByLump.TryGetValue(refr.LumpIndex, out var existingSpectre) &&
+                             existingSpectre != null && existingSpectre.mainTexture is Texture2D sharedSpectre)
+                    {
+                        tex = sharedSpectre;
+                    }
+                    else
+                    {
+                        var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
+                        tex = ToTexture2D(img);
+                        context?.RegisterTexture(tex);
+                    }
+
+                    mat = materials.CreateSpriteMaterial(tex, spectre);
+                    cache[refr.LumpIndex] = mat;
+                    // Do not RegisterMaterial: WorldRenderContext.RetargetMaterial would
+                    // force world cutout shaders; SpriteBillboard retargets sprites live.
                 }
             }
             catch (System.ObjectDisposedException)

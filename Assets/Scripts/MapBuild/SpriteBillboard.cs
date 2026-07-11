@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.Game;
 using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
@@ -9,6 +10,9 @@ namespace Doom.MapBuild
     [AddComponentMenu("Doom/Sprite Billboard")]
     public sealed class SpriteBillboard : MonoBehaviour
     {
+        const float CrossFadeSeconds = 0.08f;
+        const float PoseInterpRate = 35f;
+
         SpriteCache cache;
         string sprite;
         int frame;
@@ -23,6 +27,18 @@ namespace Doom.MapBuild
         readonly Vector3[] quadVerts = new Vector3[4];
         bool lockRotation;
         int emissionLightHandle = -1;
+
+        bool spectre;
+        bool poseSeeded;
+        Vector3 prevPos;
+        Vector3 currPos;
+        float prevAngleDeg;
+        float currAngleDeg;
+        float poseAlpha = 1f;
+
+        float crossFadeLeft;
+        Texture crossPrevTex;
+        MaterialPropertyBlock mpb;
 
         public void Init(SpriteCache cache, string sprite, int frame, float worldScale,
                          float doomAngleDeg, bool spawnCeiling, float ceilingY)
@@ -42,6 +58,11 @@ namespace Doom.MapBuild
             if (meshRenderer == null)
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
             meshFilter.sharedMesh = UnitQuad();
+
+            currPos = prevPos = transform.position;
+            currAngleDeg = prevAngleDeg = doomAngleDeg;
+            poseSeeded = true;
+            poseAlpha = 1f;
         }
 
         // The quad Mesh is created per instance in Init and never shared between
@@ -63,12 +84,36 @@ namespace Doom.MapBuild
         /// Sticky Enhanced decoration light handle; released on destroy.
         public void BindEmissionLight(int handle) => emissionLightHandle = handle;
 
+        public void SetSpectre(bool value) => spectre = value;
+        public bool IsSpectre => spectre;
+
+        /// Called from MonsterController after gameplay pose updates (35 Hz).
+        public void NotifyGameplayPose(Vector3 pos, float doomAngleDegrees)
+        {
+            if (!poseSeeded)
+            {
+                prevPos = currPos = pos;
+                prevAngleDeg = currAngleDeg = doomAngleDegrees;
+                poseSeeded = true;
+                poseAlpha = 1f;
+                return;
+            }
+
+            prevPos = currPos;
+            prevAngleDeg = currAngleDeg;
+            currPos = pos;
+            currAngleDeg = doomAngleDegrees;
+            poseAlpha = 0f;
+        }
+
         /// Switch the billboard to a static frame with no rotation selection (corpse:
         /// DOOM death frames have no rotations — always rotation 0).
         public void SetStaticFrame(int newFrame)
         {
             frame = newFrame;
             lockRotation = true;
+            crossFadeLeft = 0f;
+            crossPrevTex = null;
         }
 
         /// Switch sprite prefix and frame (barrel BAR1 → BEXP explode sequence).
@@ -77,12 +122,24 @@ namespace Doom.MapBuild
             sprite = newSprite;
             frame = newFrame;
             lockRotation = true;
+            crossFadeLeft = 0f;
+            crossPrevTex = null;
         }
 
         /// Switch the animation frame while keeping rotation selection live
         /// (walking/attack/pain frames have 8 rotations; corpse uses SetStaticFrame).
         public void SetFrame(int newFrame)
         {
+            if (newFrame != frame && meshRenderer != null)
+            {
+                var mat = meshRenderer.sharedMaterial;
+                if (mat != null && mat.mainTexture != null && UseEnhancedSprites())
+                {
+                    crossPrevTex = mat.mainTexture;
+                    crossFadeLeft = CrossFadeSeconds;
+                }
+            }
+
             frame = newFrame;
             lockRotation = false;
         }
@@ -107,9 +164,21 @@ namespace Doom.MapBuild
             if (cache == null) return;
             if (cam == null)
             {
-                var c = Camera.main;
-                if (c == null) return;
-                cam = c.transform;
+                cam = ResolveCamera();
+                if (cam == null) return;
+            }
+
+            var profile = ActiveProfile();
+            bool interp = profile.Mode == GraphicsMode.Enhanced && profile.LitSprites;
+            poseAlpha = Mathf.Clamp01(poseAlpha + Time.deltaTime * PoseInterpRate);
+
+            float renderAngle = doomAngleDeg;
+            Vector3 visualWorldOffset = Vector3.zero;
+            if (interp && poseSeeded)
+            {
+                renderAngle = Mathf.LerpAngle(prevAngleDeg, currAngleDeg, poseAlpha);
+                Vector3 visualPos = Vector3.Lerp(prevPos, currPos, poseAlpha);
+                visualWorldOffset = visualPos - transform.position;
             }
 
             // 1) Face the camera around Y only (cylindrical billboard).
@@ -125,31 +194,65 @@ namespace Doom.MapBuild
             if (!lockRotation)
             {
                 float angToCam = Mathf.Atan2(to.z, to.x) * Mathf.Rad2Deg;
-                float diff = Mod360(angToCam) - Mod360(doomAngleDeg) + 22.5f;
+                float diff = Mod360(angToCam) - Mod360(renderAngle) + 22.5f;
                 rotIndex = Mathf.FloorToInt(Mod360(diff) / 45f) & 7;
             }
 
             // 3) Resolve and apply the sprite material + quad size/anchor/mirror.
-            var sm = cache.Get(sprite, frame, rotIndex);
+            bool useSpectre = spectre && profile.SpectreMaterial;
+            var sm = cache.Get(sprite, frame, rotIndex, useSpectre);
             if (!sm.IsValid)
             {
                 // Prefer front (0 = DOOM '1'), then back (4 = '5').
-                sm = cache.Get(sprite, frame, 0);
-                if (!sm.IsValid) sm = cache.Get(sprite, frame, 4);
+                sm = cache.Get(sprite, frame, 0, useSpectre);
+                if (!sm.IsValid) sm = cache.Get(sprite, frame, 4, useSpectre);
                 if (!sm.IsValid) { meshRenderer.enabled = false; return; }
             }
             meshRenderer.enabled = true;
 
+            cache.Materials.RetargetSpriteMaterial(sm.Material, useSpectre);
             meshRenderer.sharedMaterial = sm.Material;
 
-            ApplyQuadTransform(sm);
+            ApplyPresentationProps(profile, sm.Material);
+            ApplyQuadTransform(sm, visualWorldOffset);
+        }
+
+        void ApplyPresentationProps(GraphicsProfile profile, Material mat)
+        {
+            if (mpb == null) mpb = new MaterialPropertyBlock();
+            meshRenderer.GetPropertyBlock(mpb);
+
+            float soft = profile.SoftFloorIntersection
+                ? DoomMaterialFactory.SoftFloorFadeAmount : 0f;
+            if (mat.HasProperty(DoomMaterialFactory.SoftFloorFadeProperty))
+                mpb.SetFloat(DoomMaterialFactory.SoftFloorFadeProperty, soft);
+
+            float cross = 0f;
+            if (crossFadeLeft > 0f && crossPrevTex != null &&
+                mat.HasProperty(DoomMaterialFactory.CrossFadeProperty))
+            {
+                crossFadeLeft -= Time.deltaTime;
+                cross = Mathf.Clamp01(crossFadeLeft / CrossFadeSeconds);
+                if (mat.HasProperty(DoomMaterialFactory.CrossTexProperty))
+                    mpb.SetTexture(DoomMaterialFactory.CrossTexProperty, crossPrevTex);
+            }
+            else
+            {
+                crossFadeLeft = 0f;
+                crossPrevTex = null;
+            }
+
+            if (mat.HasProperty(DoomMaterialFactory.CrossFadeProperty))
+                mpb.SetFloat(DoomMaterialFactory.CrossFadeProperty, cross);
+
+            meshRenderer.SetPropertyBlock(mpb);
         }
 
         // Rewrites the 4 quad verts in local space each frame (cheap). Local axes
         // ride the billboard rotation, so a local X offset stays "screen-horizontal"
         // and a local Y offset stays vertical. Size, mirror, and floor/ceiling anchor
         // are all baked into the vertex positions.
-        void ApplyQuadTransform(SpriteMaterial sm)
+        void ApplyQuadTransform(SpriteMaterial sm, Vector3 visualWorldOffset)
         {
             float w = sm.Width * worldScale;
             float h = sm.Height * worldScale;
@@ -172,13 +275,45 @@ namespace Doom.MapBuild
                 topY = bottomY + h;
             }
 
+            Vector3 localOff = visualWorldOffset.sqrMagnitude > 1e-12f
+                ? Quaternion.Inverse(transform.rotation) * visualWorldOffset
+                : Vector3.zero;
+
             float halfW = w * 0.5f * mirror;
-            quadVerts[0] = new Vector3(-halfW + xCenterOffset, bottomY, 0f);
-            quadVerts[1] = new Vector3( halfW + xCenterOffset, bottomY, 0f);
-            quadVerts[2] = new Vector3( halfW + xCenterOffset, topY,    0f);
-            quadVerts[3] = new Vector3(-halfW + xCenterOffset, topY,    0f);
+            quadVerts[0] = new Vector3(-halfW + xCenterOffset, bottomY, 0f) + localOff;
+            quadVerts[1] = new Vector3( halfW + xCenterOffset, bottomY, 0f) + localOff;
+            quadVerts[2] = new Vector3( halfW + xCenterOffset, topY,    0f) + localOff;
+            quadVerts[3] = new Vector3(-halfW + xCenterOffset, topY,    0f) + localOff;
             mesh.vertices = quadVerts;
             mesh.RecalculateBounds();
+        }
+
+        static Transform ResolveCamera()
+        {
+            var ctx = GraphicsModeController.Instance != null
+                ? GraphicsModeController.Instance.Context
+                : null;
+            if (ctx?.WorldCamera != null)
+                return ctx.WorldCamera.transform;
+
+            var main = Camera.main;
+            if (main != null) return main.transform;
+
+            var named = GameObject.Find("PlayerCamera");
+            return named != null ? named.transform : null;
+        }
+
+        static GraphicsProfile ActiveProfile()
+        {
+            if (GraphicsModeController.Instance != null)
+                return GraphicsModeController.Instance.ActiveProfile;
+            return GraphicsProfile.Classic;
+        }
+
+        static bool UseEnhancedSprites()
+        {
+            var p = ActiveProfile();
+            return p.Mode == GraphicsMode.Enhanced && p.LitSprites;
         }
 
         static float Mod360(float a)

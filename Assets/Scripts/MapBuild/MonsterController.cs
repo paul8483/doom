@@ -114,6 +114,8 @@ namespace Doom.MapBuild
                 tickAccum -= TicSeconds;
                 using (BrainTickMarker.Auto())
                     brain.Tick();
+                if (bb != null)
+                    bb.NotifyGameplayPose(transform.position, bb.DoomAngleDegrees);
             }
             // Sprite rotation must track the target every render frame — not only on
             // 35 Hz brain ticks — otherwise the billboard lags between chase steps.

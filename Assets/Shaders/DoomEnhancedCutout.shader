@@ -121,6 +121,20 @@ Shader "Doom/EnhancedCutout"
                 return shaded + dynamic * 0.85h + emission;
             }
 
+            float4 _DoomFogColor;
+            float4 _DoomFogParams;
+
+            half3 ApplyDoomFog(half3 color, float3 positionWS)
+            {
+                if (_DoomFogParams.w < 0.5) return color;
+                float dist = distance(GetCameraPositionWS(), positionWS);
+                float start = _DoomFogParams.y;
+                float end = max(_DoomFogParams.z, start + 0.01);
+                float t = saturate((dist - start) / (end - start));
+                t = 1.0 - exp(-_DoomFogParams.x * t * t * 8.0);
+                return lerp(color, _DoomFogColor.rgb, t);
+            }
+
             half4 Frag(Varyings input) : SV_Target
             {
                 half4 albedoSample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
@@ -137,6 +151,7 @@ Shader "Doom/EnhancedCutout"
                 half3 color = DoomShade(
                     albedo, sectorAmbient, normalWS, input.positionWS,
                     _Roughness, _EmissionStrength);
+                color = ApplyDoomFog(color, input.positionWS);
                 return half4(color, 1.0h);
             }
             ENDHLSL

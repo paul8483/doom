@@ -8,6 +8,7 @@
         "Doom.Specials",
         "Doom.Game",
         "Doom.Things",
+        "Doom.Graphics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.InputSystem",

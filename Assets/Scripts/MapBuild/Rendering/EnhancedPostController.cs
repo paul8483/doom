@@ -144,18 +144,8 @@ namespace Doom.MapBuild.Rendering
                 pipeline.upscalingFilter = classicUpscale;
             }
 
-            // Soft distance fog until Task 11 sector fog; Classic clears it.
-            if (profileFlags.Fog && caps.DepthTexture)
-            {
-                RenderSettings.fog = true;
-                RenderSettings.fogMode = FogMode.ExponentialSquared;
-                RenderSettings.fogDensity = 0.012f;
-                RenderSettings.fogColor = new Color(0.08f, 0.08f, 0.1f);
-            }
-            else
-            {
-                RenderSettings.fog = false;
-            }
+            // Fog is owned by SectorFogSystem (shader globals). Keep Unity fog off.
+            RenderSettings.fog = false;
         }
     }
 }

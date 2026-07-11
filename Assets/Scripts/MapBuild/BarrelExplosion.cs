@@ -55,6 +55,7 @@ namespace Doom.MapBuild
 
             // Presentation only — after damage so timing/rules stay unchanged.
             EnhancedLightSystem.Instance?.PulseExplosion(blastOrigin, worldScale);
+            ParticleEffectPool.Instance?.Pulse(EffectKind.Explosion, blastOrigin, worldScale);
 
             idx = 0;
             left = BarrelRules.ExplodeTics[0] / 35f;

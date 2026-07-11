@@ -150,6 +150,8 @@ namespace Doom.MapBuild
             // Presentation only — after damage attribution.
             Rendering.EnhancedLightSystem.Instance?.PulseProjectile(
                 transform.position, worldScale, impact: true);
+            Rendering.ParticleEffectPool.Instance?.Pulse(
+                Rendering.EffectKind.Explosion, transform.position, worldScale);
 
             exploding = true;
             boomIdx = 0;

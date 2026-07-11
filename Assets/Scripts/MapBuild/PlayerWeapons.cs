@@ -130,6 +130,10 @@ namespace Doom.MapBuild
                     cam.position + cam.forward * (12f * worldScale),
                     worldScale,
                     tics);
+                Rendering.ParticleEffectPool.Instance?.Pulse(
+                    Rendering.EffectKind.Muzzle,
+                    cam.position + cam.forward * (12f * worldScale),
+                    worldScale);
             }
 
             if (scheduler.IsCommitted)

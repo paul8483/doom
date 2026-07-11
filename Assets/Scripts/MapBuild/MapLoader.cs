@@ -251,6 +251,13 @@ namespace Doom.MapBuild
             var spriteSet = SpriteSet.Load(wad);
             var spriteCache = new SpriteCache(wad, spriteSet, palette, materialFactory, renderContext);
 
+            var particles = gameObject.GetComponent<ParticleEffectPool>()
+                ?? gameObject.AddComponent<ParticleEffectPool>();
+            particles.Init(renderContext);
+            var decals = gameObject.GetComponent<DecalEffectPool>()
+                ?? gameObject.AddComponent<DecalEffectPool>();
+            decals.Init(renderContext, spriteCache);
+
             // Pre-warm weapon/flash/effect sprites: the WAD closes at the end of
             // Build(), and WeaponView/HitEffect fetch these lazily at runtime.
             foreach (var (spr, frames) in new (string, int[])[]
@@ -276,6 +283,40 @@ namespace Doom.MapBuild
 
             // Register after camera exists so hot-switch can retarget the live context.
             gfx.RegisterContext(renderContext);
+
+            // Stage 8 Task 11: sky / animated fluids / fog (WAD still open for SKY1).
+            bool TextureExists(string n)
+            {
+                if (textures.Contains(n)) return true;
+                int i = wad.FindLump(n);
+                return i >= 0 && wad.Directory[i].Size == 64 * 64;
+            }
+            var animCatalog = Doom.Graphics.TextureAnimationCatalog.Build(TextureExists);
+            // Pre-warm animated frame textures while WAD is open.
+            foreach (var seq in animCatalog.Sequences)
+                foreach (string frameName in seq.Frames)
+                    cache.GetTexture(frameName);
+            cache.GetTexture(WadSkyRenderer.SkyTextureName);
+
+            var fogSys = gameObject.GetComponent<SectorFogSystem>()
+                ?? gameObject.AddComponent<SectorFogSystem>();
+            fogSys.Init();
+
+            var animSys = gameObject.GetComponent<AnimatedSurfaceSystem>()
+                ?? gameObject.AddComponent<AnimatedSurfaceSystem>();
+            animSys.Init(cache, animCatalog);
+
+            Camera skyCam = null;
+            var playerCam = GameObject.Find("PlayerCamera");
+            if (playerCam != null) skyCam = playerCam.GetComponent<Camera>();
+            if (skyCam == null) skyCam = Camera.main;
+            var skyGo = new GameObject("WadSky");
+            skyGo.transform.SetParent(root.transform, worldPositionStays: false);
+            var sky = skyGo.AddComponent<WadSkyRenderer>();
+            sky.Init(cache, skyCam != null ? skyCam.transform : null, worldScale);
+            sky.ApplyProfile(gfx.ActiveProfile);
+            renderContext.Sky = sky;
+            renderContext.RegisterRenderer(skyGo.GetComponent<MeshRenderer>());
 
             var registry = gameObject.GetComponent<WorldStateRegistry>()
                 ?? gameObject.AddComponent<WorldStateRegistry>();

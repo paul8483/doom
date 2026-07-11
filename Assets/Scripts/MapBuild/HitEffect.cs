@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -15,14 +16,52 @@ namespace Doom.MapBuild
         public static void SpawnPuff(SpriteCache cache, float worldScale, Vector3 pos, Vector3 normal)
         {
             // Nudge slightly off the surface toward the shooter so it doesn't sink into the wall.
-            Spawn(cache, worldScale, pos + normal * 0.05f, "PUFF",
+            Vector3 fxPos = pos + normal * 0.05f;
+            Spawn(cache, worldScale, fxPos, "PUFF",
                   new[] { 0, 1, 2, 3 }, new[] { 4, 4, 4, 4 });
+
+            var profile = GraphicsModeController.Instance != null
+                ? GraphicsModeController.Instance.ActiveProfile
+                : GraphicsProfile.Classic;
+            if (profile.Particles)
+                ParticleEffectPool.Instance?.Pulse(EffectKind.Puff, fxPos, worldScale);
+            if (profile.Decals)
+            {
+                Texture2D tex = null;
+                if (cache != null)
+                {
+                    var sm = cache.Get("PUFF", 0, 0);
+                    if (sm.IsValid) tex = sm.Material.mainTexture as Texture2D;
+                }
+                DecalEffectPool.Instance?.Spawn(EffectKind.Puff, pos, normal, tex, worldScale);
+            }
         }
 
         public static void SpawnBlood(SpriteCache cache, float worldScale, Vector3 pos)
         {
+            SpawnBlood(cache, worldScale, pos, normal: null);
+        }
+
+        public static void SpawnBlood(SpriteCache cache, float worldScale, Vector3 pos, Vector3? normal)
+        {
             Spawn(cache, worldScale, pos, "BLUD",
                   new[] { 2, 1, 0 }, new[] { 8, 8, 8 });
+
+            var profile = GraphicsModeController.Instance != null
+                ? GraphicsModeController.Instance.ActiveProfile
+                : GraphicsProfile.Classic;
+            if (profile.Particles)
+                ParticleEffectPool.Instance?.Pulse(EffectKind.Blood, pos, worldScale);
+            if (profile.Decals && normal.HasValue)
+            {
+                Texture2D tex = null;
+                if (cache != null)
+                {
+                    var sm = cache.Get("BLUD", 2, 0);
+                    if (sm.IsValid) tex = sm.Material.mainTexture as Texture2D;
+                }
+                DecalEffectPool.Instance?.Spawn(EffectKind.Blood, pos, normal.Value, tex, worldScale);
+            }
         }
 
         static void Spawn(SpriteCache cache, float worldScale, Vector3 pos,

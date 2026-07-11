@@ -20,6 +20,7 @@ namespace Doom.MapBuild.Rendering
 
         public GraphicsMode Current => current;
         public GraphicsProfile ActiveProfile => activeProfile;
+        public GraphicsCapabilityReport Capabilities => capabilities;
         public WorldRenderContext Context => context;
         public DoomMaterialFactory Factory => factory;
         public string LastError => lastError;

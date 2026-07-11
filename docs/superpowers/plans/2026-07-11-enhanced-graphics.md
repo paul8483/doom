@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 10 ✅**. Next: Task 11 WAD sky/fluids/fog.
+**Статус:** утверждён; **Task 1 ✅ … Task 13 ✅**. Next: Task 14 SRP performance / full-suite regression.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -629,35 +629,46 @@ _(awaiting explicit user commit request)_
 - Modify: `Assets/Scripts/MapBuild/TextureCache.cs`
 - Create: `Assets/Tests/PlayMode/EnhancedAtmospherePlayTests.cs`
 
-- [ ] **Step 1: Написать failing animation catalog tests.**
+- [x] **Step 1: Написать failing animation catalog tests.**
 
 Known ranges разрешаются только из существующих lumps; missing frame безопасно
 закрывает/отключает sequence. Добавить Freedoom integration на реально
 встречающиеся E1 textures/flats.
 
-- [ ] **Step 2: Реализовать `SKY1`.**
+`TextureAnimationCatalogTests` 7/7 PASS (`Logs/stage8-t11-edit.xml`, 2026-07-12).
+
+- [x] **Step 2: Реализовать `SKY1`.**
 
 Декодировать через текущий TextureSet и рисовать camera-centered cylinder/sky
 pass только через `F_SKY1` openings. Translation camera не двигает sky;
 yaw/pitch/FOV/aspect не дают seam/stretch regression.
 
-- [ ] **Step 3: Реализовать animated/emissive fluids.**
+`WadSkyRenderer` + `Doom/Sky`; wired in `MapLoader` via `WorldRenderContext.Sky`.
+
+- [x] **Step 3: Реализовать animated/emissive fluids.**
 
 Frame cadence и UV offset не создают material instance каждый frame. Damage
 остаётся sector-special logic. Classic после switch возвращает исходный static
 flat без stale emission/offset.
 
-- [ ] **Step 4: Реализовать depth/sector-aware fog.**
+`AnimatedSurfaceSystem` + `Doom/Fluid`; MPB frame swap / UV scroll.
+
+- [x] **Step 4: Реализовать depth/sector-aware fog.**
 
 Fog не использует authored volume textures, не протекает сквозь стены и имеет
 visibility clamp для switches/doors. Unsupported depth path отключает fog.
 
-- [ ] **Step 5: Automated/interactive gate.**
+`SectorFogSystem` shader globals; Enhanced world/cutout/fluid consume fog.
+
+- [x] **Step 5: Automated/interactive gate.**
 
 Проверить E1 sky openings, nukage/lava, doors/movers и 4:3/16:9. В обоих режимах
 нет missing/pink material.
 
+`EnhancedAtmospherePlayTests` 3/3 PASS (`Logs/stage8-t11-13-play3.xml`).
+
 **Commit checkpoint:** `Stage 8d: render WAD sky and animated fluids`
+_(awaiting explicit user commit request)_
 
 ### Task 12: Enhanced sprite presentation
 
@@ -671,35 +682,46 @@ visibility clamp для switches/doors. Unsupported depth path отключае�
 - Create: `Assets/Tests/PlayMode/EnhancedSpritePlayTests.cs`
 - Modify: `Assets/Tests/PlayMode/MonsterAiPlayTests.cs`
 
-- [ ] **Step 1: Написать failing sprite-profile tests.**
+- [x] **Step 1: Написать failing sprite-profile tests.**
 
 Classic сохраняет current cutout/Point/facing. Enhanced получает lit material,
 profile filtering, sector ambient/local light, depth fade и отдельный Spectre
 material. Player starts по-прежнему не спавнят renderer.
 
-- [ ] **Step 2: Интерполировать presentation transforms.**
+`EnhancedSpritePlayTests` 2/2 PASS (`Logs/stage8-t11-13-play3.xml`).
+
+- [x] **Step 2: Интерполировать presentation transforms.**
 
 Хранить previous/current render pose на gameplay tick и интерполировать только
 visual transform. Collider, AI location, attack range и save transform остаются
 authoritative current state.
 
-- [ ] **Step 3: Добавить bounded frame cross-fade.**
+`SpriteBillboard.NotifyGameplayPose` + mesh-local visual offset; `MonsterController` ticks.
+
+- [x] **Step 3: Добавить bounded frame cross-fade.**
 
 Если включён Enhanced, коротко смешивать только соседние valid sprite frames.
 Death completion, corpse frame и rotation selection не задерживаются логически.
 Не создавать/уничтожать quad каждый transition.
 
-- [ ] **Step 4: Реализовать soft intersection и Spectre.**
+`_CrossFade` / `_CrossTex` on `Doom/EnhancedSprite` (~0.08 s).
+
+- [x] **Step 4: Реализовать soft intersection и Spectre.**
 
 Depth fade действует только в узкой зоне пола. Spectre distortion/translucency
 не делает monster невидимым для hitscan и не меняет collider/AI.
 
-- [ ] **Step 5: Regression gate.**
+UV.y soft floor fade; `Doom/Spectre`; type 58 → `SetSpectre(true)`.
+
+- [x] **Step 5: Regression gate.**
 
 Прогнать sprite/monster/weapon/pickup PlayMode suites и интерактивно проверить
 POSS/SPOS/TROO/SARG/Spectre/Baron со всех rotations в обоих режимах.
 
+Automated sprite gate PASS; interactive eyeball deferred to Task 15.
+
 **Commit checkpoint:** `Stage 8d: add enhanced sprite rendering`
+_(awaiting explicit user commit request)_
 
 ### Task 13: Pooled particles и decals
 
@@ -714,33 +736,44 @@ POSS/SPOS/TROO/SARG/Spectre/Baron со всех rotations в обоих режи
 - Modify: `Assets/Settings/Rendering/DoomUniversalRenderer.asset`
 - Create: `Assets/Tests/PlayMode/EnhancedEffectsPlayTests.cs`
 
-- [ ] **Step 1: Написать failing pool tests.**
+- [x] **Step 1: Написать failing pool tests.**
 
 Fixed capacity, oldest/lowest-priority reuse, lifetime expiry, no growth after
 warm-up, Classic disable, scene teardown и отсутствие save registration.
 
-- [ ] **Step 2: Реализовать WAD-derived effect catalog.**
+`EnhancedEffectsPlayTests` stress + Classic disable PASS.
+
+- [x] **Step 2: Реализовать WAD-derived effect catalog.**
 
 Использовать existing puff/blood/explosion patches или runtime palette texel.
 Отсутствующий optional patch отключает только соответствующий effect.
 
-- [ ] **Step 3: Подключить event hooks.**
+`EnhancedEffectCatalog` palette colors + texture hints.
+
+- [x] **Step 3: Подключить event hooks.**
 
 Muzzle, hitscan surface hit, monster blood, projectile impact и barrel explosion
 публикуют presentation events без изменения damage path.
 
-- [ ] **Step 4: Реализовать decals.**
+`HitEffect` / `PlayerWeapons` / `Projectile` / `BarrelExplosion` → pools.
+
+- [x] **Step 4: Реализовать decals.**
 
 Project только на render geometry по hit point/normal. Ограничить size/lifetime/
 distance; movers либо корректно parent'ят decal, либо не принимают его.
 Masked walls/sprites не получают world decal.
 
-- [ ] **Step 5: Stress и cleanup gate.**
+`DecalEffectPool` world quads, capacity 32, lifetime 3 s.
+
+- [x] **Step 5: Stress и cleanup gate.**
 
 Серия выстрелов/взрывов не превышает capacity, не оставляет Unity objects после
 reload и не создаёт allocations после warm-up.
 
+Pool caps held under ×40 pulses; Classic clears active counts.
+
 **Commit checkpoint:** `Stage 8d: add pooled particles and decals`
+_(awaiting explicit user commit request)_
 
 ---
 
