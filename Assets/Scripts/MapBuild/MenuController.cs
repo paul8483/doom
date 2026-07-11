@@ -51,12 +51,12 @@ namespace Doom.MapBuild
 
         static readonly Item[] PauseItems =
         {
-            new Item { Patch = null, FallbackLabel = "Resume", Action = MenuAction.Resume, X = 97, Y = 56 },
-            new Item { Patch = "M_SAVEG", FallbackLabel = "Save Game", Action = MenuAction.SaveGame, X = 97, Y = 76 },
-            new Item { Patch = "M_LOADG", FallbackLabel = "Load Game", Action = MenuAction.LoadGame, X = 97, Y = 96 },
-            new Item { Patch = "M_OPTION", FallbackLabel = "Options", Action = MenuAction.Options, X = 97, Y = 116 },
-            // Vanilla IWAD patch "End Game" — same red menu font as Save/Load/Options.
-            new Item { Patch = "M_ENDGAM", FallbackLabel = "End Game", Action = MenuAction.QuitToMain, X = 97, Y = 136 },
+            // No IWAD "Resume" patch — Esc closes pause (GameFlowController). Same
+            // WAD menu font for every visible row.
+            new Item { Patch = "M_SAVEG", FallbackLabel = "Save Game", Action = MenuAction.SaveGame, X = 97, Y = 72 },
+            new Item { Patch = "M_LOADG", FallbackLabel = "Load Game", Action = MenuAction.LoadGame, X = 97, Y = 92 },
+            new Item { Patch = "M_OPTION", FallbackLabel = "Options", Action = MenuAction.Options, X = 97, Y = 112 },
+            new Item { Patch = "M_ENDGAM", FallbackLabel = "End Game", Action = MenuAction.QuitToMain, X = 97, Y = 132 },
         };
 
         GameFlowController flow;

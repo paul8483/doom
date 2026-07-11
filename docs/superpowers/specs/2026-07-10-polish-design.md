@@ -75,9 +75,9 @@ DOOM-подобный HUD и intermission, может поставить игр�
 
 ### 7c. Меню и настройки
 
-- Main menu: New Game, Load Game, Options, Quit. Pause menu: Resume, Save Game,
-  Load Game, Options, End Game (`M_ENDGAM` → Quit to Main). Resume has no IWAD
-  patch and uses system-text fallback; other pause rows use WAD menu patches.
+- Main menu: New Game, Load Game, Options, Quit. Pause menu: Save Game,
+  Load Game, Options, End Game (`M_ENDGAM` → Quit to Main). Resume is Esc
+  (no IWAD resume patch); all pause rows use WAD menu patches.
 - `Escape` открывает pause menu только во время уровня. Gameplay input maps
   выключаются, курсор освобождается, `Time.timeScale` становится 0. Закрытие
   меню восстанавливает прежнее состояние ровно один раз.
