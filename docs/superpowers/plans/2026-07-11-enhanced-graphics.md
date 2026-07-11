@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 13 ✅**. Next: Task 14 SRP performance / full-suite regression.
+**Статус:** утверждён; **Task 1 ✅ … Task 14 ✅**. Next: Task 15 Windows build / interactive sign-off.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -790,29 +790,29 @@ _(awaiting explicit user commit request)_
 - Create: `Assets/Tests/PlayMode/GraphicsResourceLifetimePlayTests.cs`
 - Modify: `Logs/stage8-graphics-baseline-notes.md`
 
-- [ ] **Step 1: Расширить E1 smoke на оба profiles.**
+- [x] **Step 1: Расширить E1 smoke на оба profiles.**
 
 E1M1–E1M9 строятся в Classic и Enhanced; нет pink/error shaders, NaN meshes,
 missing mandatory WAD graphics или progression blockers.
 
-- [ ] **Step 2: Добавить resource lifetime tests.**
+- [x] **Step 2: Добавить resource lifetime tests.**
 
 Повторные switch/reload не увеличивают Texture2D/Material/Mesh/Light/
 ParticleSystem/decal counts после warm-up. Каждый owned runtime resource
 уничтожается ровно один раз.
 
-- [ ] **Step 3: Профилировать до оптимизации.**
+- [x] **Step 3: Профилировать до оптимизации.**
 
 Сравнить Task 1 metrics на E1M1/E1M3/E1M7/E1M9. Проверить SRP Batcher
 compatibility, material variants, shadow/decal overdraw и per-frame GC.
 
-- [ ] **Step 4: Исправить измеренные bottlenecks.**
+- [x] **Step 4: Исправить измеренные bottlenecks.**
 
 Предпочесть shared materials + MaterialPropertyBlock, pooling и fixed update
 lists. GPU instancing применять только где оно не ломает per-sprite rotation/
 frame. Atlas/mesh merge — только с доказанным выигрышем и regression tests.
 
-- [ ] **Step 5: Полные suites.**
+- [x] **Step 5: Полные suites.**
 
 Запустить все EditMode и PlayMode tests. Записать totals и сравнение metrics в
 baseline notes; любой skipped/failed test перечислить как blocker.
@@ -913,18 +913,19 @@ Tasks 3–7 и с единым `GraphicsProfile` contract. Tasks 11–13 доп�
 
 ## Definition of Done
 
-- [ ] `Graphics Mode` имеет только `Classic` и `Enhanced`, default Classic;
+- [x] `Graphics Mode` имеет только `Classic` и `Enhanced`, default Classic;
       settings v1 мигрируют, Apply/Cancel/persistence работают.
-- [ ] Один URP pipeline обслуживает оба режима; Classic принят по baseline.
-- [ ] Hot-switch не перезагружает gameplay world и не повторяет WAD decode.
-- [ ] Enhanced world materials используют procedural normals и sector ambient.
-- [ ] Dynamic lights/shadows ограничены budget/pool.
-- [ ] HDR/SSAO/bloom/grading/fog/MSAA/render scale/FSR имеют capability fallback.
-- [ ] WAD SKY1, animated/emissive fluids и atmosphere работают на E1.
-- [ ] Enhanced sprites, Spectre, interpolation и soft intersection приняты.
-- [ ] Particles/decals WAD-derived, pooled и не входят в save.
-- [ ] E1M1–E1M9 smoke проходит в обоих режимах.
-- [ ] Полные EditMode/PlayMode suites зелёные с обновлёнными totals.
+- [x] Один URP pipeline обслуживает оба режима; Classic принят по baseline.
+- [x] Hot-switch не перезагружает gameplay world и не повторяет WAD decode.
+- [x] Enhanced world materials используют procedural normals и sector ambient.
+- [x] Dynamic lights/shadows ограничены budget/pool.
+- [x] HDR/SSAO/bloom/grading/fog/MSAA/render scale/FSR имеют capability fallback.
+- [x] WAD SKY1, animated/emissive fluids и atmosphere работают на E1.
+- [x] Enhanced sprites, Spectre, interpolation и soft intersection приняты.
+- [x] Particles/decals WAD-derived, pooled и не входят в save.
+- [x] E1M1–E1M9 smoke проходит в обоих режимах.
+- [x] Полные EditMode/PlayMode suites зелёные с обновлёнными totals.
 - [ ] Windows standalone не содержит pink/missing shaders и стартует в menu.
 - [ ] Интерактивный Classic/Enhanced checklist и profiler budgets подписаны.
-- [ ] Roadmap, `CLAUDE.md`, spec, plan и baseline notes обновлены по факту.
+- [ ] Roadmap, `CLAUDE.md`, spec, plan и baseline notes обновлены по факту
+      Stage 8 close (Task 15).

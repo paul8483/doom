@@ -32,6 +32,7 @@ Shader "Doom/ClassicCutout"
             #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);

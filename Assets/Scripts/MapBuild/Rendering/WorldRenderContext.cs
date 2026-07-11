@@ -101,10 +101,30 @@ namespace Doom.MapBuild.Rendering
             if (IsDisposed) return;
             IsDisposed = true;
 
+            // Destroy every tracked runtime asset exactly once. Materials first
+            // (they reference textures); textures may also appear in owned
+            // (normals). HashSet dedupes so Destroy is not double-scheduled.
+            var destroyed = new HashSet<UnityEngine.Object>();
+
+            for (int i = 0; i < materials.Count; i++)
+            {
+                var mat = materials[i].material;
+                if (mat == null || !destroyed.Add(mat)) continue;
+                UnityEngine.Object.Destroy(mat);
+            }
+
+            for (int i = 0; i < textures.Count; i++)
+            {
+                var tex = textures[i];
+                if (tex == null || !destroyed.Add(tex)) continue;
+                UnityEngine.Object.Destroy(tex);
+            }
+
             for (int i = 0; i < owned.Count; i++)
             {
-                if (owned[i] != null)
-                    UnityEngine.Object.Destroy(owned[i]);
+                var obj = owned[i];
+                if (obj == null || !destroyed.Add(obj)) continue;
+                UnityEngine.Object.Destroy(obj);
             }
 
             owned.Clear();
@@ -114,6 +134,7 @@ namespace Doom.MapBuild.Rendering
             WorldCamera = null;
             CameraRenderer = null;
             Materials = null;
+            Sky = null;
         }
     }
 }

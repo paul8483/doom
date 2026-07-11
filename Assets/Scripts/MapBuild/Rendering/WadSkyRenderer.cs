@@ -79,6 +79,8 @@ namespace Doom.MapBuild.Rendering
             if (skyMaterial == null) return;
 
             // Map yaw/pitch to UV offsets (seamless cylinder U).
+            // Kept on the material (UnityPerMaterial) — MPB would not override
+            // SRP-Batcher cbuffer props; single sky draw is cheap.
             float yaw = follow.eulerAngles.y;
             float pitch = follow.eulerAngles.x;
             if (pitch > 180f) pitch -= 360f;

@@ -101,8 +101,10 @@ namespace Doom.MapBuild
 
                     mat = materials.CreateSpriteMaterial(tex, spectre);
                     cache[refr.LumpIndex] = mat;
-                    // Do not RegisterMaterial: WorldRenderContext.RetargetMaterial would
-                    // force world cutout shaders; SpriteBillboard retargets sprites live.
+                    // Owned for teardown only — do not RegisterMaterial: world
+                    // RetargetMaterial would force world cutout shaders;
+                    // SpriteBillboard retargets sprites live on mode switch.
+                    context?.RegisterOwned(mat);
                 }
             }
             catch (System.ObjectDisposedException)

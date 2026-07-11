@@ -16,6 +16,7 @@ namespace Doom.MapBuild.Rendering
             public Transform Transform;
             public MeshRenderer Renderer;
             public MeshFilter Filter;
+            public MaterialPropertyBlock Block;
             public float ExpiresAt;
             public bool Alive;
         }
@@ -105,6 +106,7 @@ namespace Doom.MapBuild.Rendering
                     Transform = go.transform,
                     Renderer = renderer,
                     Filter = filter,
+                    Block = new MaterialPropertyBlock(),
                     Alive = false,
                 };
             }
@@ -151,12 +153,14 @@ namespace Doom.MapBuild.Rendering
                 }
             }
 
-            var mpb = new MaterialPropertyBlock();
-            slot.Renderer.GetPropertyBlock(mpb);
-            mpb.SetColor("_Color", EnhancedEffectCatalog.ColorFor(kind));
+            var mpb = slot.Block ?? new MaterialPropertyBlock();
+            slot.Block = mpb;
+            mpb.Clear();
+            Color tint = EnhancedEffectCatalog.ColorFor(kind);
+            mpb.SetColor("_Color", tint);
             if (slot.Renderer.sharedMaterial != null &&
                 slot.Renderer.sharedMaterial.HasProperty("_BaseColor"))
-                mpb.SetColor("_BaseColor", EnhancedEffectCatalog.ColorFor(kind));
+                mpb.SetColor("_BaseColor", tint);
             if (tex != null)
             {
                 mpb.SetTexture("_MainTex", tex);

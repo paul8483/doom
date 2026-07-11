@@ -1,8 +1,8 @@
 # Этап 8. Classic и Enhanced графика — дизайн
 
 **Дата:** 2026-07-11  
-**Статус:** в реализации — Tasks 1–13 ✅ (sky/fluids/fog + sprites + particles/decals);
-next Task 14 SRP performance / full-suite regression  
+**Статус:** в реализации — Tasks 1–14 ✅ (perf/full suites);
+next Task 15 Windows build / interactive sign-off  
 **Предыдущие этапы:** Stages 0–7 завершены (Stage 7e Task 15 closed 2026-07-12)  
 **Контекст:** пост-релизная графическая веха после закрытия Stage 7. Продолжает
 Stage 4 и закрывает отложенные небо, анимацию поверхностей и расширенный рендер.

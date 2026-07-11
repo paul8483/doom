@@ -19,6 +19,7 @@ namespace Doom.MapBuild.Rendering
 
         readonly Slot[] slots = new Slot[Capacity];
         Texture2D whiteTex;
+        Material sharedMat;
         bool enabledForProfile;
         int nextVictim;
         WorldRenderContext context;
@@ -65,6 +66,9 @@ namespace Doom.MapBuild.Rendering
                 context?.RegisterOwned(whiteTex);
             }
 
+            if (sharedMat == null)
+                sharedMat = CreateParticleMaterial();
+
             for (int i = 0; i < Capacity; i++)
             {
                 if (slots[i].System != null) continue;
@@ -73,7 +77,7 @@ namespace Doom.MapBuild.Rendering
                 var ps = go.AddComponent<ParticleSystem>();
                 ConfigureSystem(ps);
                 var renderer = go.GetComponent<ParticleSystemRenderer>();
-                renderer.sharedMaterial = CreateParticleMaterial();
+                renderer.sharedMaterial = sharedMat;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
                 go.SetActive(false);
@@ -89,7 +93,7 @@ namespace Doom.MapBuild.Rendering
             if (shader == null) shader = Shader.Find(DoomMaterialFactory.ClassicCutoutName);
             if (shader == null)
                 throw new System.InvalidOperationException("No particle shader available");
-            var mat = new Material(shader);
+            var mat = new Material(shader) { name = "DoomParticleShared" };
             mat.mainTexture = whiteTex;
             if (mat.HasProperty("_BaseMap"))
                 mat.SetTexture("_BaseMap", whiteTex);
@@ -99,6 +103,10 @@ namespace Doom.MapBuild.Rendering
 
         static void ConfigureSystem(ParticleSystem ps)
         {
+            // AddComponent starts the default system immediately; duration cannot
+            // be written while playing (Unity Assert → fails PlayMode suites that
+            // do not ignore failing messages).
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
             main.playOnAwake = false;
             main.loop = false;
@@ -161,13 +169,13 @@ namespace Doom.MapBuild.Rendering
             Color color = EnhancedEffectCatalog.ColorFor(kind);
             float size = Mathf.Max(0.04f, 0.12f * Mathf.Max(worldScale, 1f / 32f) * 32f);
 
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
             main.startLifetime = life;
             main.startColor = color;
             main.startSize = size * (kind == EffectKind.Explosion ? 1.8f : 1f);
             main.startSpeed = kind == EffectKind.Explosion ? 1.4f : 0.7f;
 
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             ps.Emit(kind == EffectKind.Explosion ? 18 : 10);
 
             slot.Alive = true;
