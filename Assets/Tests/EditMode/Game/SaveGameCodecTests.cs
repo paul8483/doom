@@ -9,7 +9,7 @@ namespace Doom.Game.Tests
     public class SaveGameCodecTests
     {
         [Test]
-        public void Encode_Decode_round_trips_full_v2_snapshot()
+        public void Encode_Decode_round_trips_full_v3_snapshot()
         {
             SaveGame original = BuildGoldenSave();
             byte[] bytes = SaveGameCodec.Encode(original);
@@ -22,34 +22,64 @@ namespace Doom.Game.Tests
             Assert.That(decoded.World.Projectiles[0].Owner, Is.EqualTo(SaveEntityId.MapThing(0)));
             Assert.That(decoded.Player.OwnsShotgun, Is.True);
             Assert.That(decoded.Player.OwnsRocketLauncher, Is.True);
+            Assert.That(decoded.Player.OwnsChainsaw, Is.True);
             Assert.That(decoded.Player.Rockets, Is.EqualTo(7));
         }
 
         [Test]
-        public void Decode_v1_defaults_rocket_state()
+        public void Decode_v1_defaults_rocket_and_chainsaw_state()
         {
             const string wad = "wad:test";
-            byte[] v2 = SaveGameCodec.Encode(BuildMinimalSave(wad));
-            int payloadOffset = FindPayloadOffset(v2, wad, "E1M1");
-            int payloadLength = BitConverter.ToInt32(v2, payloadOffset - 8);
+            byte[] current = SaveGameCodec.Encode(BuildMinimalSave(wad));
+            int payloadOffset = FindPayloadOffset(current, wad, "E1M1");
+            int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
             const int V1PlayerBytes = 67;
             const int V2ExtraBytes = 5;
+            const int V3ExtraBytes = 1;
+            int strip = V2ExtraBytes + V3ExtraBytes;
 
-            var v1 = new byte[v2.Length - V2ExtraBytes];
-            Array.Copy(v2, 0, v1, 0, payloadOffset + V1PlayerBytes);
+            var v1 = new byte[current.Length - strip];
+            Array.Copy(current, 0, v1, 0, payloadOffset + V1PlayerBytes);
             Array.Copy(
-                v2, payloadOffset + V1PlayerBytes + V2ExtraBytes,
+                current, payloadOffset + V1PlayerBytes + strip,
                 v1, payloadOffset + V1PlayerBytes,
-                v2.Length - payloadOffset - V1PlayerBytes - V2ExtraBytes);
+                current.Length - payloadOffset - V1PlayerBytes - strip);
             BitConverter.GetBytes(1).CopyTo(v1, 4);
-            BitConverter.GetBytes(payloadLength - V2ExtraBytes).CopyTo(v1, payloadOffset - 8);
-            RecomputeChecksum(v1, wad, "E1M1", payloadOffset, payloadLength - V2ExtraBytes);
+            BitConverter.GetBytes(payloadLength - strip).CopyTo(v1, payloadOffset - 8);
+            RecomputeChecksum(v1, wad, "E1M1", payloadOffset, payloadLength - strip);
 
             Assert.That(SaveGameCodec.TryDecode(v1, out var decoded, out string error),
                 Is.True, error);
             Assert.That(decoded.Version, Is.EqualTo(1));
             Assert.That(decoded.Player.Rockets, Is.Zero);
             Assert.That(decoded.Player.OwnsRocketLauncher, Is.False);
+            Assert.That(decoded.Player.OwnsChainsaw, Is.False);
+        }
+
+        [Test]
+        public void Decode_v2_defaults_chainsaw_state()
+        {
+            const string wad = "wad:test";
+            byte[] current = SaveGameCodec.Encode(BuildMinimalSave(wad));
+            int payloadOffset = FindPayloadOffset(current, wad, "E1M1");
+            int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
+            const int V2PlayerBytes = 72;
+            const int V3ExtraBytes = 1;
+
+            var v2 = new byte[current.Length - V3ExtraBytes];
+            Array.Copy(current, 0, v2, 0, payloadOffset + V2PlayerBytes);
+            Array.Copy(
+                current, payloadOffset + V2PlayerBytes + V3ExtraBytes,
+                v2, payloadOffset + V2PlayerBytes,
+                current.Length - payloadOffset - V2PlayerBytes - V3ExtraBytes);
+            BitConverter.GetBytes(2).CopyTo(v2, 4);
+            BitConverter.GetBytes(payloadLength - V3ExtraBytes).CopyTo(v2, payloadOffset - 8);
+            RecomputeChecksum(v2, wad, "E1M1", payloadOffset, payloadLength - V3ExtraBytes);
+
+            Assert.That(SaveGameCodec.TryDecode(v2, out var decoded, out string error),
+                Is.True, error);
+            Assert.That(decoded.Version, Is.EqualTo(2));
+            Assert.That(decoded.Player.OwnsChainsaw, Is.False);
         }
 
         [Test]
@@ -230,7 +260,7 @@ namespace Doom.Game.Tests
                 1.5f, 2.25f, 0.75f, 90f, -12f,
                 75, 100, ArmorKind.Green,
                 50, 20, 7, true,
-                true, true, true, false, true,
+                true, true, true, false, true, true,
                 WeaponId.Shotgun, true, WeaponId.Pistol,
                 1 << (int)PlayerKey.YellowCard,
                 true, 100, 17,
@@ -376,7 +406,7 @@ namespace Doom.Game.Tests
         {
             // 5 floats; health, armor, armorType, bullets, shells; 5 bool bytes;
             // currentWeapon; hasPending; pendingWeapon; keyBits; berserk; ironFeet; randomIndex;
-            // rockets; ownsRocketLauncher
+            // rockets; ownsRocketLauncher; ownsChainsaw
             for (int i = 0; i < 5; i++) r.ReadSingle();
             for (int i = 0; i < 5; i++) r.ReadInt32();
             for (int i = 0; i < 5; i++) r.ReadByte();
@@ -388,6 +418,7 @@ namespace Doom.Game.Tests
             r.ReadInt32();
             r.ReadInt32();
             r.ReadInt32();
+            r.ReadByte();
             r.ReadByte();
         }
 

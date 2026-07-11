@@ -14,6 +14,7 @@ namespace Doom.Game
     {
         public const float HitscanRangeDoom = 2048f;  // MISSILERANGE
         public const float MeleeRangeDoom = 64f;      // MELEERANGE
+        public const float SawRangeDoom = MeleeRangeDoom + 1f; // A_Saw: MELEERANGE+1
         // (P_Random()-P_Random())<<18 в BAM: 1 ед. = 360/16384 ≈ 0.022°, max ±5.6°.
         const float SpreadUnitDeg = 360f / 16384f;
 
@@ -26,6 +27,9 @@ namespace Doom.Game
             return berserk ? d * 10 : d;
         }
 
+        /// A_Saw: 2*(1d10); never multiplied by berserk.
+        public static int SawDamage(DoomRandom r) => (r.Next() % 10 + 1) * 2;
+
         public static float SpreadOffsetDeg(DoomRandom r)
             => (r.Next() - r.Next()) * SpreadUnitDeg;
 
@@ -35,7 +39,9 @@ namespace Doom.Game
         {
             for (int i = 0; i < def.Pellets; i++)
             {
-                int damage = def.Melee ? PunchDamage(r, berserk) : GunShotDamage(r);
+                int damage = def.Id == WeaponId.Chainsaw
+                    ? SawDamage(r)
+                    : def.Melee ? PunchDamage(r, berserk) : GunShotDamage(r);
                 bool accurate = def.FirstShotAccurate && !refire && !def.Melee;
                 // Дробовик и пулемёт всегда с разбросом; кулак в DOOM тоже
                 // рыскает на ±5.6° (A_Punch).

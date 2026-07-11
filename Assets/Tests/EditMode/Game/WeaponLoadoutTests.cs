@@ -49,6 +49,11 @@ namespace Doom.Game.Tests
             l.Give(WeaponId.RocketLauncher);
             ammo.Add(AmmoType.Rockets, 1);
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.RocketLauncher));
+            while (ammo.TryConsume(AmmoType.Rockets, 1)) { }
+            while (ammo.TryConsume(AmmoType.Shells, 1)) { }
+            while (ammo.TryConsume(AmmoType.Bullets, 1)) { }
+            l.Give(WeaponId.Chainsaw);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Chainsaw));
         }
 
         [Test]

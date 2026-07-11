@@ -31,6 +31,7 @@ namespace Doom.Game.Tests
             Assert.That(WeaponTable.Get(WeaponId.Shotgun).FireSound, Is.EqualTo("DSSHOTGN"));
             Assert.That(WeaponTable.Get(WeaponId.Chaingun).FireSound, Is.EqualTo("DSPISTOL"));
             Assert.That(WeaponTable.Get(WeaponId.RocketLauncher).FireSound, Is.EqualTo("DSRLAUNC"));
+            Assert.That(WeaponTable.Get(WeaponId.Chainsaw).FireSound, Is.EqualTo("DSSAWFUL"));
         }
 
         [Test]
@@ -42,8 +43,11 @@ namespace Doom.Game.Tests
             Assert.That(WeaponTable.Get(WeaponId.Shotgun).CycleTics, Is.EqualTo(44));  // 3+7+5+5+4+5+5+3+7
             Assert.That(WeaponTable.Get(WeaponId.Chaingun).CycleTics, Is.EqualTo(4));  // 1 выстрел / 4 тика
             Assert.That(WeaponTable.Get(WeaponId.RocketLauncher).CycleTics, Is.EqualTo(20));
+            Assert.That(WeaponTable.Get(WeaponId.Chainsaw).CycleTics, Is.EqualTo(4));
             Assert.That(WeaponTable.Get(WeaponId.Shotgun).Pellets, Is.EqualTo(7));
             Assert.That(WeaponTable.Get(WeaponId.Fist).Melee, Is.True);
+            Assert.That(WeaponTable.Get(WeaponId.Chainsaw).Melee, Is.True);
+            Assert.That(WeaponTable.Get(WeaponId.Chainsaw).Slot, Is.EqualTo(1));
             Assert.That(WeaponTable.Get(WeaponId.Pistol).FirstShotAccurate, Is.True);
         }
     }

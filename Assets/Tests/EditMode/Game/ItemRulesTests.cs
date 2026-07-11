@@ -101,6 +101,17 @@ namespace Doom.Game.Tests
             Assert.That(ItemRules.IsPickup(2010), Is.True);
             Assert.That(ItemRules.IsPickup(2046), Is.True);
         }
+
+        [Test]
+        public void Chainsaw_pickup_gives_weapon_without_ammo()
+        {
+            var ctx = Fresh();
+            Assert.That(ItemRules.TryPickup(2005, ctx), Is.True);
+            Assert.That(ctx.Loadout.Has(WeaponId.Chainsaw), Is.True);
+            Assert.That(ctx.Loadout.Current, Is.EqualTo(WeaponId.Chainsaw));
+            Assert.That(ItemRules.TryPickup(2005, ctx), Is.False, "already owned");
+            Assert.That(ItemRules.IsPickup(2005), Is.True);
+        }
     }
 
     public class DeathDropTableTests

@@ -54,6 +54,7 @@ namespace Doom.Game
                 case 2001: return PickWeapon(ctx, WeaponId.Shotgun, AmmoType.Shells, 8);
                 case 2002: return PickWeapon(ctx, WeaponId.Chaingun, AmmoType.Bullets, 20);
                 case 2003: return PickWeapon(ctx, WeaponId.RocketLauncher, AmmoType.Rockets, 2);
+                case 2005: return ctx.Loadout.Give(WeaponId.Chainsaw);
                 case 2007: return ctx.Ammo.Add(AmmoType.Bullets, 10);
                 case 2048: return ctx.Ammo.Add(AmmoType.Bullets, 50);
                 case 2008: return ctx.Ammo.Add(AmmoType.Shells, 4);
@@ -81,7 +82,7 @@ namespace Doom.Game
                 case 2018: case 2019: case 2015:
                 case 5: case 40: case 13: case 38: case 6: case 39:
                 case 8: case 2023: case 2025:
-                case 2001: case 2002: case 2003:
+                case 2001: case 2002: case 2003: case 2005:
                 case 2007: case 2048: case 2008: case 2049: case 2010: case 2046:
                     return true;
                 default: return false;

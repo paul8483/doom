@@ -42,5 +42,15 @@ namespace Doom.Graphics.Tests
                 Assert.That(set.TryGet(entry.Item1, entry.Item2, 0, out _), Is.True,
                     $"{entry.Item1} frame {entry.Item2}");
         }
+
+        [Test]
+        public void Chainsaw_viewmodel_frames_resolve()
+        {
+            using var wad = WadFile.Open(FreedoomPath);
+            var set = SpriteSet.Load(wad);
+
+            foreach (int frame in new[] { 0, 1, 2, 3 })
+                Assert.That(set.TryGet("SAWG", frame, 0, out _), Is.True, $"SAWG frame {frame}");
+        }
     }
 }

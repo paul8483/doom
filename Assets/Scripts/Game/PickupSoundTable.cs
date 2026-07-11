@@ -18,6 +18,7 @@ namespace Doom.Game
                 case 2001: // shotgun
                 case 2002: // chaingun
                 case 2003: // rocket launcher
+                case 2005: // chainsaw
                     return PickupSoundKind.Weapon;
 
                 case 2013: // soulsphere

@@ -49,6 +49,10 @@
 > **Дополнено 2026-07-11:** ракетница перенесена из deferred в реализованное:
 > слот 5, Rockets 50/100, pickups 2003/2010/2046, MISG/MISF/MISL,
 > прямой урон + splash/self-damage 128/128, HUD, carry и save schema v2.
+>
+> **Дополнено 2026-07-11:** бензопила (2005) перенесена из deferred в
+> реализованное: слот 1, SAWG, A_Saw 2–20 / MELEERANGE+1, без патронов,
+> carry и save schema v3.
 
 ## Ключевые решения (из brainstorming)
 

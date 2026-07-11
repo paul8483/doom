@@ -165,6 +165,35 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Chainsaw_pickup_gives_weapon()
+        {
+            yield return LoadLevel();
+            var player = GameObject.Find("Player");
+            var weapons = player.GetComponent<PlayerWeapons>();
+            var cc = player.GetComponent<CharacterController>();
+            yield return SettleOnFloor(cc);
+
+            foreach (var pickup in GameObject.FindObjectsByType<ThingPickup>(
+                         FindObjectsSortMode.None))
+                pickup.gameObject.SetActive(false);
+
+            var pickupGo = new GameObject("Thing_2005_CSAW");
+            pickupGo.transform.position = player.transform.position;
+            pickupGo.AddComponent<ThingPickup>().Init(2005, 1f / 32f);
+
+            cc.enabled = false;
+            player.transform.position = pickupGo.transform.position;
+            cc.enabled = true;
+            for (int i = 0; i < 10; i++)
+            {
+                cc.Move(new Vector3(0.01f, 0f, 0f));
+                yield return null;
+            }
+            Assert.That(weapons.Loadout.Has(WeaponId.Chainsaw), Is.True, "chainsaw picked up");
+            Assert.That(weapons.Loadout.Current, Is.EqualTo(WeaponId.Chainsaw));
+        }
+
+        [UnityTest]
         public IEnumerator Rocket_direct_hit_kills_target_and_splash_hurts_player()
         {
             yield return LoadLevel();

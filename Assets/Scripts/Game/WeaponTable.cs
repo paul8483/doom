@@ -57,6 +57,19 @@ namespace Doom.Game
             FireSound = "DSRLAUNC",
         };
 
+        // A_Saw every 4 tics (S_SAW1/S_SAW2); idle uses SAWG C like S_SAW.
+        // FireFrames A+B over 4 tics keeps chaingun-rate damage with both saw frames.
+        static readonly WeaponDef Chainsaw = new WeaponDef
+        {
+            Id = WeaponId.Chainsaw, Slot = 1, Ammo = AmmoType.None, AmmoPerShot = 0,
+            Pellets = 1, Melee = true, FirstShotAccurate = false,
+            Sprite = "SAWG", IdleFrame = 2,
+            FireFrames = new[] { 0, 1 }, FireTics = new[] { 2, 2 },
+            FlashSprite = null, FlashFrames = System.Array.Empty<int>(),
+            FlashTics = System.Array.Empty<int>(),
+            FireSound = "DSSAWFUL",
+        };
+
         public static WeaponDef Get(WeaponId id) => id switch
         {
             WeaponId.Fist => Fist,
@@ -64,6 +77,7 @@ namespace Doom.Game
             WeaponId.Shotgun => Shotgun,
             WeaponId.Chaingun => Chaingun,
             WeaponId.RocketLauncher => RocketLauncher,
+            WeaponId.Chainsaw => Chainsaw,
             _ => Fist,
         };
     }

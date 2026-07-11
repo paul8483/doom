@@ -63,6 +63,15 @@ namespace Doom.MapBuild
         void SelectSlot(int slot)
         {
             if (cooldown > 0f) return; // can't switch mid-shot
+            if (slot == 1)
+            {
+                // Slot 1: prefer chainsaw when owned (DOOM wp_chainsaw over fist).
+                if (Loadout.Has(WeaponId.Chainsaw))
+                    Loadout.TrySelect(WeaponId.Chainsaw);
+                else
+                    Loadout.TrySelect(WeaponId.Fist);
+                return;
+            }
             foreach (WeaponId id in Enum.GetValues(typeof(WeaponId)))
                 if (WeaponTable.Get(id).Slot == slot) { Loadout.TrySelect(id); return; }
         }
@@ -97,8 +106,10 @@ namespace Doom.MapBuild
             volley.Clear();
             bool berserk = inventory != null && inventory.Powers.Berserk;
             HitscanRules.FireVolley(def, refire, rng, volley, berserk);
-            float rangeDoom = def.Melee ? HitscanRules.MeleeRangeDoom
-                                        : HitscanRules.HitscanRangeDoom;
+            float rangeDoom = def.Id == WeaponId.Chainsaw
+                ? HitscanRules.SawRangeDoom
+                : def.Melee ? HitscanRules.MeleeRangeDoom
+                            : HitscanRules.HitscanRangeDoom;
             float range = rangeDoom * worldScale;
 
             foreach (var shot in volley)

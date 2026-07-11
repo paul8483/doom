@@ -252,7 +252,7 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("thing", type, CompatibilityStatus.Implemented,
                         "barrel HP + BEXP splash");
 
-                // Known pickups not wired in ItemRules (chainsaw, cells, invuln, …)
+                // Known pickups not wired in ItemRules (cells, invuln, …)
                 if (IsDeferredPickup(type))
                     return new CompatibilityEntry("thing", type, CompatibilityStatus.Unsupported,
                         $"pickup '{def.Sprite}' not in Stage 6e ItemRules");
@@ -272,7 +272,6 @@ namespace Doom.Map.Tests
         {
             switch (type)
             {
-                case 2005: // chainsaw
                 case 2004: // plasma
                 case 2006: // BFG
                 case 82:   // super shotgun

@@ -378,6 +378,7 @@ namespace Doom.Game
             w.Write(p.RandomIndex);
             w.Write(p.Rockets);
             WriteBool(w, p.OwnsRocketLauncher);
+            WriteBool(w, p.OwnsChainsaw);
         }
 
         static bool TryReadPlayer(
@@ -407,11 +408,14 @@ namespace Doom.Game
             int randomIndex = r.ReadInt32();
             int rockets = 0;
             bool ownsRocketLauncher = false;
+            bool ownsChainsaw = false;
             if (version >= 2)
             {
                 rockets = r.ReadInt32();
                 ownsRocketLauncher = ReadBool(r);
             }
+            if (version >= 3)
+                ownsChainsaw = ReadBool(r);
 
             if (!Enum.IsDefined(typeof(ArmorKind), armorTypeRaw))
             {
@@ -433,6 +437,7 @@ namespace Doom.Game
                 health, armor, (ArmorKind)armorTypeRaw,
                 bullets, shells, rockets, hasBackpack,
                 ownsFist, ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
+                ownsChainsaw,
                 (WeaponId)currentWeapon, hasPending, (WeaponId)pendingWeapon,
                 keyBits, berserk, ironFeet, randomIndex,
                 out player, out error);

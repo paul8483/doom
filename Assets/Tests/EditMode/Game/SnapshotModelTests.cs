@@ -140,6 +140,7 @@ namespace Doom.Game.Tests
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.Shotgun);
             loadout.Give(WeaponId.RocketLauncher);
+            loadout.Give(WeaponId.Chainsaw);
             loadout.TrySelect(WeaponId.Shotgun);
             loadout.TryQueuePending(WeaponId.Pistol);
             var keys = new KeyInventory();
@@ -172,6 +173,7 @@ namespace Doom.Game.Tests
             Assert.That(snap.Shells, Is.EqualTo(12 + AmmoModel.BackpackClipShells));
             Assert.That(loadout.Has(WeaponId.Shotgun), Is.True);
             Assert.That(loadout.Has(WeaponId.RocketLauncher), Is.True);
+            Assert.That(loadout.Has(WeaponId.Chainsaw), Is.True);
             Assert.That(loadout.Current, Is.EqualTo(WeaponId.Shotgun));
             Assert.That(loadout.HasPending, Is.True);
             Assert.That(loadout.Pending, Is.EqualTo(WeaponId.Pistol));

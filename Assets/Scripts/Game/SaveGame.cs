@@ -8,7 +8,7 @@ namespace Doom.Game
     public sealed class SaveGame : IEquatable<SaveGame>
     {
         public const int FirstSupportedSchemaVersion = 1;
-        public const int SchemaVersion = 2;
+        public const int SchemaVersion = 3;
         /// ASCII 'D','S','A','V' — little-endian uint 0x56415344.
         public const uint Magic = 0x56415344;
 

@@ -18,6 +18,7 @@ namespace Doom.Game
         public bool OwnsShotgun { get; }
         public bool OwnsChaingun { get; }
         public bool OwnsRocketLauncher { get; }
+        public bool OwnsChainsaw { get; }
         public WeaponId CurrentWeapon { get; }
 
         public PlayerCarryState(
@@ -28,7 +29,7 @@ namespace Doom.Game
             : this(
                 health, armor, armorType,
                 bullets, shells, 0, hasBackpack,
-                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, false,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, false, false,
                 currentWeapon)
         {
         }
@@ -38,6 +39,19 @@ namespace Doom.Game
             int bullets, int shells, int rockets, bool hasBackpack,
             bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
             bool ownsRocketLauncher, WeaponId currentWeapon)
+            : this(
+                health, armor, armorType,
+                bullets, shells, rockets, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
+                false, currentWeapon)
+        {
+        }
+
+        public PlayerCarryState(
+            int health, int armor, ArmorKind armorType,
+            int bullets, int shells, int rockets, bool hasBackpack,
+            bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsRocketLauncher, bool ownsChainsaw, WeaponId currentWeapon)
         {
             Health = health;
             Armor = armor;
@@ -51,6 +65,7 @@ namespace Doom.Game
             OwnsShotgun = ownsShotgun;
             OwnsChaingun = ownsChaingun;
             OwnsRocketLauncher = ownsRocketLauncher;
+            OwnsChainsaw = ownsChainsaw;
             CurrentWeapon = currentWeapon;
         }
 
@@ -76,6 +91,7 @@ namespace Doom.Game
                 loadout.Has(WeaponId.Fist), loadout.Has(WeaponId.Pistol),
                 loadout.Has(WeaponId.Shotgun), loadout.Has(WeaponId.Chaingun),
                 loadout.Has(WeaponId.RocketLauncher),
+                loadout.Has(WeaponId.Chainsaw),
                 loadout.Current);
         }
 
@@ -89,7 +105,7 @@ namespace Doom.Game
             ammo.Restore(Bullets, Shells, Rockets, HasBackpack);
             loadout.Restore(
                 OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun,
-                OwnsRocketLauncher, CurrentWeapon);
+                OwnsRocketLauncher, OwnsChainsaw, CurrentWeapon);
         }
     }
 }

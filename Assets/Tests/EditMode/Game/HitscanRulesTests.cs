@@ -38,6 +38,23 @@ namespace Doom.Game.Tests
         }
 
         [Test]
+        public void Saw_damage_is_even_2_to_20_and_ignores_berserk()
+        {
+            var r = new DoomRandom();
+            for (int i = 0; i < 300; i++)
+            {
+                int d = HitscanRules.SawDamage(r);
+                Assert.That(d, Is.InRange(2, 20));
+                Assert.That(d % 2, Is.EqualTo(0));
+            }
+
+            var shots = new List<HitscanShot>();
+            var rng = new DoomRandom(0);
+            HitscanRules.FireVolley(WeaponTable.Get(WeaponId.Chainsaw), false, rng, shots, berserk: true);
+            Assert.That(shots[0].Damage, Is.InRange(2, 20));
+        }
+
+        [Test]
         public void Shotgun_volley_is_7_pellets_within_spread()
         {
             var r = new DoomRandom();
