@@ -36,8 +36,9 @@
   (враги) с автоудалением.
 - **Показ патронов:** строка `AMMO` в debug-OnGUI (`PlayerHud`).
 
-**Сознательно отложено:**
-- **Ракетница, плазма, BFG, бензопила** — снаряды, сплэш-урон ракет, отдельный этап.
+**Сознательно отложено в исходном scope 6c:**
+- **Ракетница, плазма, BFG, бензопила** — projectile-механика и отдельные
+  правила оружия выносились в последующие расширения 6c.
 - **Pain-стейты, анимация смерти, звуки, инфайтинг** — 6d (ИИ) и 6f (звук).
 - **Полноценный HUD** (цифры, лицо) — Этап 7; сейчас debug-текст.
 - **Берсерк, рюкзак (удвоение максимумов), сложность** — с предметами (6e).
@@ -53,6 +54,13 @@
 > **Дополнено 2026-07-11:** бензопила (2005) перенесена из deferred в
 > реализованное: слот 1, SAWG, A_Saw 2–20 / MELEERANGE+1, без патронов,
 > carry и save schema v3.
+>
+> **Запланировано 2026-07-11:** оставшиеся Plasma Rifle, BFG9000 и Cells
+> оформлены отдельным расширением 6c после закрытия Stage 7e. BFG следует
+> vanilla-механике: шар, прямой урон и 40 трассеров `A_BFGSpray`, а не
+> generic rocket splash. Дизайн:
+> `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`; план:
+> `docs/superpowers/plans/2026-07-11-plasma-bfg.md`.
 
 ## Ключевые решения (из brainstorming)
 
@@ -257,5 +265,8 @@ OnTriggerEnter(ThingPickup) → PlayerWeapons.Pickup:
 - Мастер-план: `docs/doom-unity-remake-plan.md` (Этап 6, под-этап 6c).
 - План реализации (HOW): `docs/superpowers/plans/2026-07-02-weapons.md`
   (будет создан skill'ом writing-plans).
+- Расширение Plasma/BFG/Cells:
+  `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`,
+  `docs/superpowers/plans/2026-07-11-plasma-bfg.md`.
 - Предыдущие под-этапы: `docs/superpowers/specs/2026-05-31-doors-design.md` (6a),
   `docs/superpowers/specs/2026-05-31-player-damage-design.md` (6b).

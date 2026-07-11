@@ -6,29 +6,36 @@ using Doom.Game;
 
 namespace Doom.MapBuild
 {
-    /// Player weapons: input (LMB, slots 1-5), cooldowns in tics, hitscan/projectile damage,
-    /// effects. Rules live in Doom.Game; this is only the Unity glue.
+    /// Player weapons: input (LMB, slots 1-7), tic scheduler, hitscan/projectile damage.
+    /// Rules live in Doom.Game; this is only the Unity glue.
     public sealed class PlayerWeapons : MonoBehaviour
     {
         public AmmoModel Ammo { get; } = new AmmoModel();
         public WeaponLoadout Loadout { get; } = new WeaponLoadout();
         public DoomRandom Rng => rng;
+        public WeaponActionScheduler Scheduler => scheduler;
 
-        /// A shot was fired -- WeaponView plays the fire frames and muzzle flash.
+        /// Attack view / fire-sound start (BFG charge sound, psprite sequence).
         public event Action<WeaponDef> Fired;
+
+        /// Ammo spent + projectile/hitscan + gunfire noise. Same frame as Fired
+        /// for immediate weapons; delayed to ActionTic for BFG.
+        public event Action<WeaponDef> Committed;
 
         SpriteCache cache;
         float worldScale;
         Transform cam;
         SoundSystem sound;
         readonly DoomRandom rng = new DoomRandom();
+        readonly WeaponActionScheduler scheduler = new WeaponActionScheduler();
         readonly List<HitscanShot> volley = new List<HitscanShot>();
         PlayerInventory inventory;
 
         InputActionMap map;
         InputAction fireAction;
-        float cooldown;       // seconds until the next shot is allowed
-        bool refire;          // LMB has been held since the last shot
+        float ticAccumulator;
+        bool heldRefire;
+        Vector3 pendingShotDirection = Vector3.forward;
 
         public void Init(
             SpriteCache cache, float worldScale, Transform cameraTransform,
@@ -41,7 +48,7 @@ namespace Doom.MapBuild
 
             map = new InputActionMap("Weapons");
             fireAction = map.AddAction("fire", InputActionType.Button, "<Mouse>/leftButton");
-            for (int slot = 1; slot <= 5; slot++)
+            for (int slot = 1; slot <= 7; slot++)
             {
                 int s = slot;
                 var a = map.AddAction($"slot{s}", InputActionType.Button, $"<Keyboard>/{s}");
@@ -52,20 +59,16 @@ namespace Doom.MapBuild
 
         public void SetInventory(PlayerInventory inv) => inventory = inv;
 
-        // Pair the action map with component enable state (as PlayerController does),
-        // so disabling this component (e.g. on death) also mutes weapon input.
-        // OnEnable runs at AddComponent time, before Init builds the map — the
-        // null guards cover that; Init enables the map itself.
         void OnEnable() { map?.Enable(); }
         void OnDisable() { map?.Disable(); }
         void OnDestroy() => map?.Dispose();
 
         void SelectSlot(int slot)
         {
-            if (cooldown > 0f) return; // can't switch mid-shot
+            if (scheduler.IsRunning && !scheduler.CanBegin(WeaponTable.Get(Loadout.Current)))
+                return;
             if (slot == 1)
             {
-                // Slot 1: prefer chainsaw when owned (DOOM wp_chainsaw over fist).
                 if (Loadout.Has(WeaponId.Chainsaw))
                     Loadout.TrySelect(WeaponId.Chainsaw);
                 else
@@ -78,47 +81,106 @@ namespace Doom.MapBuild
 
         void Update()
         {
-            cooldown -= Time.deltaTime;
             bool held = fireAction != null && fireAction.IsPressed();
-            if (!held) refire = false;
-            if (held && cooldown <= 0f) FireCurrent();
+            if (!held) heldRefire = false;
+            if (held)
+                TryStartAttack();
+
+            ticAccumulator += Time.deltaTime * 35f;
+            while (ticAccumulator >= 1f)
+            {
+                ticAccumulator -= 1f;
+                AdvanceOneTic();
+                if (held)
+                    TryStartAttack();
+            }
         }
 
-        void FireCurrent()
+        void TryStartAttack()
         {
             var def = WeaponTable.Get(Loadout.Current);
+            if (!scheduler.CanBegin(def)) return;
+            if (def.Ammo != AmmoType.None && Ammo.Get(def.Ammo) < def.AmmoPerShot)
+            {
+                Loadout.TrySelect(Loadout.BestAvailable(Ammo));
+                return;
+            }
+
+            if (!scheduler.TryBegin(def, Ammo)) return;
+
+            if (cam != null)
+                pendingShotDirection = cam.forward.sqrMagnitude > 1e-8f
+                    ? cam.forward.normalized : Vector3.forward;
+            else
+                pendingShotDirection = Vector3.forward;
+
+            Fired?.Invoke(def);
+            if (scheduler.IsCommitted)
+                CommitAction(def);
+        }
+
+        void AdvanceOneTic()
+        {
+            if (!scheduler.IsRunning) return;
+            scheduler.Advance(out bool justCommitted, out _);
+            if (justCommitted)
+                CommitAction(scheduler.Active);
+        }
+
+        void CommitAction(WeaponDef def)
+        {
+            if (def == null) return;
             if (!Ammo.TryConsume(def.Ammo, def.AmmoPerShot))
             {
-                Loadout.TrySelect(Loadout.BestAvailable(Ammo)); // auto-downgrade
+                // Should not happen: Begin checked ammo; cancel and downgrade.
+                scheduler.Cancel();
+                Loadout.TrySelect(Loadout.BestAvailable(Ammo));
                 return;
             }
 
             if (def.Id == WeaponId.RocketLauncher)
             {
+                Vector3 origin = cam != null ? cam.position : transform.position;
                 PlayerRocketProjectile.Launch(
-                    cache, worldScale, rng, cam.position, cam.forward, transform, sound);
-                cooldown = def.CycleTics / 35f;
-                refire = true;
-                Fired?.Invoke(def);
-                return;
+                    cache, worldScale, rng, origin, pendingShotDirection, transform, sound);
+            }
+            else if (def.Id == WeaponId.PlasmaRifle)
+            {
+                Vector3 origin = cam != null ? cam.position : transform.position;
+                PlayerPlasmaProjectile.Launch(
+                    cache, worldScale, rng, origin, pendingShotDirection, transform, sound);
+            }
+            else if (def.Id == WeaponId.Bfg9000)
+            {
+                Vector3 origin = cam != null ? cam.position : transform.position;
+                PlayerBfgProjectile.Launch(
+                    cache, worldScale, rng, origin, pendingShotDirection, transform, sound);
+            }
+            else if (def.Pellets > 0)
+            {
+                FireHitscan(def);
             }
 
+            Committed?.Invoke(def);
+        }
+
+        void FireHitscan(WeaponDef def)
+        {
             volley.Clear();
             bool berserk = inventory != null && inventory.Powers.Berserk;
-            HitscanRules.FireVolley(def, refire, rng, volley, berserk);
+            HitscanRules.FireVolley(def, heldRefire, rng, volley, berserk);
+            heldRefire = true;
             float rangeDoom = def.Id == WeaponId.Chainsaw
                 ? HitscanRules.SawRangeDoom
                 : def.Melee ? HitscanRules.MeleeRangeDoom
                             : HitscanRules.HitscanRangeDoom;
             float range = rangeDoom * worldScale;
+            Vector3 origin = cam != null ? cam.position : transform.position;
+            Vector3 forward = pendingShotDirection;
 
             foreach (var shot in volley)
             {
-                var dir = Quaternion.AngleAxis(shot.YawOffsetDeg, Vector3.up) * cam.forward;
-                // Fire from the camera itself: PhysX raycasts never hit a collider
-                // the ray starts inside, so the player's own capsule is immune,
-                // and any offset would create a point-blank dead zone.
-                var origin = cam.position;
+                var dir = Quaternion.AngleAxis(shot.YawOffsetDeg, Vector3.up) * forward;
                 if (!Physics.Raycast(origin, dir, out var hit, range,
                                      ~0, QueryTriggerInteraction.Ignore)) continue;
 
@@ -134,20 +196,37 @@ namespace Doom.MapBuild
                     HitEffect.SpawnPuff(cache, worldScale, hit.point, hit.normal);
                 }
             }
-
-            cooldown = def.CycleTics / 35f;
-            refire = true;
-            Fired?.Invoke(def);
         }
 
         /// Weapon/ammo/item pickup. Delegates to PlayerInventory / ItemRules.
         public bool Pickup(int doomedNum)
             => inventory != null && inventory.TryPickup(doomedNum);
 
-        public void ResetToStart() { Ammo.Reset(); Loadout.Reset(); cooldown = 0f; refire = false; }
+        public void ResetToStart()
+        {
+            Ammo.Reset();
+            Loadout.Reset();
+            scheduler.Cancel();
+            ticAccumulator = 0f;
+            heldRefire = false;
+        }
 
-        // -- for PlayMode tests --------------------------------------------------
-        public void FireOnceForTest() { if (cooldown <= 0f) FireCurrent(); }
-        public float CooldownForTest => cooldown;
+        // -- for PlayMode / EditMode tests --------------------------------------
+        public void FireOnceForTest()
+        {
+            TryStartAttack();
+            // Drain immediate ActionTic==0 commit already done in TryStartAttack.
+        }
+
+        public void AdvanceTicsForTest(int tics)
+        {
+            for (int i = 0; i < tics; i++)
+                AdvanceOneTic();
+        }
+
+        public float CooldownForTest =>
+            scheduler.IsRunning
+                ? (scheduler.Active.EffectiveRefireTics - scheduler.TicsElapsed) / 35f
+                : 0f;
     }
 }

@@ -14,9 +14,11 @@ namespace Doom.Game.Tests
             Assert.That(a.GetMax(AmmoType.Bullets), Is.EqualTo(400));
             Assert.That(a.GetMax(AmmoType.Shells), Is.EqualTo(100));
             Assert.That(a.GetMax(AmmoType.Rockets), Is.EqualTo(100));
+            Assert.That(a.GetMax(AmmoType.Cells), Is.EqualTo(600));
             Assert.That(a.Get(AmmoType.Bullets), Is.EqualTo(60)); // 50+10
             Assert.That(a.Get(AmmoType.Shells), Is.EqualTo(4));
             Assert.That(a.Get(AmmoType.Rockets), Is.EqualTo(1));
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(20));
         }
 
         [Test]
@@ -25,9 +27,12 @@ namespace Doom.Game.Tests
             var a = new AmmoModel();
             a.GiveBackpack();
             int b = a.Get(AmmoType.Bullets);
+            int c = a.Get(AmmoType.Cells);
             a.GiveBackpack();
             Assert.That(a.Get(AmmoType.Bullets), Is.EqualTo(b + 10));
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(c + 20));
             Assert.That(a.GetMax(AmmoType.Bullets), Is.EqualTo(400));
+            Assert.That(a.GetMax(AmmoType.Cells), Is.EqualTo(600));
         }
 
         [Test]

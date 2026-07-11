@@ -9,7 +9,7 @@ namespace Doom.Game.Tests
     public class SaveGameCodecTests
     {
         [Test]
-        public void Encode_Decode_round_trips_full_v3_snapshot()
+        public void Encode_Decode_round_trips_full_v4_snapshot()
         {
             SaveGame original = BuildGoldenSave();
             byte[] bytes = SaveGameCodec.Encode(original);
@@ -20,10 +20,21 @@ namespace Doom.Game.Tests
             Assert.That(decoded.MapName, Is.EqualTo("E1M1"));
             Assert.That(decoded.World.Sectors[1].MoverWaitTics, Is.EqualTo(12));
             Assert.That(decoded.World.Projectiles[0].Owner, Is.EqualTo(SaveEntityId.MapThing(0)));
+            Assert.That(decoded.World.Projectiles[0].Phase, Is.EqualTo(ProjectilePhase.Exploding));
+            Assert.That(decoded.World.Projectiles[0].FrameIndex, Is.EqualTo(2));
+            Assert.That(decoded.World.Projectiles[0].ShotDirX, Is.EqualTo(0.6f));
+            Assert.That(decoded.World.Projectiles[0].ShotDirY, Is.EqualTo(0f));
+            Assert.That(decoded.World.Projectiles[0].ShotDirZ, Is.EqualTo(0.8f));
+            Assert.That(decoded.World.Projectiles[0].SprayApplied, Is.True);
             Assert.That(decoded.Player.OwnsShotgun, Is.True);
             Assert.That(decoded.Player.OwnsRocketLauncher, Is.True);
             Assert.That(decoded.Player.OwnsChainsaw, Is.True);
             Assert.That(decoded.Player.Rockets, Is.EqualTo(7));
+            Assert.That(decoded.Player.Cells, Is.EqualTo(120));
+            Assert.That(decoded.Player.OwnsPlasmaRifle, Is.True);
+            Assert.That(decoded.Player.OwnsBfg9000, Is.True);
+            Assert.That(decoded.Player.CurrentWeapon, Is.EqualTo(WeaponId.Bfg9000));
+            Assert.That(decoded.Player.PendingWeapon, Is.EqualTo(WeaponId.PlasmaRifle));
         }
 
         [Test]
@@ -36,7 +47,8 @@ namespace Doom.Game.Tests
             const int V1PlayerBytes = 67;
             const int V2ExtraBytes = 5;
             const int V3ExtraBytes = 1;
-            int strip = V2ExtraBytes + V3ExtraBytes;
+            const int V4ExtraBytes = 6;
+            int strip = V2ExtraBytes + V3ExtraBytes + V4ExtraBytes;
 
             var v1 = new byte[current.Length - strip];
             Array.Copy(current, 0, v1, 0, payloadOffset + V1PlayerBytes);
@@ -54,6 +66,9 @@ namespace Doom.Game.Tests
             Assert.That(decoded.Player.Rockets, Is.Zero);
             Assert.That(decoded.Player.OwnsRocketLauncher, Is.False);
             Assert.That(decoded.Player.OwnsChainsaw, Is.False);
+            Assert.That(decoded.Player.Cells, Is.Zero);
+            Assert.That(decoded.Player.OwnsPlasmaRifle, Is.False);
+            Assert.That(decoded.Player.OwnsBfg9000, Is.False);
         }
 
         [Test]
@@ -65,21 +80,98 @@ namespace Doom.Game.Tests
             int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
             const int V2PlayerBytes = 72;
             const int V3ExtraBytes = 1;
+            const int V4ExtraBytes = 6;
+            int strip = V3ExtraBytes + V4ExtraBytes;
 
-            var v2 = new byte[current.Length - V3ExtraBytes];
+            var v2 = new byte[current.Length - strip];
             Array.Copy(current, 0, v2, 0, payloadOffset + V2PlayerBytes);
             Array.Copy(
-                current, payloadOffset + V2PlayerBytes + V3ExtraBytes,
+                current, payloadOffset + V2PlayerBytes + strip,
                 v2, payloadOffset + V2PlayerBytes,
-                current.Length - payloadOffset - V2PlayerBytes - V3ExtraBytes);
+                current.Length - payloadOffset - V2PlayerBytes - strip);
             BitConverter.GetBytes(2).CopyTo(v2, 4);
-            BitConverter.GetBytes(payloadLength - V3ExtraBytes).CopyTo(v2, payloadOffset - 8);
-            RecomputeChecksum(v2, wad, "E1M1", payloadOffset, payloadLength - V3ExtraBytes);
+            BitConverter.GetBytes(payloadLength - strip).CopyTo(v2, payloadOffset - 8);
+            RecomputeChecksum(v2, wad, "E1M1", payloadOffset, payloadLength - strip);
 
             Assert.That(SaveGameCodec.TryDecode(v2, out var decoded, out string error),
                 Is.True, error);
             Assert.That(decoded.Version, Is.EqualTo(2));
             Assert.That(decoded.Player.OwnsChainsaw, Is.False);
+            Assert.That(decoded.Player.Cells, Is.Zero);
+            Assert.That(decoded.Player.OwnsPlasmaRifle, Is.False);
+            Assert.That(decoded.Player.OwnsBfg9000, Is.False);
+        }
+
+        [Test]
+        public void Decode_v3_defaults_cell_and_plasma_bfg_state()
+        {
+            const string wad = "wad:test";
+            byte[] current = SaveGameCodec.Encode(BuildMinimalSave(wad));
+            int payloadOffset = FindPayloadOffset(current, wad, "E1M1");
+            int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
+            const int V3PlayerBytes = 73;
+            const int V4ExtraBytes = 6;
+
+            var v3 = new byte[current.Length - V4ExtraBytes];
+            Array.Copy(current, 0, v3, 0, payloadOffset + V3PlayerBytes);
+            Array.Copy(
+                current, payloadOffset + V3PlayerBytes + V4ExtraBytes,
+                v3, payloadOffset + V3PlayerBytes,
+                current.Length - payloadOffset - V3PlayerBytes - V4ExtraBytes);
+            BitConverter.GetBytes(3).CopyTo(v3, 4);
+            BitConverter.GetBytes(payloadLength - V4ExtraBytes).CopyTo(v3, payloadOffset - 8);
+            RecomputeChecksum(v3, wad, "E1M1", payloadOffset, payloadLength - V4ExtraBytes);
+
+            Assert.That(SaveGameCodec.TryDecode(v3, out var decoded, out string error),
+                Is.True, error);
+            Assert.That(decoded.Version, Is.EqualTo(3));
+            Assert.That(decoded.Player.Cells, Is.Zero);
+            Assert.That(decoded.Player.OwnsPlasmaRifle, Is.False);
+            Assert.That(decoded.Player.OwnsBfg9000, Is.False);
+        }
+
+        [Test]
+        public void Decode_v3_defaults_projectile_phase_and_spray_state()
+        {
+            const string wad = "wad:test";
+            SaveGame save = BuildProjectileSave(wad);
+            byte[] current = SaveGameCodec.Encode(save);
+            int payloadOffset = FindPayloadOffset(current, wad, "E1M1");
+            int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
+            const int V3PlayerBytes = 73;
+            const int V4PlayerExtraBytes = 6;
+            const int V4ProjectileExtraBytes = 21;
+            int projectileExtraOffset = FindFirstProjectileExtrasOffset(current, payloadOffset);
+
+            var v3 = new byte[
+                current.Length - V4PlayerExtraBytes - V4ProjectileExtraBytes];
+            int playerExtraOffset = payloadOffset + V3PlayerBytes;
+            Array.Copy(current, 0, v3, 0, playerExtraOffset);
+            Array.Copy(
+                current, playerExtraOffset + V4PlayerExtraBytes,
+                v3, playerExtraOffset,
+                projectileExtraOffset - playerExtraOffset - V4PlayerExtraBytes);
+            int shiftedProjectileExtraOffset = projectileExtraOffset - V4PlayerExtraBytes;
+            Array.Copy(
+                current, projectileExtraOffset + V4ProjectileExtraBytes,
+                v3, shiftedProjectileExtraOffset,
+                current.Length - projectileExtraOffset - V4ProjectileExtraBytes);
+
+            int legacyPayloadLength =
+                payloadLength - V4PlayerExtraBytes - V4ProjectileExtraBytes;
+            BitConverter.GetBytes(3).CopyTo(v3, 4);
+            BitConverter.GetBytes(legacyPayloadLength).CopyTo(v3, payloadOffset - 8);
+            RecomputeChecksum(v3, wad, "E1M1", payloadOffset, legacyPayloadLength);
+
+            Assert.That(SaveGameCodec.TryDecode(v3, out var decoded, out string error),
+                Is.True, error);
+            var projectile = decoded.World.Projectiles[0];
+            Assert.That(projectile.Phase, Is.EqualTo(ProjectilePhase.Flying));
+            Assert.That(projectile.FrameIndex, Is.Zero);
+            Assert.That(projectile.ShotDirX, Is.Zero);
+            Assert.That(projectile.ShotDirY, Is.Zero);
+            Assert.That(projectile.ShotDirZ, Is.Zero);
+            Assert.That(projectile.SprayApplied, Is.False);
         }
 
         [Test]
@@ -259,9 +351,9 @@ namespace Doom.Game.Tests
             Assert.That(PlayerSnapshot.TryCreate(
                 1.5f, 2.25f, 0.75f, 90f, -12f,
                 75, 100, ArmorKind.Green,
-                50, 20, 7, true,
-                true, true, true, false, true, true,
-                WeaponId.Shotgun, true, WeaponId.Pistol,
+                50, 20, 7, 120, true,
+                true, true, true, false, true, true, true, true,
+                WeaponId.Bfg9000, true, WeaponId.PlasmaRifle,
                 1 << (int)PlayerKey.YellowCard,
                 true, 100, 17,
                 out var player, out _), Is.True);
@@ -283,7 +375,8 @@ namespace Doom.Game.Tests
             var projectiles = new[]
             {
                 new ProjectileSnapshot(1, 1, SaveEntityId.MapThing(0),
-                    0f, 0f, 1f, 1f, 0f, 0f, 0.5f),
+                    0f, 0f, 1f, 1f, 0f, 0f, 0.5f,
+                    ProjectilePhase.Exploding, 2, 0.6f, 0f, 0.8f, true),
             };
             var pickups = new[]
             {
@@ -315,6 +408,24 @@ namespace Doom.Game.Tests
                 out var world, out _), Is.True);
             Assert.That(SaveGame.TryCreate("E1M1", wadIdentity, player, world, out var save, out _),
                 Is.True);
+            return save;
+        }
+
+        static SaveGame BuildProjectileSave(string wadIdentity)
+        {
+            var projectile = new ProjectileSnapshot(
+                1, 2006, SaveEntityId.None,
+                0f, 0f, 1f, 0f, 0f, 0f, 0.1f,
+                ProjectilePhase.Exploding, 2, 0.6f, 0f, 0.8f, true);
+            Assert.That(WorldSnapshot.TryCreate(
+                0, 2, default,
+                Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(),
+                Array.Empty<SectorSnapshot>(), Array.Empty<LineSnapshot>(),
+                Array.Empty<ThingSnapshot>(), new[] { projectile },
+                Array.Empty<SpawnedPickupSnapshot>(),
+                out var world, out _), Is.True);
+            Assert.That(SaveGame.TryCreate(
+                "E1M1", wadIdentity, BuildDefaultPlayer(), world, out var save, out _), Is.True);
             return save;
         }
 
@@ -402,11 +513,45 @@ namespace Doom.Game.Tests
             }
         }
 
+        static int FindFirstProjectileExtrasOffset(byte[] data, int payloadOffset)
+        {
+            using (var ms = new MemoryStream(data, payloadOffset, data.Length - payloadOffset))
+            using (var r = new BinaryReader(ms))
+            {
+                SkipPlayer(r);
+                r.ReadInt32();
+                r.ReadInt32();
+                for (int i = 0; i < 7; i++) r.ReadInt32();
+                SkipIntArray(r);
+                SkipIntArray(r);
+                SkipIntArray(r);
+                int sectorCount = r.ReadInt32();
+                for (int i = 0; i < sectorCount; i++) SkipSector(r);
+                int lineCount = r.ReadInt32();
+                for (int i = 0; i < lineCount; i++)
+                {
+                    r.ReadInt32();
+                    r.ReadByte();
+                    r.ReadByte();
+                }
+                int thingCount = r.ReadInt32();
+                for (int i = 0; i < thingCount; i++) SkipThing(r);
+                Assert.That(r.ReadInt32(), Is.GreaterThan(0));
+
+                r.ReadInt32();
+                r.ReadInt32();
+                r.ReadByte();
+                r.ReadInt32();
+                for (int i = 0; i < 7; i++) r.ReadSingle();
+                return payloadOffset + (int)ms.Position;
+            }
+        }
+
         static void SkipPlayer(BinaryReader r)
         {
             // 5 floats; health, armor, armorType, bullets, shells; 5 bool bytes;
             // currentWeapon; hasPending; pendingWeapon; keyBits; berserk; ironFeet; randomIndex;
-            // rockets; ownsRocketLauncher; ownsChainsaw
+            // rockets; ownsRocketLauncher; ownsChainsaw; cells; plasma; BFG
             for (int i = 0; i < 5; i++) r.ReadSingle();
             for (int i = 0; i < 5; i++) r.ReadInt32();
             for (int i = 0; i < 5; i++) r.ReadByte();
@@ -417,6 +562,9 @@ namespace Doom.Game.Tests
             r.ReadByte();
             r.ReadInt32();
             r.ReadInt32();
+            r.ReadInt32();
+            r.ReadByte();
+            r.ReadByte();
             r.ReadInt32();
             r.ReadByte();
             r.ReadByte();

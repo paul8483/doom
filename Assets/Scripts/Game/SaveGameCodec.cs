@@ -163,8 +163,8 @@ namespace Doom.Game
                             version, mapName, wadIdentity, player, world, out save, out error))
                         return false;
 
-                    // Preserve the encoded version so v1 saves can be loaded and
-                    // upgraded naturally the next time a fresh v2 save is captured.
+                    // Preserve the encoded version so older saves can be loaded and
+                    // upgraded naturally the next time a fresh current save is captured.
                     if (save.Version != version)
                     {
                         error = "Decoded version mismatch.";
@@ -330,7 +330,7 @@ namespace Doom.Game
                 using (var r = new BinaryReader(ms, Encoding.ASCII, leaveOpen: true))
                 {
                     if (!TryReadPlayer(r, version, out player, out error)) return false;
-                    if (!TryReadWorld(r, out world, out error)) return false;
+                    if (!TryReadWorld(r, version, out world, out error)) return false;
                     if (ms.Position != ms.Length)
                     {
                         error = "Trailing bytes in save payload.";
@@ -379,6 +379,9 @@ namespace Doom.Game
             w.Write(p.Rockets);
             WriteBool(w, p.OwnsRocketLauncher);
             WriteBool(w, p.OwnsChainsaw);
+            w.Write(p.Cells);
+            WriteBool(w, p.OwnsPlasmaRifle);
+            WriteBool(w, p.OwnsBfg9000);
         }
 
         static bool TryReadPlayer(
@@ -409,6 +412,9 @@ namespace Doom.Game
             int rockets = 0;
             bool ownsRocketLauncher = false;
             bool ownsChainsaw = false;
+            int cells = 0;
+            bool ownsPlasmaRifle = false;
+            bool ownsBfg9000 = false;
             if (version >= 2)
             {
                 rockets = r.ReadInt32();
@@ -416,6 +422,12 @@ namespace Doom.Game
             }
             if (version >= 3)
                 ownsChainsaw = ReadBool(r);
+            if (version >= 4)
+            {
+                cells = r.ReadInt32();
+                ownsPlasmaRifle = ReadBool(r);
+                ownsBfg9000 = ReadBool(r);
+            }
 
             if (!Enum.IsDefined(typeof(ArmorKind), armorTypeRaw))
             {
@@ -435,9 +447,9 @@ namespace Doom.Game
             return PlayerSnapshot.TryCreate(
                 x, y, z, yaw, pitch,
                 health, armor, (ArmorKind)armorTypeRaw,
-                bullets, shells, rockets, hasBackpack,
+                bullets, shells, rockets, cells, hasBackpack,
                 ownsFist, ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
-                ownsChainsaw,
+                ownsChainsaw, ownsPlasmaRifle, ownsBfg9000,
                 (WeaponId)currentWeapon, hasPending, (WeaponId)pendingWeapon,
                 keyBits, berserk, ironFeet, randomIndex,
                 out player, out error);
@@ -473,7 +485,8 @@ namespace Doom.Game
                 WritePickup(w, world.SpawnedPickups[i]);
         }
 
-        static bool TryReadWorld(BinaryReader r, out WorldSnapshot world, out string error)
+        static bool TryReadWorld(
+            BinaryReader r, int version, out WorldSnapshot world, out string error)
         {
             world = null;
             int gameTic = r.ReadInt32();
@@ -513,7 +526,7 @@ namespace Doom.Game
             var projectiles = new ProjectileSnapshot[projCount];
             for (int i = 0; i < projCount; i++)
             {
-                if (!TryReadProjectile(r, out projectiles[i], out error))
+                if (!TryReadProjectile(r, version, out projectiles[i], out error))
                     return false;
             }
 
@@ -640,21 +653,56 @@ namespace Doom.Game
             w.Write(p.VelY);
             w.Write(p.VelZ);
             w.Write(p.RemainingLife);
+            w.Write((int)p.Phase);
+            w.Write(p.FrameIndex);
+            w.Write(p.ShotDirX);
+            w.Write(p.ShotDirY);
+            w.Write(p.ShotDirZ);
+            WriteBool(w, p.SprayApplied);
         }
 
         static bool TryReadProjectile(
-            BinaryReader r, out ProjectileSnapshot projectile, out string error)
+            BinaryReader r, int version, out ProjectileSnapshot projectile, out string error)
         {
             projectile = null;
             int spawnId = r.ReadInt32();
             int type = r.ReadInt32();
             if (!TryReadEntityId(r, out SaveEntityId owner, out error))
                 return false;
+
+            float x = r.ReadSingle();
+            float y = r.ReadSingle();
+            float z = r.ReadSingle();
+            float velX = r.ReadSingle();
+            float velY = r.ReadSingle();
+            float velZ = r.ReadSingle();
+            float remainingLife = r.ReadSingle();
+            var phase = ProjectilePhase.Flying;
+            int frameIndex = 0;
+            float shotDirX = 0f;
+            float shotDirY = 0f;
+            float shotDirZ = 0f;
+            bool sprayApplied = false;
+            if (version >= 4)
+            {
+                int phaseRaw = r.ReadInt32();
+                if (!Enum.IsDefined(typeof(ProjectilePhase), phaseRaw))
+                {
+                    error = "Invalid projectile phase in save.";
+                    return false;
+                }
+                phase = (ProjectilePhase)phaseRaw;
+                frameIndex = r.ReadInt32();
+                shotDirX = r.ReadSingle();
+                shotDirY = r.ReadSingle();
+                shotDirZ = r.ReadSingle();
+                sprayApplied = ReadBool(r);
+            }
+
             projectile = new ProjectileSnapshot(
                 spawnId, type, owner,
-                r.ReadSingle(), r.ReadSingle(), r.ReadSingle(),
-                r.ReadSingle(), r.ReadSingle(), r.ReadSingle(),
-                r.ReadSingle());
+                x, y, z, velX, velY, velZ, remainingLife,
+                phase, frameIndex, shotDirX, shotDirY, shotDirZ, sprayApplied);
             return true;
         }
 

@@ -36,7 +36,7 @@ namespace Doom.Game.Tests
         [Test]
         public void BestAvailable_follows_p_checkammo_order()
         {
-            // Порядок P_CheckAmmo: rocket → chaingun → shotgun → pistol → fist.
+            // Порядок P_CheckAmmo: BFG → plasma → rocket → chaingun → shotgun → pistol → fist.
             var l = new WeaponLoadout();
             var ammo = new AmmoModel();          // 50 пуль, 0 дроби
             l.Give(WeaponId.Shotgun); l.Give(WeaponId.Chaingun);
@@ -54,6 +54,49 @@ namespace Doom.Game.Tests
             while (ammo.TryConsume(AmmoType.Bullets, 1)) { }
             l.Give(WeaponId.Chainsaw);
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Chainsaw));
+        }
+
+        [Test]
+        public void BestAvailable_requires_full_BFG_cost_and_prefers_plasma()
+        {
+            var l = new WeaponLoadout();
+            var ammo = new AmmoModel();
+            while (ammo.TryConsume(AmmoType.Bullets, 1)) { }
+            l.Give(WeaponId.PlasmaRifle);
+            l.Give(WeaponId.Bfg9000);
+            ammo.Add(AmmoType.Cells, 39);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.PlasmaRifle),
+                "BFG needs 40 cells");
+            ammo.Add(AmmoType.Cells, 1);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Bfg9000));
+            while (ammo.TryConsume(AmmoType.Cells, 1)) { }
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Fist));
+        }
+
+        [Test]
+        public void Capture_restore_preserves_plasma_and_BFG_ownership()
+        {
+            var l = new WeaponLoadout();
+            l.Give(WeaponId.PlasmaRifle);
+            l.Give(WeaponId.Bfg9000);
+            l.TrySelect(WeaponId.PlasmaRifle);
+            l.TryQueuePending(WeaponId.Bfg9000);
+
+            l.Capture(out bool fist, out bool pistol, out bool shotgun, out bool chaingun,
+                out bool rocket, out bool chainsaw, out bool plasma, out bool bfg,
+                out var current, out var pending);
+            Assert.That(plasma, Is.True);
+            Assert.That(bfg, Is.True);
+            Assert.That(current, Is.EqualTo(WeaponId.PlasmaRifle));
+            Assert.That(pending, Is.EqualTo(WeaponId.Bfg9000));
+
+            var restored = new WeaponLoadout();
+            restored.Restore(fist, pistol, shotgun, chaingun, rocket, chainsaw,
+                plasma, bfg, current, pending);
+            Assert.That(restored.Has(WeaponId.PlasmaRifle), Is.True);
+            Assert.That(restored.Has(WeaponId.Bfg9000), Is.True);
+            Assert.That(restored.Current, Is.EqualTo(WeaponId.PlasmaRifle));
+            Assert.That(restored.Pending, Is.EqualTo(WeaponId.Bfg9000));
         }
 
         [Test]

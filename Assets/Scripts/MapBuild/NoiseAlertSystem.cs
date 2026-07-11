@@ -19,12 +19,12 @@ namespace Doom.MapBuild
         {
             this.map = map; this.heights = heights;
             this.weapons = weapons; this.player = player;
-            weapons.Fired += OnFired;
+            weapons.Committed += OnCommitted;
         }
 
-        void OnDestroy() { if (weapons != null) weapons.Fired -= OnFired; }
+        void OnDestroy() { if (weapons != null) weapons.Committed -= OnCommitted; }
 
-        void OnFired(WeaponDef def)
+        void OnCommitted(WeaponDef def)
         {
             if (def.Ammo == AmmoType.None) return;   // кулак не шумит
             int source = SectorUnder(player.position);

@@ -26,6 +26,8 @@ namespace Doom.Game
         public readonly bool OwnsShotgun;
         public readonly bool OwnsChaingun;
         public readonly bool OwnsRocketLauncher;
+        public readonly bool OwnsPlasmaRifle;
+        public readonly bool OwnsBfg9000;
 
         public readonly bool BlueCard;
         public readonly bool YellowCard;
@@ -45,6 +47,7 @@ namespace Doom.Game
             int bullets, int shells, int rockets, int cells,
             int maxBullets, int maxShells, int maxRockets, int maxCells,
             bool ownsPistol, bool ownsShotgun, bool ownsChaingun, bool ownsRocketLauncher,
+            bool ownsPlasmaRifle, bool ownsBfg9000,
             bool blueCard, bool yellowCard, bool redCard,
             bool blueSkull, bool yellowSkull, bool redSkull,
             bool berserk, bool ironFeet,
@@ -67,6 +70,8 @@ namespace Doom.Game
             OwnsShotgun = ownsShotgun;
             OwnsChaingun = ownsChaingun;
             OwnsRocketLauncher = ownsRocketLauncher;
+            OwnsPlasmaRifle = ownsPlasmaRifle;
+            OwnsBfg9000 = ownsBfg9000;
             BlueCard = blueCard;
             YellowCard = yellowCard;
             RedCard = redCard;
@@ -76,6 +81,28 @@ namespace Doom.Game
             Berserk = berserk;
             IronFeet = ironFeet;
             FacePatch = facePatch ?? FaceRules.DeadPatch;
+        }
+
+        /// Backward-compatible overload without plasma/BFG ownership.
+        public HudModel(
+            int health, int armor, ArmorKind armorType,
+            int readyAmmo, bool readyAmmoVisible,
+            int bullets, int shells, int rockets, int cells,
+            int maxBullets, int maxShells, int maxRockets, int maxCells,
+            bool ownsPistol, bool ownsShotgun, bool ownsChaingun, bool ownsRocketLauncher,
+            bool blueCard, bool yellowCard, bool redCard,
+            bool blueSkull, bool yellowSkull, bool redSkull,
+            bool berserk, bool ironFeet,
+            string facePatch)
+            : this(
+                health, armor, armorType, readyAmmo, readyAmmoVisible,
+                bullets, shells, rockets, cells,
+                maxBullets, maxShells, maxRockets, maxCells,
+                ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
+                false, false,
+                blueCard, yellowCard, redCard, blueSkull, yellowSkull, redSkull,
+                berserk, ironFeet, facePatch)
+        {
         }
 
         public static HudModel From(
@@ -101,13 +128,15 @@ namespace Doom.Game
                 health.Health, health.Armor, health.ArmorType,
                 ready, ammoVisible,
                 ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells),
-                ammo.Get(AmmoType.Rockets), 0,
+                ammo.Get(AmmoType.Rockets), ammo.Get(AmmoType.Cells),
                 ammo.GetMax(AmmoType.Bullets), ammo.GetMax(AmmoType.Shells),
-                ammo.GetMax(AmmoType.Rockets), 0,
+                ammo.GetMax(AmmoType.Rockets), ammo.GetMax(AmmoType.Cells),
                 loadout.Has(WeaponId.Pistol),
                 loadout.Has(WeaponId.Shotgun),
                 loadout.Has(WeaponId.Chaingun),
                 loadout.Has(WeaponId.RocketLauncher),
+                loadout.Has(WeaponId.PlasmaRifle),
+                loadout.Has(WeaponId.Bfg9000),
                 keys.Has(PlayerKey.BlueCard),
                 keys.Has(PlayerKey.YellowCard),
                 keys.Has(PlayerKey.RedCard),

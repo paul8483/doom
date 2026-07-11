@@ -272,10 +272,7 @@ namespace Doom.Map.Tests
         {
             switch (type)
             {
-                case 2004: // plasma
-                case 2006: // BFG
-                case 82:   // super shotgun
-                case 2047: case 17:   // cells
+                case 82:   // super shotgun (Doom II)
                 case 2022: // invuln
                 case 2024: // invis
                 case 2026: // map

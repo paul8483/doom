@@ -1,4 +1,8 @@
 namespace Doom.Game
 {
-    public enum WeaponId { Fist, Pistol, Shotgun, Chaingun, RocketLauncher, Chainsaw }
+    public enum WeaponId
+    {
+        Fist, Pistol, Shotgun, Chaingun, RocketLauncher, Chainsaw,
+        PlasmaRifle, Bfg9000,
+    }
 }

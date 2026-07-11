@@ -145,6 +145,12 @@ namespace Doom.Game
             HashCode.Combine(MapThingIndex, Present, X, Y, Health, Frame, Flags, Target);
     }
 
+    public enum ProjectilePhase
+    {
+        Flying = 0,
+        Exploding = 1,
+    }
+
     public sealed class ProjectileSnapshot : IEquatable<ProjectileSnapshot>
     {
         public int SpawnId { get; }
@@ -157,12 +163,33 @@ namespace Doom.Game
         public float VelY { get; }
         public float VelZ { get; }
         public float RemainingLife { get; }
+        public ProjectilePhase Phase { get; }
+        public int FrameIndex { get; }
+        public float ShotDirX { get; }
+        public float ShotDirY { get; }
+        public float ShotDirZ { get; }
+        public bool SprayApplied { get; }
 
         public ProjectileSnapshot(
             int spawnId, int type, SaveEntityId owner,
             float x, float y, float z,
             float velX, float velY, float velZ,
             float remainingLife)
+            : this(
+                spawnId, type, owner,
+                x, y, z, velX, velY, velZ, remainingLife,
+                ProjectilePhase.Flying, 0, 0f, 0f, 0f, false)
+        {
+        }
+
+        public ProjectileSnapshot(
+            int spawnId, int type, SaveEntityId owner,
+            float x, float y, float z,
+            float velX, float velY, float velZ,
+            float remainingLife,
+            ProjectilePhase phase, int frameIndex,
+            float shotDirX, float shotDirY, float shotDirZ,
+            bool sprayApplied)
         {
             SpawnId = spawnId;
             Type = type;
@@ -174,6 +201,12 @@ namespace Doom.Game
             VelY = velY;
             VelZ = velZ;
             RemainingLife = remainingLife;
+            Phase = phase;
+            FrameIndex = frameIndex;
+            ShotDirX = shotDirX;
+            ShotDirY = shotDirY;
+            ShotDirZ = shotDirZ;
+            SprayApplied = sprayApplied;
         }
 
         public bool Equals(ProjectileSnapshot other)
@@ -182,12 +215,19 @@ namespace Doom.Game
             return SpawnId == other.SpawnId && Type == other.Type && Owner.Equals(other.Owner)
                    && X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z)
                    && VelX.Equals(other.VelX) && VelY.Equals(other.VelY) && VelZ.Equals(other.VelZ)
-                   && RemainingLife.Equals(other.RemainingLife);
+                   && RemainingLife.Equals(other.RemainingLife)
+                   && Phase == other.Phase && FrameIndex == other.FrameIndex
+                   && ShotDirX.Equals(other.ShotDirX)
+                   && ShotDirY.Equals(other.ShotDirY)
+                   && ShotDirZ.Equals(other.ShotDirZ)
+                   && SprayApplied == other.SprayApplied;
         }
 
         public override bool Equals(object obj) => Equals(obj as ProjectileSnapshot);
         public override int GetHashCode() =>
-            HashCode.Combine(SpawnId, Type, Owner, X, Y, Z, RemainingLife);
+            HashCode.Combine(
+                HashCode.Combine(SpawnId, Type, Owner, X, Y, Z, RemainingLife),
+                HashCode.Combine((int)Phase, FrameIndex, ShotDirX, ShotDirY, ShotDirZ, SprayApplied));
     }
 
     /// Runtime death-drop / spawned pickup (not a map THINGS entry).

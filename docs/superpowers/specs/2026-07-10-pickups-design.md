@@ -49,8 +49,8 @@ E1M2 (или любом уровне с locked door) — ключ не даёт 
 - **Invulnerability / invisibility / light-amp / computer map** — визуальные
   и/или картографические эффекты; без палитры/automap малозаметны. Позже.
 - **Megasphere, super shotgun и прочий Doom 2** — вне Freedoom Phase 1 E1.
-- **Ракеты, ячейки, chainsaw / rocket / plasma / BFG** как подбираемое оружие —
-  нет стволов в 6c; появятся с оружейным расширением.
+- **Ячейки, plasma и BFG** как подбираемое оружие — не входили в 6e и
+  реализуются отдельным оружейным расширением 6c после закрытия Stage 7e.
 - **Звук подбора** (`DSITEMUP` и т.п.) — 6f.
 - **Полноценный HUD** (цифры, лицо, иконки ключей) — Этап 7.
 - **Сохранение арсенала после респавна** — по-прежнему сброс оружия/патронов
@@ -61,7 +61,10 @@ E1M2 (или любом уровне с locked door) — ключ не даёт 
 
 > **Статус 2026-07-11:** ограничение по ракетам снято оружейным расширением.
 > Реализованы `AmmoType.Rockets`, ракетница 2003, ракета 2010, коробка 2046
-> и ракетный клип-грант рюкзака; ячейки и plasma/BFG остаются отложенными.
+> и ракетный клип-грант рюкзака. Ячейки и plasma/BFG теперь имеют отдельные
+> утверждённые design/implementation документы, но ещё не реализованы:
+> `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`,
+> `docs/superpowers/plans/2026-07-11-plasma-bfg.md`.
 
 ## Ключевые решения (из brainstorming)
 
@@ -241,3 +244,5 @@ PlayMode зелёные; CLAUDE.md / roadmap обновлены.
   `docs/superpowers/specs/2026-05-31-player-damage-design.md` (6b, Heal YAGNI),
   `docs/superpowers/specs/2026-07-02-weapons-design.md` (6c, узкий подбор),
   `docs/superpowers/specs/2026-07-03-monster-ai-design.md` (6d, дроп отложен).
+- Запланированное оружейное расширение:
+  `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`.

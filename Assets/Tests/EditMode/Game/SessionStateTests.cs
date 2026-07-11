@@ -127,9 +127,12 @@ namespace Doom.Game.Tests
             while (ammo.Get(AmmoType.Shells) < 20)
                 ammo.Add(AmmoType.Shells, 1);
             ammo.Add(AmmoType.Rockets, 7);
+            ammo.Add(AmmoType.Cells, 80);
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.Chaingun);
             loadout.Give(WeaponId.RocketLauncher);
+            loadout.Give(WeaponId.PlasmaRifle);
+            loadout.Give(WeaponId.Bfg9000);
 
             var carry = PlayerCarryState.Capture(health, ammo, loadout);
 
@@ -144,9 +147,12 @@ namespace Doom.Game.Tests
             Assert.That(a2.HasBackpack, Is.True);
             Assert.That(a2.Get(AmmoType.Shells), Is.EqualTo(20));
             Assert.That(a2.Get(AmmoType.Rockets), Is.EqualTo(8)); // backpack gave 1 + 7
+            Assert.That(a2.Get(AmmoType.Cells), Is.EqualTo(100)); // backpack gave 20 + 80
             Assert.That(l2.Has(WeaponId.Chaingun), Is.True);
             Assert.That(l2.Has(WeaponId.RocketLauncher), Is.True);
-            Assert.That(l2.Current, Is.EqualTo(WeaponId.RocketLauncher));
+            Assert.That(l2.Has(WeaponId.PlasmaRifle), Is.True);
+            Assert.That(l2.Has(WeaponId.Bfg9000), Is.True);
+            Assert.That(l2.Current, Is.EqualTo(WeaponId.Bfg9000));
         }
     }
 }

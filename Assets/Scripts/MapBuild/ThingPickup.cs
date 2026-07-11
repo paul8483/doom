@@ -4,9 +4,16 @@ using Doom.Game;
 namespace Doom.MapBuild
 {
     /// Pickup trigger for items (Stage 6e: full E1 set via PlayerInventory / ItemRules).
-    /// Touch radius in the spirit of DOOM (16-unit item + 16-unit player radius).
+    /// Horizontal touch radius matches DOOM (16 item + 16 player). Vertical range
+    /// mirrors P_TouchSpecialThing: item may sit up to player-height above the
+    /// toucher, or 8 units below — so weapons in wall niches / on ledges stay
+    /// reachable from the floor in front of them.
     public sealed class ThingPickup : MonoBehaviour
     {
+        const float TouchRadiusDoom = 32f;
+        const float TouchAboveDoom = 56f; // toucher height
+        const float TouchBelowDoom = 8f;
+
         int doomedNum;
         int mapThingIndex = -1;
 
@@ -18,15 +25,27 @@ namespace Doom.MapBuild
         {
             this.doomedNum = doomedNum;
             this.mapThingIndex = mapThingIndex;
-            var trig = gameObject.AddComponent<SphereCollider>();
+
+            float r = TouchRadiusDoom * worldScale;
+            float yMin = -TouchAboveDoom * worldScale;
+            float yMax = TouchBelowDoom * worldScale;
+            float span = yMax - yMin;
+
+            var trig = gameObject.AddComponent<CapsuleCollider>();
             trig.isTrigger = true;
-            trig.radius = 32f * worldScale;
-            trig.center = new Vector3(0f, 32f * worldScale, 0f);
+            trig.radius = r;
+            trig.height = Mathf.Max(span, 2f * r);
+            trig.center = new Vector3(0f, (yMin + yMax) * 0.5f, 0f);
         }
 
-        void OnTriggerEnter(Collider other)
+        void OnTriggerEnter(Collider other) => TryCollect(other);
+
+        void OnTriggerStay(Collider other) => TryCollect(other);
+
+        void TryCollect(Collider other)
         {
-            var inv = other.GetComponent<PlayerInventory>();
+            if (other == null) return;
+            var inv = other.GetComponentInParent<PlayerInventory>();
             if (inv == null) return;
             if (!inv.TryPickup(doomedNum)) return;
 

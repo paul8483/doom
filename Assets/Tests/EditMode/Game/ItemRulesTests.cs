@@ -112,6 +112,44 @@ namespace Doom.Game.Tests
             Assert.That(ItemRules.TryPickup(2005, ctx), Is.False, "already owned");
             Assert.That(ItemRules.IsPickup(2005), Is.True);
         }
+
+        [Test]
+        public void Plasma_BFG_and_cell_pickups_work()
+        {
+            var ctx = Fresh();
+            Assert.That(ItemRules.TryPickup(2004, ctx), Is.True);
+            Assert.That(ctx.Loadout.Has(WeaponId.PlasmaRifle), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Cells), Is.EqualTo(40));
+
+            Assert.That(ItemRules.TryPickup(2047, ctx), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Cells), Is.EqualTo(60));
+            Assert.That(ItemRules.TryPickup(17, ctx), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Cells), Is.EqualTo(160));
+
+            Assert.That(ItemRules.TryPickup(2006, ctx), Is.True);
+            Assert.That(ctx.Loadout.Has(WeaponId.Bfg9000), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Cells), Is.EqualTo(200));
+
+            // Full ammo + owned weapon → rejected; GO stays.
+            while (ctx.Ammo.Add(AmmoType.Cells, 20)) { }
+            Assert.That(ItemRules.TryPickup(2004, ctx), Is.False);
+            Assert.That(ItemRules.TryPickup(2047, ctx), Is.False);
+
+            Assert.That(ItemRules.IsPickup(2004), Is.True);
+            Assert.That(ItemRules.IsPickup(2006), Is.True);
+            Assert.That(ItemRules.IsPickup(2047), Is.True);
+            Assert.That(ItemRules.IsPickup(17), Is.True);
+        }
+
+        [Test]
+        public void New_energy_weapon_accepted_at_full_ammo()
+        {
+            var ctx = Fresh();
+            while (ctx.Ammo.Add(AmmoType.Cells, 20)) { }
+            Assert.That(ItemRules.TryPickup(2004, ctx), Is.True);
+            Assert.That(ctx.Loadout.Has(WeaponId.PlasmaRifle), Is.True);
+            Assert.That(ctx.Loadout.Current, Is.EqualTo(WeaponId.PlasmaRifle));
+        }
     }
 
     public class DeathDropTableTests

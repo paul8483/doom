@@ -3,8 +3,8 @@ using Doom.Game;
 
 namespace Doom.MapBuild
 {
-    /// Player rocket: straight MISL flight, direct impact damage and A_Explode splash.
-    public sealed class PlayerRocketProjectile : MonoBehaviour, IProjectileSnapshotSource
+    /// Player plasma bolt: PLSS flight, direct impact only, PLSE explosion (no splash).
+    public sealed class PlayerPlasmaProjectile : MonoBehaviour, IProjectileSnapshotSource
     {
         SpriteCache cache;
         float worldScale;
@@ -26,7 +26,7 @@ namespace Doom.MapBuild
         {
             if (direction.sqrMagnitude < 1e-8f) direction = Vector3.forward;
             Vector3 velocity = direction.normalized
-                * (RocketRules.SpeedDoomPerTic * 35f * worldScale);
+                * (PlasmaRules.SpeedDoomPerTic * 35f * worldScale);
             LaunchInternal(
                 cache, worldScale, rng, from, velocity, ownerRoot, sound, null, -1f, 0);
         }
@@ -49,28 +49,28 @@ namespace Doom.MapBuild
             Vector3 from, Vector3 velocity, Transform ownerRoot, SoundSystem sound,
             int? forcedSpawnId, float remainingLife, int frameIndex)
         {
-            var go = new GameObject("Missile_MISL", typeof(MeshFilter), typeof(MeshRenderer));
+            var go = new GameObject("Missile_PLSS", typeof(MeshFilter), typeof(MeshRenderer));
             go.transform.position = from;
-            int flyIndex = Mathf.Clamp(frameIndex, 0, RocketRules.FlyFrames.Length - 1);
+            int flyIndex = Mathf.Clamp(frameIndex, 0, PlasmaRules.FlyFrames.Length - 1);
 
             var bb = go.AddComponent<SpriteBillboard>();
-            bb.Init(cache, RocketRules.Sprite, RocketRules.FlyFrames[flyIndex], worldScale,
+            bb.Init(cache, PlasmaRules.Sprite, PlasmaRules.FlyFrames[flyIndex], worldScale,
                 doomAngleDeg: 0f, spawnCeiling: false, ceilingY: 0f);
-            bb.SetStaticFrame(RocketRules.FlyFrames[flyIndex]);
+            bb.SetStaticFrame(PlasmaRules.FlyFrames[flyIndex]);
 
-            var rocket = go.AddComponent<PlayerRocketProjectile>();
-            rocket.cache = cache;
-            rocket.worldScale = worldScale;
-            rocket.velocity = velocity;
-            rocket.rng = rng ?? new DoomRandom();
-            rocket.billboard = bb;
-            rocket.sound = sound;
-            rocket.ownerRoot = ownerRoot;
-            rocket.castRadius = RocketRules.RadiusDoom * worldScale;
-            rocket.flyIndex = flyIndex;
-            rocket.frameLeft = remainingLife > 0f
+            var bolt = go.AddComponent<PlayerPlasmaProjectile>();
+            bolt.cache = cache;
+            bolt.worldScale = worldScale;
+            bolt.velocity = velocity;
+            bolt.rng = rng ?? new DoomRandom();
+            bolt.billboard = bb;
+            bolt.sound = sound;
+            bolt.ownerRoot = ownerRoot;
+            bolt.castRadius = PlasmaRules.RadiusDoom * worldScale;
+            bolt.flyIndex = flyIndex;
+            bolt.frameLeft = remainingLife > 0f
                 ? remainingLife
-                : RocketRules.FlyTics[flyIndex] / 35f;
+                : PlasmaRules.FlyTics[flyIndex] / 35f;
 
             var registry = WorldStateRegistry.Instance;
             if (registry != null)
@@ -84,13 +84,12 @@ namespace Doom.MapBuild
 
         public ProjectileSnapshot CaptureSnapshot(int spawnId, WorldStateRegistry registry)
         {
-            // Impact damage has already been applied, so omit the visual-only explosion.
             if (exploding) return null;
             var p = transform.position;
             Vector3 direction = velocity.sqrMagnitude > 1e-8f
                 ? velocity.normalized : Vector3.zero;
             return new ProjectileSnapshot(
-                spawnId, RocketRules.SnapshotType, SaveEntityId.None,
+                spawnId, PlasmaRules.SnapshotType, SaveEntityId.None,
                 p.x, p.y, p.z,
                 velocity.x, velocity.y, velocity.z,
                 frameLeft,
@@ -117,9 +116,9 @@ namespace Doom.MapBuild
             frameLeft -= Time.deltaTime;
             if (frameLeft <= 0f)
             {
-                flyIndex = (flyIndex + 1) % RocketRules.FlyFrames.Length;
-                billboard.SetStaticFrame(RocketRules.FlyFrames[flyIndex]);
-                frameLeft = RocketRules.FlyTics[flyIndex] / 35f;
+                flyIndex = (flyIndex + 1) % PlasmaRules.FlyFrames.Length;
+                billboard.SetStaticFrame(PlasmaRules.FlyFrames[flyIndex]);
+                frameLeft = PlasmaRules.FlyTics[flyIndex] / 35f;
             }
 
             Vector3 delta = velocity * Time.deltaTime;
@@ -157,8 +156,8 @@ namespace Doom.MapBuild
 
         void Impact(Collider hitCollider)
         {
-            int direct = MonsterRules.RollDamage(
-                rng, RocketRules.DirectDamageMod, RocketRules.DirectDamageMult);
+            if (exploding) return;
+            int direct = PlasmaRules.RollDirectDamage(rng);
             var enemy = hitCollider != null ? hitCollider.GetComponentInParent<EnemyHealth>() : null;
             var player = hitCollider != null ? hitCollider.GetComponentInParent<PlayerHealth>() : null;
             if (enemy != null && !enemy.IsDead)
@@ -166,16 +165,13 @@ namespace Doom.MapBuild
             else if (player != null)
                 player.TakeDamage(direct);
 
-            sound?.PlayAt(RocketRules.ExplodeSound, transform.position);
-            RadiusDamageExecutor.ApplyBlast(
-                transform.position, worldScale, null, DamageSource.Player(),
-                RocketRules.SplashDamage, RocketRules.SplashRadiusDoom);
+            sound?.PlayAt(PlasmaRules.ExplodeSound, transform.position);
 
             exploding = true;
             explodeIndex = 0;
             velocity = Vector3.zero;
-            billboard.SetStaticFrame(RocketRules.ExplodeFrames[0]);
-            frameLeft = RocketRules.ExplodeTics[0] / 35f;
+            billboard.SetSprite(PlasmaRules.ExplodeSprite, PlasmaRules.ExplodeFrames[0]);
+            frameLeft = PlasmaRules.ExplodeTics[0] / 35f;
         }
 
         void TickExplosion()
@@ -183,13 +179,13 @@ namespace Doom.MapBuild
             frameLeft -= Time.deltaTime;
             if (frameLeft > 0f) return;
             explodeIndex++;
-            if (explodeIndex >= RocketRules.ExplodeFrames.Length)
+            if (explodeIndex >= PlasmaRules.ExplodeFrames.Length)
             {
                 Destroy(gameObject);
                 return;
             }
-            billboard.SetStaticFrame(RocketRules.ExplodeFrames[explodeIndex]);
-            frameLeft = RocketRules.ExplodeTics[explodeIndex] / 35f;
+            billboard.SetStaticFrame(PlasmaRules.ExplodeFrames[explodeIndex]);
+            frameLeft = PlasmaRules.ExplodeTics[explodeIndex] / 35f;
         }
     }
 }

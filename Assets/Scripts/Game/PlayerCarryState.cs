@@ -12,6 +12,7 @@ namespace Doom.Game
         public int Bullets { get; }
         public int Shells { get; }
         public int Rockets { get; }
+        public int Cells { get; }
         public bool HasBackpack { get; }
         public bool OwnsFist { get; }
         public bool OwnsPistol { get; }
@@ -19,6 +20,8 @@ namespace Doom.Game
         public bool OwnsChaingun { get; }
         public bool OwnsRocketLauncher { get; }
         public bool OwnsChainsaw { get; }
+        public bool OwnsPlasmaRifle { get; }
+        public bool OwnsBfg9000 { get; }
         public WeaponId CurrentWeapon { get; }
 
         public PlayerCarryState(
@@ -52,6 +55,20 @@ namespace Doom.Game
             int bullets, int shells, int rockets, bool hasBackpack,
             bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
             bool ownsRocketLauncher, bool ownsChainsaw, WeaponId currentWeapon)
+            : this(
+                health, armor, armorType,
+                bullets, shells, rockets, 0, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun,
+                ownsRocketLauncher, ownsChainsaw, false, false, currentWeapon)
+        {
+        }
+
+        public PlayerCarryState(
+            int health, int armor, ArmorKind armorType,
+            int bullets, int shells, int rockets, int cells, bool hasBackpack,
+            bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsRocketLauncher, bool ownsChainsaw,
+            bool ownsPlasmaRifle, bool ownsBfg9000, WeaponId currentWeapon)
         {
             Health = health;
             Armor = armor;
@@ -59,6 +76,7 @@ namespace Doom.Game
             Bullets = bullets;
             Shells = shells;
             Rockets = rockets;
+            Cells = cells;
             HasBackpack = hasBackpack;
             OwnsFist = ownsFist;
             OwnsPistol = ownsPistol;
@@ -66,6 +84,8 @@ namespace Doom.Game
             OwnsChaingun = ownsChaingun;
             OwnsRocketLauncher = ownsRocketLauncher;
             OwnsChainsaw = ownsChainsaw;
+            OwnsPlasmaRifle = ownsPlasmaRifle;
+            OwnsBfg9000 = ownsBfg9000;
             CurrentWeapon = currentWeapon;
         }
 
@@ -87,11 +107,13 @@ namespace Doom.Game
             return new PlayerCarryState(
                 health.Health, health.Armor, health.ArmorType,
                 ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells),
-                ammo.Get(AmmoType.Rockets), ammo.HasBackpack,
+                ammo.Get(AmmoType.Rockets), ammo.Get(AmmoType.Cells), ammo.HasBackpack,
                 loadout.Has(WeaponId.Fist), loadout.Has(WeaponId.Pistol),
                 loadout.Has(WeaponId.Shotgun), loadout.Has(WeaponId.Chaingun),
                 loadout.Has(WeaponId.RocketLauncher),
                 loadout.Has(WeaponId.Chainsaw),
+                loadout.Has(WeaponId.PlasmaRifle),
+                loadout.Has(WeaponId.Bfg9000),
                 loadout.Current);
         }
 
@@ -102,10 +124,11 @@ namespace Doom.Game
             if (loadout == null) throw new ArgumentNullException(nameof(loadout));
 
             health.Restore(Health, Armor, ArmorType);
-            ammo.Restore(Bullets, Shells, Rockets, HasBackpack);
+            ammo.Restore(Bullets, Shells, Rockets, Cells, HasBackpack);
             loadout.Restore(
                 OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun,
-                OwnsRocketLauncher, OwnsChainsaw, CurrentWeapon);
+                OwnsRocketLauncher, OwnsChainsaw, OwnsPlasmaRifle, OwnsBfg9000,
+                CurrentWeapon);
         }
     }
 }

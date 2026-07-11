@@ -78,22 +78,28 @@ namespace Doom.Game.Tests
         }
 
         [Test]
-        public void Rockets_are_projected_while_cells_remain_unsupported()
+        public void Cells_and_energy_weapon_ownership_are_projected()
         {
             var ammo = new AmmoModel();
             ammo.Add(AmmoType.Rockets, 7);
+            ammo.Add(AmmoType.Cells, 40);
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.RocketLauncher);
+            loadout.Give(WeaponId.PlasmaRifle);
+            loadout.Give(WeaponId.Bfg9000);
+            loadout.TrySelect(WeaponId.PlasmaRifle);
             var hud = HudModel.From(
                 new HealthModel(), ammo, loadout,
                 new KeyInventory(), new PlayerPowers(), new FaceState());
 
             Assert.That(hud.Rockets, Is.EqualTo(7));
-            Assert.That(hud.ReadyAmmo, Is.EqualTo(7));
+            Assert.That(hud.Cells, Is.EqualTo(40));
+            Assert.That(hud.ReadyAmmo, Is.EqualTo(40));
             Assert.That(hud.OwnsRocketLauncher, Is.True);
-            Assert.That(hud.Cells, Is.EqualTo(0));
+            Assert.That(hud.OwnsPlasmaRifle, Is.True);
+            Assert.That(hud.OwnsBfg9000, Is.True);
             Assert.That(hud.MaxRockets, Is.EqualTo(AmmoModel.MaxRockets));
-            Assert.That(hud.MaxCells, Is.EqualTo(0));
+            Assert.That(hud.MaxCells, Is.EqualTo(AmmoModel.MaxCells));
         }
     }
 }

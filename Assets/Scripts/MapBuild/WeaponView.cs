@@ -34,6 +34,8 @@ namespace Doom.MapBuild
         float animLeft;
         float flashLeft;
         int flashIdx;
+        float flashDelayLeft;
+        bool flashRandomHold;
 
         public void Init(PlayerWeapons weapons, SpriteCache cache, float worldScale,
                          CharacterController controller)
@@ -52,15 +54,23 @@ namespace Doom.MapBuild
             anim = def;
             animIdx = 0;
             animLeft = def.FireTics[0] / 35f;
-            if (def.FlashSprite != null && def.FlashTics.Length > 0)
-            {
-                flashIdx = 0;
-                flashLeft = def.FlashTics[0] / 35f;
-            }
+            flashRandomHold = def.RandomFlash;
+            flashDelayLeft = def.FlashDelayTic / 35f;
+            if (def.FlashSprite != null && def.FlashTics.Length > 0 && def.FlashDelayTic <= 0)
+                BeginFlash(def);
             else
-            {
                 flashLeft = 0f;
-            }
+        }
+
+        void BeginFlash(WeaponDef def)
+        {
+            if (def.RandomFlash && def.FlashFrames.Length > 0)
+                flashIdx = weapons.Rng.Next() & 1;
+            else
+                flashIdx = 0;
+            if (flashIdx >= def.FlashFrames.Length) flashIdx = 0;
+            flashLeft = def.FlashTics[Mathf.Min(flashIdx, def.FlashTics.Length - 1)] / 35f;
+            flashDelayLeft = 0f;
         }
 
         void Update()
@@ -75,10 +85,17 @@ namespace Doom.MapBuild
                     else animLeft = anim.FireTics[animIdx] / 35f;
                 }
             }
+            if (flashDelayLeft > 0f && anim != null)
+            {
+                flashDelayLeft -= Time.deltaTime;
+                if (flashDelayLeft <= 0f)
+                    BeginFlash(anim);
+            }
             if (flashLeft > 0f)
             {
                 flashLeft -= Time.deltaTime;
-                if (flashLeft <= 0f && anim != null && flashIdx + 1 < anim.FlashTics.Length)
+                if (flashLeft <= 0f && anim != null && !flashRandomHold
+                    && flashIdx + 1 < anim.FlashTics.Length)
                 {
                     flashIdx++;
                     flashLeft = anim.FlashTics[flashIdx] / 35f;

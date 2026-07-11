@@ -1,24 +1,28 @@
 namespace Doom.Game
 {
     /// Счётчики патронов игрока. Значения DOOM: старт 50 пуль,
-    /// максимумы maxammo = 200 пуль / 50 дроби / 50 ракет (p_inter.c);
-    /// с рюкзаком — 400 / 100 / 100.
+    /// максимумы maxammo = 200 пуль / 50 дроби / 50 ракет / 300 ячеек (p_inter.c);
+    /// с рюкзаком — 400 / 100 / 100 / 600.
     public sealed class AmmoModel
     {
         public const int MaxBullets = 200;
         public const int MaxShells = 50;
         public const int MaxRockets = 50;
+        public const int MaxCells = 300;
         public const int MaxBulletsBackpack = 400;
         public const int MaxShellsBackpack = 100;
         public const int MaxRocketsBackpack = 100;
+        public const int MaxCellsBackpack = 600;
         public const int StartBullets = 50;
         public const int BackpackClipBullets = 10;
         public const int BackpackClipShells = 4;
         public const int BackpackClipRockets = 1;
+        public const int BackpackClipCells = 20;
 
         int bullets = StartBullets;
         int shells;
         int rockets;
+        int cells;
         public bool HasBackpack { get; private set; }
 
         public int Get(AmmoType t) => t switch
@@ -26,6 +30,7 @@ namespace Doom.Game
             AmmoType.Bullets => bullets,
             AmmoType.Shells => shells,
             AmmoType.Rockets => rockets,
+            AmmoType.Cells => cells,
             _ => 0,
         };
 
@@ -34,6 +39,7 @@ namespace Doom.Game
             AmmoType.Bullets => HasBackpack ? MaxBulletsBackpack : MaxBullets,
             AmmoType.Shells => HasBackpack ? MaxShellsBackpack : MaxShells,
             AmmoType.Rockets => HasBackpack ? MaxRocketsBackpack : MaxRockets,
+            AmmoType.Cells => HasBackpack ? MaxCellsBackpack : MaxCells,
             _ => 0,
         };
 
@@ -62,6 +68,7 @@ namespace Doom.Game
             Add(AmmoType.Bullets, BackpackClipBullets);
             Add(AmmoType.Shells, BackpackClipShells);
             Add(AmmoType.Rockets, BackpackClipRockets);
+            Add(AmmoType.Cells, BackpackClipCells);
             return true;
         }
 
@@ -70,20 +77,26 @@ namespace Doom.Game
             bullets = StartBullets;
             shells = 0;
             rockets = 0;
+            cells = 0;
             HasBackpack = false;
         }
 
         /// Authoritative restore for carry-over / save. Counts are clamped to the
         /// max implied by <paramref name="hasBackpack"/>.
         public void Restore(int bulletCount, int shellCount, bool hasBackpack)
-            => Restore(bulletCount, shellCount, 0, hasBackpack);
+            => Restore(bulletCount, shellCount, 0, 0, hasBackpack);
 
         public void Restore(int bulletCount, int shellCount, int rocketCount, bool hasBackpack)
+            => Restore(bulletCount, shellCount, rocketCount, 0, hasBackpack);
+
+        public void Restore(
+            int bulletCount, int shellCount, int rocketCount, int cellCount, bool hasBackpack)
         {
             HasBackpack = hasBackpack;
             bullets = Clamp(bulletCount, GetMax(AmmoType.Bullets));
             shells = Clamp(shellCount, GetMax(AmmoType.Shells));
             rockets = Clamp(rocketCount, GetMax(AmmoType.Rockets));
+            cells = Clamp(cellCount, GetMax(AmmoType.Cells));
         }
 
         public void Capture(out int bulletCount, out int shellCount, out bool hasBackpack)
@@ -102,6 +115,17 @@ namespace Doom.Game
             hasBackpack = HasBackpack;
         }
 
+        public void Capture(
+            out int bulletCount, out int shellCount, out int rocketCount, out int cellCount,
+            out bool hasBackpack)
+        {
+            bulletCount = bullets;
+            shellCount = shells;
+            rocketCount = rockets;
+            cellCount = cells;
+            hasBackpack = HasBackpack;
+        }
+
         static int Clamp(int v, int max)
         {
             if (v < 0) return 0;
@@ -113,6 +137,7 @@ namespace Doom.Game
             if (t == AmmoType.Bullets) bullets = v;
             else if (t == AmmoType.Shells) shells = v;
             else if (t == AmmoType.Rockets) rockets = v;
+            else if (t == AmmoType.Cells) cells = v;
         }
     }
 }

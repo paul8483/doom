@@ -173,9 +173,10 @@ DOOM-подобный HUD и intermission, может поставить игр�
 
 - PWAD merge поверх IWAD, DEH/BEX, Doom II `MAPxx` campaign routing.
 - Automap, multiplayer/networking, demos и deterministic net sync.
-- Полный набор оружия/боеприпасов и монстров Doom II; chainsaw, rocket,
-  plasma/BFG и flying monsters не становятся скрытой частью Stage 7, если
-  compatibility audit не докажет, что без них E1 непроходим.
+- Полный набор оружия/боеприпасов и монстров Doom II и flying monsters не
+  становятся скрытой частью Stage 7. Chainsaw/rocket уже реализованы как
+  расширения 6c; plasma/BFG/Cells вынесены в утверждённое расширение 6c,
+  которое начинается только после закрытия 7e.
 - Invulnerability/invisibility/computer-map/light-amp pickups и их visual FX.
 - Точная анимация intermission, finale/cast screen и текстовые story screens.
 - Полная эмуляция DMX channel stealing, pitch shift, sector audio occlusion.
@@ -404,5 +405,7 @@ Stage 7 завершён, когда одновременно выполнено
 - Interactive sectors: `docs/superpowers/specs/2026-05-31-doors-design.md`
 - Damage/HP: `docs/superpowers/specs/2026-05-31-player-damage-design.md`
 - Weapons: `docs/superpowers/specs/2026-07-02-weapons-design.md`
+- Plasma/BFG extension:
+  `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`
 - Pickups: `docs/superpowers/specs/2026-07-10-pickups-design.md`
 - Sound/music: `docs/superpowers/specs/2026-07-10-sound-design.md`

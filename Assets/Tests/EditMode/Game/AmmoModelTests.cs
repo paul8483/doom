@@ -29,6 +29,26 @@ namespace Doom.Game.Tests
         }
 
         [Test]
+        public void Cells_clamp_consume_and_capture_restore()
+        {
+            var a = new AmmoModel();
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(0));
+            Assert.That(a.GetMax(AmmoType.Cells), Is.EqualTo(AmmoModel.MaxCells));
+            Assert.That(a.Add(AmmoType.Cells, 500), Is.True);
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(AmmoModel.MaxCells));
+            Assert.That(a.TryConsume(AmmoType.Cells, 40), Is.True);
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(260));
+            Assert.That(a.TryConsume(AmmoType.Cells, 261), Is.False);
+
+            a.Capture(out int b, out int s, out int r, out int c, out bool bp);
+            Assert.That(c, Is.EqualTo(260));
+            a.Restore(b, s, r, -5, bp);
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(0));
+            a.Restore(b, s, r, 9999, false);
+            Assert.That(a.Get(AmmoType.Cells), Is.EqualTo(AmmoModel.MaxCells));
+        }
+
+        [Test]
         public void TryConsume_spends_or_refuses()
         {
             var a = new AmmoModel();

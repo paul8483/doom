@@ -47,8 +47,8 @@ namespace Doom.Game
         {
             foreach (var id in new[]
             {
-                WeaponId.RocketLauncher, WeaponId.Chaingun,
-                WeaponId.Shotgun, WeaponId.Pistol
+                WeaponId.Bfg9000, WeaponId.PlasmaRifle, WeaponId.RocketLauncher,
+                WeaponId.Chaingun, WeaponId.Shotgun, WeaponId.Pistol,
             })
             {
                 var def = WeaponTable.Get(id);
@@ -72,26 +72,38 @@ namespace Doom.Game
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun, WeaponId current)
         {
-            Restore(fist, pistol, shotgun, chaingun, false, false, current, pendingWeapon: null);
+            Restore(fist, pistol, shotgun, chaingun, false, false, false, false,
+                current, pendingWeapon: null);
         }
 
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun,
             WeaponId current, WeaponId? pendingWeapon)
         {
-            Restore(fist, pistol, shotgun, chaingun, false, false, current, pendingWeapon);
+            Restore(fist, pistol, shotgun, chaingun, false, false, false, false,
+                current, pendingWeapon);
         }
 
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun, bool rocketLauncher,
             WeaponId current, WeaponId? pendingWeapon = null)
         {
-            Restore(fist, pistol, shotgun, chaingun, rocketLauncher, false, current, pendingWeapon);
+            Restore(fist, pistol, shotgun, chaingun, rocketLauncher, false, false, false,
+                current, pendingWeapon);
         }
 
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun, bool rocketLauncher,
             bool chainsaw, WeaponId current, WeaponId? pendingWeapon = null)
+        {
+            Restore(fist, pistol, shotgun, chaingun, rocketLauncher, chainsaw,
+                false, false, current, pendingWeapon);
+        }
+
+        public void Restore(
+            bool fist, bool pistol, bool shotgun, bool chaingun, bool rocketLauncher,
+            bool chainsaw, bool plasmaRifle, bool bfg9000,
+            WeaponId current, WeaponId? pendingWeapon = null)
         {
             owned[(int)WeaponId.Fist] = true; // always
             owned[(int)WeaponId.Pistol] = pistol;
@@ -99,9 +111,11 @@ namespace Doom.Game
             owned[(int)WeaponId.Chaingun] = chaingun;
             owned[(int)WeaponId.RocketLauncher] = rocketLauncher;
             owned[(int)WeaponId.Chainsaw] = chainsaw;
+            owned[(int)WeaponId.PlasmaRifle] = plasmaRifle;
+            owned[(int)WeaponId.Bfg9000] = bfg9000;
             _ = fist; // fist flag accepted for DTO symmetry; ownership forced true
 
-            if (owned[(int)current])
+            if (IsKnownWeapon(current) && owned[(int)current])
                 Current = current;
             else if (owned[(int)WeaponId.Pistol])
                 Current = WeaponId.Pistol;
@@ -110,7 +124,9 @@ namespace Doom.Game
             else
                 Current = WeaponId.Fist;
 
-            if (pendingWeapon.HasValue && owned[(int)pendingWeapon.Value])
+            if (pendingWeapon.HasValue
+                && IsKnownWeapon(pendingWeapon.Value)
+                && owned[(int)pendingWeapon.Value])
                 pending = pendingWeapon;
             else
                 pending = null;
@@ -145,6 +161,24 @@ namespace Doom.Game
             Capture(out fist, out pistol, out shotgun, out chaingun, out rocketLauncher,
                 out current, out pendingWeapon);
             chainsaw = owned[(int)WeaponId.Chainsaw];
+        }
+
+        public void Capture(
+            out bool fist, out bool pistol, out bool shotgun, out bool chaingun,
+            out bool rocketLauncher, out bool chainsaw,
+            out bool plasmaRifle, out bool bfg9000,
+            out WeaponId current, out WeaponId? pendingWeapon)
+        {
+            Capture(out fist, out pistol, out shotgun, out chaingun, out rocketLauncher,
+                out chainsaw, out current, out pendingWeapon);
+            plasmaRifle = owned[(int)WeaponId.PlasmaRifle];
+            bfg9000 = owned[(int)WeaponId.Bfg9000];
+        }
+
+        static bool IsKnownWeapon(WeaponId id)
+        {
+            int v = (int)id;
+            return v >= 0 && v < System.Enum.GetValues(typeof(WeaponId)).Length;
         }
     }
 }

@@ -137,10 +137,13 @@ namespace Doom.Game.Tests
             ammo.GiveBackpack();
             ammo.Add(AmmoType.Shells, 12);
             ammo.Add(AmmoType.Rockets, 7);
+            ammo.Add(AmmoType.Cells, 80);
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.Shotgun);
             loadout.Give(WeaponId.RocketLauncher);
             loadout.Give(WeaponId.Chainsaw);
+            loadout.Give(WeaponId.PlasmaRifle);
+            loadout.Give(WeaponId.Bfg9000);
             loadout.TrySelect(WeaponId.Shotgun);
             loadout.TryQueuePending(WeaponId.Pistol);
             var keys = new KeyInventory();
@@ -170,10 +173,13 @@ namespace Doom.Game.Tests
             Assert.That(ammo.HasBackpack, Is.True);
             Assert.That(ammo.Get(AmmoType.Shells), Is.EqualTo(snap.Shells));
             Assert.That(ammo.Get(AmmoType.Rockets), Is.EqualTo(snap.Rockets));
+            Assert.That(ammo.Get(AmmoType.Cells), Is.EqualTo(snap.Cells));
             Assert.That(snap.Shells, Is.EqualTo(12 + AmmoModel.BackpackClipShells));
             Assert.That(loadout.Has(WeaponId.Shotgun), Is.True);
             Assert.That(loadout.Has(WeaponId.RocketLauncher), Is.True);
             Assert.That(loadout.Has(WeaponId.Chainsaw), Is.True);
+            Assert.That(loadout.Has(WeaponId.PlasmaRifle), Is.True);
+            Assert.That(loadout.Has(WeaponId.Bfg9000), Is.True);
             Assert.That(loadout.Current, Is.EqualTo(WeaponId.Shotgun));
             Assert.That(loadout.HasPending, Is.True);
             Assert.That(loadout.Pending, Is.EqualTo(WeaponId.Pistol));
@@ -265,6 +271,33 @@ namespace Doom.Game.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => SaveEntityId.MapThing(-1));
             Assert.That(SaveEntityId.TryCreate(EntityKind.MapThing, -1, out _), Is.False);
             Assert.That(SaveEntityId.TryCreate((EntityKind)99, 0, out _), Is.False);
+        }
+
+        [Test]
+        public void ProjectileSnapshot_equality_includes_v4_phase_fields()
+        {
+            var a = new ProjectileSnapshot(
+                7, 2006, SaveEntityId.None,
+                1f, 2f, 3f, 0f, 0f, 0f, 0.1f,
+                ProjectilePhase.Exploding, 2, 0.6f, 0f, 0.8f, false);
+            var same = new ProjectileSnapshot(
+                7, 2006, SaveEntityId.None,
+                1f, 2f, 3f, 0f, 0f, 0f, 0.1f,
+                ProjectilePhase.Exploding, 2, 0.6f, 0f, 0.8f, false);
+            var sprayed = new ProjectileSnapshot(
+                7, 2006, SaveEntityId.None,
+                1f, 2f, 3f, 0f, 0f, 0f, 0.1f,
+                ProjectilePhase.Exploding, 2, 0.6f, 0f, 0.8f, true);
+            var legacy = new ProjectileSnapshot(
+                7, 2006, SaveEntityId.None,
+                1f, 2f, 3f, 0f, 0f, 0f, 0.1f);
+
+            Assert.That(a, Is.EqualTo(same));
+            Assert.That(a.GetHashCode(), Is.EqualTo(same.GetHashCode()));
+            Assert.That(a, Is.Not.EqualTo(sprayed));
+            Assert.That(legacy.Phase, Is.EqualTo(ProjectilePhase.Flying));
+            Assert.That(legacy.FrameIndex, Is.Zero);
+            Assert.That(legacy.SprayApplied, Is.False);
         }
 
         [Test]

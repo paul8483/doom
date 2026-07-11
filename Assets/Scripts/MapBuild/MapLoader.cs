@@ -235,6 +235,11 @@ namespace Doom.MapBuild
                 ("MISL", new[] { 0, 1, 2, 3 }),
                 // SAWG A/B fire, C idle (S_SAW); D unused by our states but in WAD.
                 ("SAWG", new[] { 0, 1, 2, 3 }),
+                ("PLSG", new[] { 0, 1 }), ("PLSF", new[] { 0, 1 }),
+                ("PLSS", new[] { 0, 1 }), ("PLSE", new[] { 0, 1, 2, 3, 4 }),
+                ("BFGG", new[] { 0, 1 }), ("BFGF", new[] { 0, 1 }),
+                ("BFS1", new[] { 0, 1 }), ("BFE1", new[] { 0, 1, 2, 3, 4, 5 }),
+                ("BFE2", new[] { 0, 1, 2, 3 }),
                 ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),
             })
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
@@ -358,9 +363,12 @@ namespace Doom.MapBuild
             {
                 "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
                 "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
-                "DSFIRSHT", "DSFIRXPL", "DSCLAW", "DSBAREXP",
+                "DSFIRSHT", "DSFIRXPL", "DSRXPLOD", "DSCLAW", "DSBAREXP",
             })
                 Add(n);
+
+            Add(PlasmaRules.ExplodeSound);
+            Add(BfgRules.ExplodeSound);
 
             foreach (int doomed in new[] { 3004, 9, 3001, 3002 })
             {

@@ -44,7 +44,8 @@ namespace Doom.MapBuild
                 RestoreMapThings(world, registry);
                 RestoreSpawnedPickups(world, registry, spriteCache, worldScale, player);
                 ResolveMonsterTargets(world, registry, player.transform);
-                RestoreProjectiles(world, registry, spriteCache, worldScale, sound, player);
+                RestoreProjectiles(
+                    world, save.Version, registry, spriteCache, worldScale, sound, player);
                 RestorePlayer(save.Player, player);
                 RestoreStats(world, registry);
                 registry.SetNextSpawnId(world.NextSpawnId);
@@ -201,7 +202,7 @@ namespace Doom.MapBuild
         }
 
         static void RestoreProjectiles(
-            WorldSnapshot world, WorldStateRegistry registry,
+            WorldSnapshot world, int saveVersion, WorldStateRegistry registry,
             SpriteCache spriteCache, float worldScale, SoundSystem sound,
             GameObject player)
         {
@@ -217,8 +218,26 @@ namespace Doom.MapBuild
                         spriteCache, worldScale, rng, proj, player.transform, sound);
                     continue;
                 }
-                if (!MonsterTable.TryGet(proj.Type, out var def) || def == null) continue;
-                if (string.IsNullOrEmpty(def.MissileSprite)) continue;
+                if (proj.Type == PlasmaRules.SnapshotType)
+                {
+                    PlayerPlasmaProjectile.LaunchFromSnapshot(
+                        spriteCache, worldScale, rng, proj, player.transform, sound);
+                    continue;
+                }
+                if (proj.Type == BfgRules.SnapshotType)
+                {
+                    PlayerBfgProjectile.LaunchFromSnapshot(
+                        spriteCache, worldScale, rng, proj, player.transform, sound);
+                    continue;
+                }
+                if (!MonsterTable.TryGet(proj.Type, out var def) || def == null
+                    || string.IsNullOrEmpty(def.MissileSprite))
+                {
+                    if (saveVersion >= 4)
+                        throw new InvalidOperationException(
+                            "Unknown projectile type in save: " + proj.Type);
+                    continue;
+                }
 
                 EnemyHealth owner = null;
                 if (!proj.Owner.IsNone &&
