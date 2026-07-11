@@ -188,8 +188,9 @@ effect textures существуют только в runtime memory; authored и
 replacement assets не добавляются. Classic остаётся режимом по умолчанию и
 эталоном визуальной регрессии.
 
-**Статус:** запланирован; реализация начинается после закрытия Stage 7
-(**Stage 7 закрыт 2026-07-12**).
+**Статус:** в работе на ветке `enhanced`. **Tasks 1–6 ✅** (8a settings/baseline +
+8b URP/Classic parity/hot-switch/HUD composite, commit `1e9cc4c`, 2026-07-12).
+Next: Task 7 Enhanced materials.
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
