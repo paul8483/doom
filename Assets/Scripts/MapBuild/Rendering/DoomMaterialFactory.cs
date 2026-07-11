@@ -1,18 +1,23 @@
 using System;
 using UnityEngine;
 using Doom.Game;
+using Doom.Graphics;
 
 namespace Doom.MapBuild.Rendering
 {
-    /// Resolves Classic/Enhanced shaders and applies filter policy.
-    /// Enhanced world shaders land in Task 7 — until then Enhanced reuses Classic
-    /// unlit shaders while other profile flags (filter/HDR/post) still apply.
+    /// Resolves Classic/Enhanced shaders and applies filter / normal surface policy.
     public sealed class DoomMaterialFactory
     {
         public const string ClassicOpaqueName = "Doom/ClassicOpaque";
         public const string ClassicCutoutName = "Doom/ClassicCutout";
         public const string EnhancedOpaqueName = "Doom/EnhancedWorld";
         public const string EnhancedCutoutName = "Doom/EnhancedCutout";
+
+        public const string BumpMapProperty = "_BumpMap";
+        public const string BumpScaleProperty = "_BumpScale";
+        public const string RoughnessProperty = "_Roughness";
+        public const string EmissionProperty = "_EmissionStrength";
+        public const string CutoffProperty = "_Cutoff";
 
         Shader classicOpaque;
         Shader classicCutout;
@@ -21,6 +26,8 @@ namespace Doom.MapBuild.Rendering
         bool resolved;
 
         GraphicsProfile active = GraphicsProfile.Classic;
+        Func<Texture2D, Texture2D> normalLookup;
+        Func<Texture2D, MaterialSurfaceProfile> surfaceLookup;
 
         public GraphicsProfile ActiveProfile => active;
         public GraphicsMode ActiveMode => active.Mode;
@@ -31,13 +38,19 @@ namespace Doom.MapBuild.Rendering
             // domain reload before Shader.Find is ready.
         }
 
+        public void SetNormalLookup(Func<Texture2D, Texture2D> lookup) =>
+            normalLookup = lookup;
+
+        public void SetSurfaceLookup(Func<Texture2D, MaterialSurfaceProfile> lookup) =>
+            surfaceLookup = lookup;
+
         void EnsureShaders()
         {
             if (resolved) return;
             classicOpaque = Require(ClassicOpaqueName);
             classicCutout = Require(ClassicCutoutName);
-            enhancedOpaque = Shader.Find(EnhancedOpaqueName);
-            enhancedCutout = Shader.Find(EnhancedCutoutName);
+            enhancedOpaque = Require(EnhancedOpaqueName);
+            enhancedCutout = Require(EnhancedCutoutName);
             resolved = true;
         }
 
@@ -55,7 +68,7 @@ namespace Doom.MapBuild.Rendering
         public Shader OpaqueShader()
         {
             EnsureShaders();
-            if (active.UseLitMaterials && enhancedOpaque != null)
+            if (active.UseLitMaterials)
                 return enhancedOpaque;
             return classicOpaque;
         }
@@ -63,7 +76,7 @@ namespace Doom.MapBuild.Rendering
         public Shader CutoutShader()
         {
             EnsureShaders();
-            if (active.UseLitMaterials && enhancedCutout != null)
+            if (active.UseLitMaterials)
                 return enhancedCutout;
             return classicCutout;
         }
@@ -72,8 +85,7 @@ namespace Doom.MapBuild.Rendering
         {
             var mat = new Material(masked ? CutoutShader() : OpaqueShader());
             mat.mainTexture = texture;
-            if (masked && mat.HasProperty("_Cutoff"))
-                mat.SetFloat("_Cutoff", 0.5f);
+            ConfigureSurface(mat, texture, masked);
             return mat;
         }
 
@@ -83,13 +95,56 @@ namespace Doom.MapBuild.Rendering
             var shader = masked ? CutoutShader() : OpaqueShader();
             if (material.shader != shader)
                 material.shader = shader;
-            if (masked && material.HasProperty("_Cutoff"))
-                material.SetFloat("_Cutoff", 0.5f);
+            ConfigureSurface(material, material.mainTexture as Texture2D, masked);
+        }
+
+        void ConfigureSurface(Material material, Texture2D albedo, bool masked)
+        {
+            if (masked && material.HasProperty(CutoffProperty))
+                material.SetFloat(CutoffProperty, 0.5f);
+
+            bool enhanced = active.UseLitMaterials && active.ProceduralNormals;
+            if (enhanced)
+            {
+                var profile = surfaceLookup?.Invoke(albedo)
+                    ?? MaterialSurfaceProfile.For(MaterialSurfaceCategory.Unknown);
+                if (material.HasProperty(BumpMapProperty))
+                {
+                    var normal = normalLookup?.Invoke(albedo);
+                    material.SetTexture(
+                        BumpMapProperty,
+                        normal != null ? normal : Texture2D.normalTexture);
+                }
+                if (material.HasProperty(BumpScaleProperty))
+                    material.SetFloat(BumpScaleProperty, 1f);
+                if (material.HasProperty(RoughnessProperty))
+                    material.SetFloat(RoughnessProperty, profile.Roughness);
+                if (material.HasProperty(EmissionProperty))
+                    material.SetFloat(EmissionProperty, profile.Emission);
+            }
+            else
+            {
+                if (material.HasProperty(BumpMapProperty))
+                    material.SetTexture(BumpMapProperty, null);
+                if (material.HasProperty(BumpScaleProperty))
+                    material.SetFloat(BumpScaleProperty, 1f);
+                if (material.HasProperty(RoughnessProperty))
+                    material.SetFloat(RoughnessProperty, 0.75f);
+                if (material.HasProperty(EmissionProperty))
+                    material.SetFloat(EmissionProperty, 0f);
+            }
         }
 
         public void ApplyFilterPolicy(Texture2D texture)
         {
             if (texture == null) return;
+            // Normal maps always stay Bilinear; albedo follows profile.
+            if (texture.name != null && texture.name.EndsWith("/Normal", StringComparison.Ordinal))
+            {
+                texture.filterMode = FilterMode.Bilinear;
+                return;
+            }
+
             texture.filterMode = active.BilinearWorldFiltering
                 ? FilterMode.Bilinear
                 : FilterMode.Point;

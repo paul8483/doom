@@ -18,6 +18,8 @@ namespace Doom.MapBuild.Editor
         const string ScenePath = "Assets/Scenes/Stage2_MapPreview.unity";
         const string ClassicOpaquePath = "Assets/Shaders/DoomClassicOpaque.shader";
         const string ClassicCutoutPath = "Assets/Shaders/DoomClassicCutout.shader";
+        const string EnhancedOpaquePath = "Assets/Shaders/DoomEnhancedWorld.shader";
+        const string EnhancedCutoutPath = "Assets/Shaders/DoomEnhancedCutout.shader";
 
         [MenuItem("Tools/Doom/Configure URP Pipeline (Stage 8)")]
         public static void ConfigureFromMenu() => Configure();
@@ -76,6 +78,8 @@ namespace Doom.MapBuild.Editor
 
             IncludeShader(ClassicOpaquePath);
             IncludeShader(ClassicCutoutPath);
+            IncludeShader(EnhancedOpaquePath);
+            IncludeShader(EnhancedCutoutPath);
             // Keep legacy Built-in names included until runtime fully migrated.
             IncludeShader("Assets/Shaders/DoomUnlit.shader");
             IncludeShader("Assets/Shaders/DoomUnlitCutout.shader");

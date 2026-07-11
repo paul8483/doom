@@ -61,6 +61,9 @@ namespace Doom.MapBuild
         /// Stage 7b UI patch textures. Built while the WAD is open; never re-reads it.
         public HudTextureCache HudTextures { get; private set; }
 
+        /// Stage 8 world albedo/normal materials. Built while the WAD is open.
+        public TextureCache WorldTextures { get; private set; }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -183,6 +186,7 @@ namespace Doom.MapBuild
             var palette  = new Palette(wad.ReadLump("PLAYPAL"));
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette, materialFactory, renderContext);
+            WorldTextures = cache;
 
             // Stage 7b: decode HUD/menu/intermission patches while the WAD is open.
             var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
@@ -824,6 +828,9 @@ namespace Doom.MapBuild
             }
 
             mesh.RecalculateNormals();
+            // Enhanced normal maps need tangents; cheap and harmless for Classic.
+            if (mesh.uv != null && mesh.uv.Length == mesh.vertexCount)
+                mesh.RecalculateTangents();
             mesh.RecalculateBounds();
         }
 

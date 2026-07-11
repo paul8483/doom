@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅, Task 2 ✅, Task 3 ✅, Task 4 ✅, Task 5 ✅, Task 6 ✅**. Next: Task 7 Enhanced materials.
+**Статус:** утверждён; **Task 1 ✅ … Task 7 ✅**. Next: Task 8 runtime sector lights.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -399,34 +399,49 @@ _(awaiting explicit user commit request)_
 - Modify: `Assets/Scripts/MapBuild/TextureCache.cs`
 - Create: `Assets/Tests/PlayMode/EnhancedMaterialPlayTests.cs`
 
-- [ ] **Step 1: Написать failing pure normal tests.**
+- [x] **Step 1: Написать failing pure normal tests.**
 
 Uniform image → neutral normal; X/Y gradients → ожидаемые signed directions;
 Repeat edges для wall/flat, transparent pixels neutral, output deterministic.
 
-- [ ] **Step 2: Реализовать CPU generator.**
+`NormalMapGeneratorTests` 8/8 PASS (`Logs/stage8-t7-edit.xml`, 2026-07-12).
+
+- [x] **Step 2: Реализовать CPU generator.**
 
 Работать по luminance WAD RGBA, не зависеть от Unity. Strength/roughness policy
 зафиксировать именованными material categories; unknown получает слабый neutral
 profile.
 
-- [ ] **Step 3: Написать failing material tests.**
+`NormalMapGenerator` + `MaterialSurfaceCategory`/`MaterialSurfaceProfile`/
+`MaterialSurfaceClassifier` in `Doom.Graphics`.
+
+- [x] **Step 3: Написать failing material tests.**
 
 Enhanced material получает albedo/normal, sector ambient, roughness/emission и
 correct opaque/cutout state. Classic variant не держит normal texture.
 
-- [ ] **Step 4: Реализовать SRP-compatible Enhanced shaders/cache.**
+`EnhancedMaterialPlayTests` (assign + leak/cache) PASS
+(`Logs/stage8-t7-play.xml`).
+
+- [x] **Step 4: Реализовать SRP-compatible Enhanced shaders/cache.**
 
 Normal создаётся лениво один раз на texture/profile key. Texture uses linear
 normal sampling, bilinear/trilinear + mipmaps/aniso. Освещение не должно
 полностью обнулять тёмный sector ambient.
 
-- [ ] **Step 5: Leak/performance gate.**
+`Doom/EnhancedWorld` + `Doom/EnhancedCutout`; `TextureCache` lazy normals;
+`DoomMaterialFactory` surface props; mesh tangents in `MapLoader.ApplyMeshData`.
+
+- [x] **Step 5: Leak/performance gate.**
 
 Переключения не создают новые normal maps после warm-up; teardown уничтожает
 runtime textures/materials. Проверить E1M7 memory против budget.
 
+Hot-switch cache stable; `ClearContext` destroys owned `/Normal` textures.
+Numeric E1M7 Enhanced frame/RT budgets remain deferred to Task 10/14.
+
 **Commit checkpoint:** `Stage 8c: add enhanced WAD materials`
+_(awaiting explicit user commit request)_
 
 ### Task 8: Runtime sector lights и save/restore
 
