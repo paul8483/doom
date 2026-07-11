@@ -1,17 +1,17 @@
 using System;
-using System.IO;
 using UnityEngine;
 using Doom.Audio;
 
 namespace Doom.MapBuild
 {
-    /// Streams map MUS music through GENMIDI/OPL into a Unity AudioClip.
-    /// Bytes are copied while the WAD is open; the PCM callback never touches Unity
-    /// APIs beyond filling the provided buffer, and never allocates.
+    /// Synthesizes map MUS/MIDI through GENMIDI/OPL on a dedicated 2D AudioSource.
+    /// Uses OnAudioFilterRead (not streaming AudioClip callbacks) so playback works
+    /// in Windows standalone builds where stream PCM hooks are often silent.
+    [RequireComponent(typeof(AudioSource))]
     public sealed class MusicPlayer : MonoBehaviour
     {
         const int SampleRate = 44100;
-        const int StreamFrames = 4096;
+        const int CarrierFrames = 1024;
 
         MusOplPlayer player;
         AudioClip clip;
@@ -26,16 +26,15 @@ namespace Doom.MapBuild
         public float Volume => volume;
         public bool IsPaused { get; private set; }
 
-        /// Cumulative stereo frames filled by the PCM callback (test probe).
+        /// Cumulative stereo frames filled by the PCM path (test probe).
         public long RenderedFrames => System.Threading.Interlocked.Read(ref renderedFrames);
 
         public bool IsActive => player != null && source != null && !stopped;
 
-        /// Streaming clip name (test probe); null if music disabled.
-        public string ClipName => clip != null ? clip.name : null;
+        /// Active track name (test probe); null if music disabled.
+        public string ClipName => TrackName;
 
-        /// Force-render frames through the sequencer (batchmode-safe test probe —
-        /// Unity may not invoke the PCM callback without an audio device).
+        /// Force-render frames through the sequencer (batchmode-safe test probe).
         public int RenderForTest(int frames)
         {
             if (player == null || stopped || frames <= 0) return 0;
@@ -76,18 +75,19 @@ namespace Doom.MapBuild
                 return false;
             }
 
-            source = gameObject.GetComponent<AudioSource>();
-            if (source == null) source = gameObject.AddComponent<AudioSource>();
+            source = GetComponent<AudioSource>();
             source.playOnAwake = false;
-            source.loop = false; // sequencer loops; do not use AudioSource.loop
+            source.loop = true;
             source.spatialBlend = 0f;
-            source.volume = volume;
-            source.Stop();
+            source.ignoreListenerPause = true;
+            source.volume = 1f; // applied in OnAudioFilterRead
 
             string clipName = string.IsNullOrEmpty(trackName) ? "MUS" : trackName;
-            clip = AudioClip.Create(
-                clipName, StreamFrames, 2, SampleRate, stream: true, OnPcmRead, OnPcmSetPosition);
+            clip = AudioClip.Create(clipName, CarrierFrames, 2, SampleRate, stream: false);
+            clip.SetData(new float[CarrierFrames * 2], 0);
+
             source.clip = clip;
+            source.Stop();
             stopped = false;
             System.Threading.Interlocked.Exchange(ref renderedFrames, 0);
             source.Play();
@@ -99,10 +99,8 @@ namespace Doom.MapBuild
         public void SetVolume(float musicVolume)
         {
             volume = Mathf.Clamp01(musicVolume);
-            if (source != null) source.volume = volume;
         }
 
-        /// Pause playback; sequencer and AudioSource position are preserved.
         public void Pause()
         {
             if (source == null || stopped) return;
@@ -110,7 +108,6 @@ namespace Doom.MapBuild
             IsPaused = true;
         }
 
-        /// Resume after <see cref="Pause"/> without restarting the sequencer.
         public void Resume()
         {
             if (source == null || stopped) return;
@@ -118,34 +115,47 @@ namespace Doom.MapBuild
             IsPaused = false;
         }
 
-        void OnPcmRead(float[] data)
+        public void EnsurePlayback()
         {
-            if (stopped || player == null)
+            if (player == null || stopped || source == null || IsPaused) return;
+            if (!source.isPlaying)
+                source.Play();
+        }
+
+        void OnAudioFilterRead(float[] data, int channels)
+        {
+            if (channels != 2 || stopped || IsPaused)
             {
                 Array.Clear(data, 0, data.Length);
                 return;
             }
 
-            int frames = data.Length / 2;
+            var synth = player;
+            if (synth == null)
+            {
+                Array.Clear(data, 0, data.Length);
+                return;
+            }
+
+            int frames = data.Length / channels;
             try
             {
-                player.Render(data, frames);
+                synth.Render(data, frames);
+                if (volume < 0.999f)
+                {
+                    for (int i = 0; i < data.Length; i++)
+                        data[i] *= volume;
+                }
                 System.Threading.Interlocked.Add(ref renderedFrames, frames);
             }
-            catch
+            catch (Exception e)
             {
+                Debug.LogWarning($"MusicPlayer: render failed: {e.Message}");
                 Array.Clear(data, 0, data.Length);
             }
         }
 
-        void OnPcmSetPosition(int position)
-        {
-            // Streaming clip; position resets are ignored — sequencer owns timeline.
-        }
-
         void OnDestroy() => StopInternal();
-
-        void OnDisable() => StopInternal();
 
         void StopInternal()
         {

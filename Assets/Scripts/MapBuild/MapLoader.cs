@@ -114,7 +114,9 @@ namespace Doom.MapBuild
                 if (GameFlowController.ShouldBuildMap())
                 {
                     Build();
-                    SettingsController.Ensure().ApplyLoadedSettings();
+                    var settings = SettingsController.Ensure();
+                    settings.ApplyLoadedSettings();
+                    Music?.EnsurePlayback();
                     flow.NotifyLevelReady();
                 }
                 else
@@ -183,9 +185,6 @@ namespace Doom.MapBuild
             Sound = gameObject.GetComponent<SoundSystem>() ?? gameObject.AddComponent<SoundSystem>();
             Sound.Init(soundCache, worldScale, volume: sfxVolume);
 
-            Music = gameObject.GetComponent<MusicPlayer>() ?? gameObject.AddComponent<MusicPlayer>();
-            InitMusic(wad, loadName);
-
             var root = new GameObject(map.Name);
             root.transform.SetParent(transform, worldPositionStays: false);
 
@@ -245,6 +244,7 @@ namespace Doom.MapBuild
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
 
             SpawnPlayer(map, bounds, spriteCache);
+            InitMusic(wad, loadName);
 
             var registry = gameObject.GetComponent<WorldStateRegistry>()
                 ?? gameObject.AddComponent<WorldStateRegistry>();
@@ -319,6 +319,27 @@ namespace Doom.MapBuild
                 return;
             }
 
+            var playerCam = GameObject.Find("PlayerCamera");
+            if (playerCam == null)
+            {
+                Debug.LogWarning("MapLoader: no PlayerCamera for music output");
+                return;
+            }
+
+            Transform musicTransform = playerCam.transform.Find("Music");
+            GameObject musicGo;
+            if (musicTransform == null)
+            {
+                musicGo = new GameObject("Music");
+                musicGo.transform.SetParent(playerCam.transform, worldPositionStays: false);
+            }
+            else
+            {
+                musicGo = musicTransform.gameObject;
+            }
+
+            Music = musicGo.GetComponent<MusicPlayer>() ?? musicGo.AddComponent<MusicPlayer>();
+
             try
             {
                 byte[] mus = wad.ReadLump(track);
@@ -328,12 +349,21 @@ namespace Doom.MapBuild
                 System.Buffer.BlockCopy(mus, 0, musCopy, 0, mus.Length);
                 var genCopy = new byte[genMidi.Length];
                 System.Buffer.BlockCopy(genMidi, 0, genCopy, 0, genMidi.Length);
-                Music.Init(musCopy, genCopy, track, musicVolume);
+                float vol = ResolveMusicVolume();
+                if (Music.Init(musCopy, genCopy, track, vol))
+                    Debug.Log($"MapLoader: music started ({track}, volume={vol:0.00})");
             }
             catch (System.Exception e)
             {
                 Debug.LogWarning($"MapLoader: music disabled ({track}): {e.Message}");
             }
+        }
+
+        float ResolveMusicVolume()
+        {
+            var settings = SettingsController.Instance;
+            if (settings != null) return settings.Current.MusicVolume;
+            return new SettingsStore().Load().MusicVolume;
         }
 
         /// Collects every DS* name referenced by gameplay tables for pre-warm.

@@ -1,7 +1,7 @@
 # Этап 7. Шлифовка и расширение — дизайн
 
 **Дата:** 2026-07-10
-**Статус:** утверждён; **7a ✅, 7b ✅, 7c ✅, 7d ✅, 7e Task 14 ✅**; следующий — Task 15
+**Статус:** утверждён; **7a–7e ✅** (закрыт 2026-07-12)
 **Предыдущие этапы:** 0–6 завершены, включая 6a–6f
 **Контекст:** финальный этап master roadmap. Одна umbrella-спека разбита на
 подэтапы 7a–7e: game flow → HUD → меню → сохранения → совместимость,
@@ -380,22 +380,25 @@ Player models/events + Session stats
 
 ## Критерий готовности
 
-Stage 7 завершён, когда одновременно выполнено следующее:
+Stage 7 завершён (**2026-07-12**), когда одновременно выполнено следующее:
 
-1. Windows standalone build стартует в main menu и не требует Unity Editor.
-2. Freedoom E1M1–E1M9 полностью проходимы, normal и secret routes корректны.
+1. Windows standalone build стартует в main menu и не требует Unity Editor. ✅
+2. Freedoom E1M1–E1M9 полностью проходимы, normal и secret routes корректны. ✅
 3. HUD, weapon view, menus и intermission используют WAD data и работают при
-   разных aspect ratios.
+   разных aspect ratios. ✅
 4. Full-world save/load переживает перезапуск build и восстанавливает весь
-   перечисленный authoritative state.
-5. Settings сохраняются отдельно и применяются runtime.
-6. Compatibility matrix не содержит E1 progression blockers.
+   перечисленный authoritative state. ✅
+5. Settings сохраняются отдельно и применяются runtime. ✅
+6. Compatibility matrix не содержит E1 progression blockers. ✅
 7. Установленные после baseline performance budgets соблюдены без регрессий
-   geometry, movers, textures и saves.
+   geometry, movers, textures и saves. ✅ (`Logs/stage7e-baseline-notes.md`)
 8. Все существующие и новые EditMode/PlayMode тесты зелёные; интерактивный E1
-   checklist подписан.
+   checklist подписан. ✅ **413 EditMode + 67 PlayMode**
 9. `CLAUDE.md`, master roadmap и implementation plan обновлены фактическими
-   test counts, ограничениями и статусом Stage 7.
+   test counts, ограничениями и статусом Stage 7. ✅
+
+Known limitations (не blockers): linedef light 138, scroll 48, spectre
+MF_SHADOW translucency.
 
 ## Связанные документы
 

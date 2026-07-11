@@ -1,21 +1,31 @@
 using UnityEngine;
 using Doom.Game;
+using Doom.Things;
 
 namespace Doom.MapBuild
 {
-    /// Pickup trigger for items (Stage 6e: full E1 set via PlayerInventory / ItemRules).
-    /// Horizontal touch radius matches DOOM (16 item + 16 player). Vertical range
-    /// mirrors P_TouchSpecialThing: item may sit up to player-height above the
-    /// toucher, or 8 units below — so weapons in wall niches / on ledges stay
-    /// reachable from the floor in front of them.
+    /// Pickup for items (Stage 6e: full E1 set via PlayerInventory / ItemRules).
+    ///
+    /// Ports P_TouchSpecialThing: XY distance &lt; playerRadius+itemRadius, and
+    /// item Z within [toucherZ-8, toucherZ+height]. Physics triggers alone are
+    /// unreliable here — thick wall colliders and CharacterController capsule
+    /// math leave wall-hugged items unreachable even when DOOM distance says
+    /// they should be taken (E1M2 medikit at 672,-1520).
     public sealed class ThingPickup : MonoBehaviour
     {
-        const float TouchRadiusDoom = 32f;
+        const float PlayerRadiusDoom = 16f;
+        const float DefaultItemRadiusDoom = 20f;
         const float TouchAboveDoom = 56f; // toucher height
         const float TouchBelowDoom = 8f;
 
         int doomedNum;
         int mapThingIndex = -1;
+        float touchRadiusSq;
+        float touchAbove;
+        float touchBelow;
+        PlayerInventory inventory;
+        Transform playerBody;
+        bool collected;
 
         public int DoomedNum => doomedNum;
         /// Index into MapData.Things, or -1 for runtime drops (not counted as items).
@@ -26,28 +36,48 @@ namespace Doom.MapBuild
             this.doomedNum = doomedNum;
             this.mapThingIndex = mapThingIndex;
 
-            float r = TouchRadiusDoom * worldScale;
-            float yMin = -TouchAboveDoom * worldScale;
-            float yMax = TouchBelowDoom * worldScale;
-            float span = yMax - yMin;
+            float itemRadius = DefaultItemRadiusDoom;
+            if (ThingTable.TryGet(doomedNum, out var def) && def.Radius > 0)
+                itemRadius = def.Radius;
 
-            var trig = gameObject.AddComponent<CapsuleCollider>();
-            trig.isTrigger = true;
-            trig.radius = r;
-            trig.height = Mathf.Max(span, 2f * r);
-            trig.center = new Vector3(0f, (yMin + yMax) * 0.5f, 0f);
+            float touch = (PlayerRadiusDoom + itemRadius) * worldScale;
+            touchRadiusSq = touch * touch;
+            touchAbove = TouchAboveDoom * worldScale;
+            touchBelow = TouchBelowDoom * worldScale;
         }
 
-        void OnTriggerEnter(Collider other) => TryCollect(other);
-
-        void OnTriggerStay(Collider other) => TryCollect(other);
-
-        void TryCollect(Collider other)
+        void Update()
         {
-            if (other == null) return;
-            var inv = other.GetComponentInParent<PlayerInventory>();
-            if (inv == null) return;
+            if (collected) return;
+            if (!ResolvePlayer()) return;
+
+            Vector3 delta = playerBody.position - transform.position;
+            float xySq = delta.x * delta.x + delta.z * delta.z;
+            if (xySq > touchRadiusSq) return;
+
+            // DOOM: delta = thing->z - toucher->z; reject if > height or < -8.
+            float doomDelta = transform.position.y - playerBody.position.y;
+            if (doomDelta > touchAbove || doomDelta < -touchBelow) return;
+
+            TryCollect(inventory);
+        }
+
+        bool ResolvePlayer()
+        {
+            if (inventory != null && playerBody != null) return true;
+            var go = GameObject.Find("Player");
+            if (go == null) return false;
+            inventory = go.GetComponent<PlayerInventory>();
+            playerBody = go.transform;
+            return inventory != null;
+        }
+
+        void TryCollect(PlayerInventory inv)
+        {
+            if (collected || inv == null) return;
             if (!inv.TryPickup(doomedNum)) return;
+
+            collected = true;
 
             if (mapThingIndex >= 0 && LevelStats.IsCountItem(doomedNum))
                 LevelStatsTracker.Instance?.RegisterItem(mapThingIndex);

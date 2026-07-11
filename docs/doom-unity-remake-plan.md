@@ -98,7 +98,7 @@ DOOM-уровень — двумерная карта, где высоту за�
 
 ## Этап 6. Игровая логика
 
-Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; **6a–6f завершены**. Stage 7: **7a–7d ✅**, следующий — 7e.
+Превратить «прогулку» в игру. Реализуется поэтапно, каждый пункт — отдельная веха. Этап разбит на под-этапы 6a–6f; **6a–6f завершены**. Stage 7: **7a–7e ✅**.
 
 - Здоровье, броня, урон. ✅ (под-этап 6b)
 - Оружие и стрельба. ✅ (под-этап 6c)
@@ -106,22 +106,16 @@ DOOM-уровень — двумерная карта, где высоту за�
 - Подбираемые предметы (аптечки, патроны, ключи). ✅ (под-этап 6e)
 - Поведение секторов: двери, лифты, движущиеся платформы. ✅ (под-этап 6a)
 - Звук: эффекты и музыка из WAD ✅ (под-этап 6f).
-- Ракетница ✅ (расширение 6c, 2026-07-11): слот 5, боезапас Rockets
-  50/100, pickups 2003/2010/2046, MISG/MISF/MISL, прямой урон и splash
-  128/128 с self-damage, HUD, межуровневый carry и save schema v2
-  с чтением сохранений v1. Полный прогон Unity-тестов выполняется вручную.
-- Plasma Rifle + BFG9000 + Cells ⏳ (запланированное расширение 6c после
-  закрытия 7e): slots 6/7, cells 300/600, pickups 2004/2006/2047/17,
-  plasma projectile и vanilla BFG ball + 40 `A_BFGSpray` tracers, WAD
-  viewmodel/effects/sounds, HUD, carry и backward-compatible save schema v4.
-  Дизайн — `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`; план —
-  `docs/superpowers/plans/2026-07-11-plasma-bfg.md`.
+- Ракетница ✅ (расширение 6c): слот 5, Rockets, splash, save schema v2.
+- Chainsaw ✅ (расширение 6c): melee, save schema v3.
+- Plasma Rifle + BFG9000 + Cells ✅ (расширение 6c): slots 6/7, save schema v4.
+  Дизайн — `docs/superpowers/specs/2026-07-11-plasma-bfg-design.md`.
 
 **Под-этап 6a (двери и интерактивные секторы) ✅.** Перенесена таблица типов линий DOOM в новую чистую C#-сборку `Doom.Specials` (`LineSpecialTable`, `SectorActions`, `Neighbors`); `Doom.Map` получил `ISectorHeights` и перестроение геометрии сектора в рантайме по высотам пола/потолка; `Doom.MapBuild` — `RuntimeSectorHeights`, `SectorGeometry` (перестроение меша/коллайдера на месте), `SectorMover` (анимация высот) и `LineActivator` (триггеры Use/Walk/Switch) плюс ввод «Use» (клавиша E). Двери и лифты открываются/двигаются. Отложено: проверка ключей (запертые двери пока открываются), выходы с уровня, давильни (crusher), свет, телепорты, скроллинг текстур, звук, повторный запуск отработавшего мувера. Дизайн — `docs/superpowers/specs/2026-05-31-doors-design.md`; план реализации — `docs/superpowers/plans/2026-05-31-doors.md`.
 
 **Под-этап 6b (урон игроку и HP) ✅.** Новая чистая C#-сборка `Doom.Game` (`HealthModel` — HP и броня с DOOM-поглощением: зелёная броня впитывает 1/3 урона, синяя 1/2); `SectorDamageTable` в `Doom.Specials` (урон-полы: нукаж 5, слизь 10, лава 20 HP за тик); компоненты `Doom.MapBuild` — `SectorRef` (индекс сектора на GO пола), `PlayerHealth` (обёртка модели + событие `Died`), `FloorDamageSystem` (периодический урон от пола, пока «ноги на полу», каждые ~0.9с, через луч вниз → `SectorRef`), `PlayerDeathHandler` (блокировка управления + оверлей «You died» + респавн по R), `PlayerHud` (отладочный показ HP/брони через OnGUI); всё подключено в `MapLoader.SpawnPlayer`. Отложено: радиокостюм, выход с уровня по спецэффекту 11, секретные секторы (9), подбор брони/аптечек, краш-урон, полноценный HUD. Дизайн — `docs/superpowers/specs/2026-05-31-player-damage-design.md`; план реализации — `docs/superpowers/plans/2026-05-31-player-damage.md`.
 
-**Под-этап 6c (оружие и стрельба) ✅.** Четыре hitscan-оружия DOOM: кулак, пистолет, дробовик, пулемёт. Чистые правила — в `Doom.Game`: `DoomRandom` (порт P_Random с 256-байтовой rndtable), `AmmoModel` (патроны: старт 50 пуль, максимумы maxammo), `WeaponDef`/`WeaponTable` (тайминги кадров из state-таблиц p_pspr.c/info.c), `WeaponLoadout` (арсенал, авто-выбор в порядке P_CheckAmmo), `HitscanRules` (урон P_GunShot 5/10/15 и A_Punch 2–20, разброс ±5.6°, залп дробовика 7 дробин). `Doom.Things` получил `Health`/`CorpseFrame` для монстров E1 (info.c). Unity-глю в `Doom.MapBuild`: `PlayerWeapons` (ввод ЛКМ/клавиши 1–4, кулдауны в DOOM-тиках, hitscan-лучи из камеры со свободным прицелом, авто-даунгрейд без патронов), `EnemyHealth` (HP врага, при нуле — труп-кадр и отключение коллайдера), `HitEffect` (короткоживущие билборды PUFF/BLUD), `WeaponView` (viewmodel через OnGUI в виртуальном экране 320×200 по формуле R_DrawPSprite, кадры выстрела + вспышка + bob при движении), `ThingPickup` (подбор дробовика/пулемёта/патронов триггером), строка AMMO в HUD, сброс арсенала при респавне. Отложено: урон на N-м тике state-последовательности (наносится в момент нажатия), опускание оружия при смерти, сохранение арсенала после респавна, очередь смены оружия во время кулдауна. **Бочки (2035) добавлены 2026-07-11:** HP 20, BEXP splash (`RadiusDamageRules`/`BarrelExplosion`), DSBAREXP. **Plasma/BFG/Cells запланированы отдельным расширением 6c после Stage 7e** с собственной spec/plan парой. Дизайн — `docs/superpowers/specs/2026-07-02-weapons-design.md`; план реализации — `docs/superpowers/plans/2026-07-02-weapons.md`.
+**Под-этап 6c (оружие и стрельба) ✅.** Hitscan (fist/pistol/shotgun/chaingun) + rocket + chainsaw + plasma/BFG. Чистые правила в `Doom.Game`; Unity-глю в `Doom.MapBuild`. Бочки (2035): HP 20, BEXP splash. Дизайн — `docs/superpowers/specs/2026-07-02-weapons-design.md`; plasma/BFG — `2026-07-11-plasma-bfg`.
 
 **Под-этап 6d (ИИ врагов) ✅.** Четыре монстра E1 (POSS/SPOS/TROO/SARG) просыпаются от взгляда/урона/шума выстрела, преследуют DOOM-походкой, открывают двери, атакуют (hitscan/укус/фаербол), дерутся между собой и умирают с анимацией. FSM в `Doom.Game` (`MonsterBrain`, `MonsterRules`, `ChaseDir`), данные в `Doom.Things` (`MonsterDef`/`MonsterTable`), заливка шума `NoiseAlert` в `Doom.Specials`. Unity-глю: `SpriteBillboard.SetFrame`, `Projectile` (фаербол импа), `MonsterController` (движение, зрение, атаки, двери), `DamageSource`+infighting в `EnemyHealth`, навеска в `ThingSpawner`, `NoiseAlertSystem` (выстрелы будят сектор). **193 EditMode + 20 PlayMode** (включая 5× `MonsterAiPlayTests`, Task 11, commit `14ae50f`). **Facing fix (2026-07-10):** в `SpriteBillboard` оффсет ротации был `+202.5°` вместо дизайн-дока `+22.5°` — монстр лицом к камере всегда получал rot 4 (спина) вместо rot 0 (лицо); особенно заметно на hitscan POSS/SPOS. Исправлено на `+22.5°`; `Face()` каждый кадр в Chase/Attack/Pain. Визуальная приёмка (Task 12) подтверждена интерактивно на E1M1. Отложено: XDEATH, летающие монстры, звук (6f), A_Look chain-wake, ML_SOUNDBLOCK. Дизайн — `docs/superpowers/specs/2026-07-03-monster-ai-design.md`; план — `docs/superpowers/plans/2026-07-03-monster-ai.md`.
 
@@ -143,8 +137,8 @@ DOOM-уровень — двумерная карта, где высоту за�
 - HUD: здоровье, патроны, оружие, лицо + intermission. ✅ (под-этап 7b)
 - Меню, настройки. ✅ (под-этап 7c)
 - Сохранения. ✅ (под-этап 7d)
-- Оптимизация, E1 specials, standalone build. (7e)
-- Тестирование на разных картах WAD.
+- Оптимизация, E1 specials, standalone build. ✅ (под-этап 7e)
+- Тестирование на разных картах WAD. ✅ (E1M1–E1M9 smoke + sign-off)
 
 **Под-этап 7a (session и переходы) ✅.** `CampaignRoute`/`SessionState`,
 `GameSessionHost`, исполнение exit (11/51/52/124 + sector 11), перезагрузка
@@ -165,7 +159,14 @@ capture/restore/`SaveGameController`; Save из pause, Load из main/pause с
 WAD-identity preflight; scene reload и phased restore. PlayMode
 `WorldCapturePlayTests` + `SaveLoadPlayTests`.
 
-**Результат этапа:** завершённый ремейк с несколькими играбельными уровнями.
+**Под-этап 7e (E1 specials / perf / build) ✅.** Teleports 97/125/126,
+spectre/baron AI, `WalkLineIndex` + LineRef cache, E1M1–E1M9 smoke,
+Windows standalone (`Tools > Doom > Build Windows Standalone`), baseline
+`Logs/stage7e-baseline-notes.md`. Музыка в player: `OnAudioFilterRead`
+(streaming PCM callbacks молчали в standalone). **413 EditMode + 67 PlayMode**
+(2026-07-12). Known limits: light 138 / scroll 48 / spectre translucency.
+
+**Результат этапа:** завершённый ремейк с играбельным Freedoom E1 и Windows build.
 
 ---
 
@@ -187,7 +188,8 @@ effect textures существуют только в runtime memory; authored и
 replacement assets не добавляются. Classic остаётся режимом по умолчанию и
 эталоном визуальной регрессии.
 
-**Статус:** запланирован; реализация начинается после закрытия Stage 7e.
+**Статус:** запланирован; реализация начинается после закрытия Stage 7
+(**Stage 7 закрыт 2026-07-12**).
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
