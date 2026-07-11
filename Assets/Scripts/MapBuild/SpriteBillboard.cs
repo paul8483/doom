@@ -60,6 +60,14 @@ namespace Doom.MapBuild
             lockRotation = true;
         }
 
+        /// Switch sprite prefix and frame (barrel BAR1 → BEXP explode sequence).
+        public void SetSprite(string newSprite, int newFrame)
+        {
+            sprite = newSprite;
+            frame = newFrame;
+            lockRotation = true;
+        }
+
         /// Switch the animation frame while keeping rotation selection live
         /// (walking/attack/pain frames have 8 rotations; corpse uses SetStaticFrame).
         public void SetFrame(int newFrame)

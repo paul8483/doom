@@ -175,7 +175,7 @@ namespace Doom.Graphics
                 "WISUCKS", "WISCRT2",
                 "WIMINUS", "WIMSTAR", "WIMSTT", "WICOLON",
                 "M_DOOM", "M_NGAME", "M_OPTION", "M_LOADG", "M_SAVEG", "M_QUITG",
-                "M_SKULL1", "M_SKULL2", "M_PAUSE",
+                "M_ENDGAM", "M_SKULL1", "M_SKULL2", "M_PAUSE",
                 // Intentionally absent sentinel — verifies controlled miss path.
                 "ZZNOUIXX",
             };

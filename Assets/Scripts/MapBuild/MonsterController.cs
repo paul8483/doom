@@ -334,7 +334,8 @@ namespace Doom.MapBuild
                 else if (eh != null && eh != health && !eh.IsDead)
                 {
                     eh.TakeDamage(damage, DamageSource.Monster(health));
-                    HitEffect.SpawnBlood(cache, worldScale, hit.point);
+                    if (!eh.NoBlood)
+                        HitEffect.SpawnBlood(cache, worldScale, hit.point);
                 }
                 else if (eh == null)
                     HitEffect.SpawnPuff(cache, worldScale, hit.point, hit.normal);

@@ -248,9 +248,9 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("thing", type, CompatibilityStatus.ProgressionBlocker,
                         $"CountKill monster '{def.Sprite}' without MonsterTable AI");
 
-                if (def.Has(ThingFlags.Shootable) && type == 2035)
-                    return new CompatibilityEntry("thing", type, CompatibilityStatus.HarmlessVisual,
-                        "barrel solid/shootable; explode deferred");
+                if (def.Has(ThingFlags.Shootable) && type == BarrelRules.DoomEdNum)
+                    return new CompatibilityEntry("thing", type, CompatibilityStatus.Implemented,
+                        "barrel HP + BEXP splash");
 
                 // Known pickups not wired in ItemRules (chainsaw, rockets, invuln, …)
                 if (IsDeferredPickup(type))

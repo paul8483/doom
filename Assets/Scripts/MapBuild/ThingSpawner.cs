@@ -80,13 +80,23 @@ namespace Doom.MapBuild
 
                 if (def.Has(ThingFlags.Shootable) && def.Health > 0)
                 {
+                    bool countKill = def.Has(ThingFlags.CountKill);
                     var eh = go.AddComponent<EnemyHealth>();
-                    eh.Init(def.Health, def.CorpseFrame, bb, col);
+                    eh.Init(def.Health, def.CorpseFrame, bb, col,
+                            countKill: countKill, noBlood: t.Type == BarrelRules.DoomEdNum);
                     eh.SetMapThingIndex(thingIndex);
                     if (def.CorpseFrame >= 0)
                         cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
 
-                    if (MonsterTable.TryGet(t.Type, out var mdef))
+                    if (t.Type == BarrelRules.DoomEdNum)
+                    {
+                        var be = go.AddComponent<BarrelExplosion>();
+                        be.Init(bb, col, cache, worldScale, sound);
+                        eh.SetBarrel(be);
+                        foreach (int f in BarrelRules.ExplodeFrames)
+                            cache.Get(BarrelRules.ExplodeSprite, f, 0);
+                    }
+                    else if (MonsterTable.TryGet(t.Type, out var mdef))
                     {
                         bool ambush = (t.Flags & 0x0008) != 0;
                         var mc = go.AddComponent<MonsterController>();

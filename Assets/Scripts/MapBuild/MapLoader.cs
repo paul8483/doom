@@ -354,7 +354,7 @@ namespace Doom.MapBuild
             {
                 "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
                 "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
-                "DSFIRSHT", "DSFIRXPL", "DSCLAW",
+                "DSFIRSHT", "DSFIRXPL", "DSCLAW", "DSBAREXP",
             })
                 Add(n);
 

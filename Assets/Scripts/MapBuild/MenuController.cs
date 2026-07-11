@@ -55,7 +55,8 @@ namespace Doom.MapBuild
             new Item { Patch = "M_SAVEG", FallbackLabel = "Save Game", Action = MenuAction.SaveGame, X = 97, Y = 76 },
             new Item { Patch = "M_LOADG", FallbackLabel = "Load Game", Action = MenuAction.LoadGame, X = 97, Y = 96 },
             new Item { Patch = "M_OPTION", FallbackLabel = "Options", Action = MenuAction.Options, X = 97, Y = 116 },
-            new Item { Patch = null, FallbackLabel = "Quit to Main", Action = MenuAction.QuitToMain, X = 97, Y = 136 },
+            // Vanilla IWAD patch "End Game" — same red menu font as Save/Load/Options.
+            new Item { Patch = "M_ENDGAM", FallbackLabel = "End Game", Action = MenuAction.QuitToMain, X = 97, Y = 136 },
         };
 
         GameFlowController flow;

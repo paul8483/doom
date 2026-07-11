@@ -93,7 +93,9 @@ namespace Doom.Things
             Add(39, "YSKU", 0, 20, 16, None);    // yellow skull key
 
             // ── Solid obstacles (block the player) ────────────────────────────
-            Add(2035, "BAR1", 0, 10, 42, ThingFlags.Solid | ThingFlags.Shootable); // barrel
+            // Barrel: HP 20, explodes (BarrelExplosion) — no corpseFrame (removed).
+            Add(BarrelRules.DoomEdNum, BarrelRules.SpawnSprite, 0, 10, 42,
+                ThingFlags.Solid | ThingFlags.Shootable, health: BarrelRules.Health);
             Add(70,   "FCAN", 0, 10, 42, Sol);   // burning barrel
             Add(43,   "TRE1", 0, 16, 64, Sol);   // burnt tree
             Add(54,   "TRE2", 0, 32, 64, Sol);   // large brown tree

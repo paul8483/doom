@@ -101,7 +101,8 @@ namespace Doom.MapBuild
                 if (enemy != null && !enemy.IsDead)
                 {
                     enemy.TakeDamage(shot.Damage, DamageSource.Player());
-                    HitEffect.SpawnBlood(cache, worldScale, hit.point);
+                    if (!enemy.NoBlood)
+                        HitEffect.SpawnBlood(cache, worldScale, hit.point);
                 }
                 else if (enemy == null)
                 {
