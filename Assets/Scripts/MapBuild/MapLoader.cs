@@ -233,6 +233,8 @@ namespace Doom.MapBuild
                 ("CHGG", new[] { 0, 1 }), ("CHGF", new[] { 0, 1 }),
                 ("MISG", new[] { 0, 1 }), ("MISF", new[] { 0, 1, 2, 3 }),
                 ("MISL", new[] { 0, 1, 2, 3 }),
+                // SAWG A/B fire, C idle (S_SAW); D unused by our states but in WAD.
+                ("SAWG", new[] { 0, 1, 2, 3 }),
                 ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),
             })
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
@@ -385,17 +387,29 @@ namespace Doom.MapBuild
             }
             Vector3 pos;
             float yaw;
+            // Snap feet to the Floor collider under the start XZ. The old
+            // bounds.max.y + 5 drop looked like falling into the void on tall
+            // maps (and on every level transition). Fallback keeps the sky drop
+            // only when no floor mesh is under the start.
+            float skyY = (bounds?.max.y ?? 0f) + 5f;
+            Physics.SyncTransforms();
             if (start.HasValue)
             {
-                pos = new Vector3(start.Value.X * worldScale,
-                                  (bounds?.max.y ?? 0f) + 5f,
-                                  start.Value.Y * worldScale);
+                float x = start.Value.X * worldScale;
+                float z = start.Value.Y * worldScale;
+                float feetY = TeleportExecutor.ResolveFloorY(x, z, skyY);
+                if (Mathf.Approximately(feetY, skyY))
+                    Debug.LogWarning(
+                        $"MapLoader: no Floor under player start ({x:0.##},{z:0.##}); " +
+                        "dropping from sky");
+                pos = new Vector3(x, feetY, z);
                 yaw = 90f - start.Value.Angle;
             }
             else
             {
                 Debug.LogWarning("MapLoader: no Player 1 start in THINGS; spawning at (0, top, 0)");
-                pos = new Vector3(0f, (bounds?.max.y ?? 0f) + 5f, 0f);
+                float feetY = TeleportExecutor.ResolveFloorY(0f, 0f, skyY);
+                pos = new Vector3(0f, feetY, 0f);
                 yaw = 0f;
             }
 

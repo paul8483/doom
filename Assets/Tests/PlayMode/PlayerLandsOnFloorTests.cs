@@ -52,10 +52,9 @@ namespace Doom.Stage3.PlayTests
             var cc = player.GetComponent<CharacterController>();
             Assert.That(cc, Is.Not.Null, "Player must have a CharacterController");
 
-            // Fall and settle. Spawn = bounds.max.y + 5, so the drop distance varies
-            // with the map; poll until grounded rather than guessing a frame count.
-            // With a fixed 1/60s step the controller presses into the floor each frame,
-            // so isGrounded latches and stays true once the player is resting.
+            // Spawn snaps feet to the Floor under the player-1 start. CharacterController
+            // only latches isGrounded after a Move into the floor, so poll briefly.
+            // With a fixed 1/60s step the controller presses into the floor each frame.
             bool grounded = false;
             for (int i = 0; i < 300; i++)   // up to ~5s of stepped time
             {
@@ -67,10 +66,13 @@ namespace Doom.Stage3.PlayTests
             Debug.Log($"[PlayTest] initialY={initialY} landedY={landedY} " +
                       $"isGrounded={cc.isGrounded} groundedWithinBudget={grounded}");
 
-            Assert.That(landedY, Is.LessThan(initialY),
-                "Player should have fallen under gravity");
+            // Floor-snap must not leave the player at map-sky height (void view).
+            Assert.That(initialY, Is.LessThan(50f),
+                "Player should spawn on the start floor, not drop from map sky");
             Assert.That(landedY, Is.GreaterThan(-200f),
                 "Player fell into the void — collider problem");
+            Assert.That(Mathf.Abs(landedY - initialY), Is.LessThan(2f),
+                "Spawn Y should already be near the floor (no long sky drop)");
             Assert.That(cc.isGrounded, Is.True,
                 "Player should be standing on the floor (cc.isGrounded)");
         }

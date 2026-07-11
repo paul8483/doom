@@ -49,7 +49,9 @@ namespace Doom.MapBuild
             return true;
         }
 
-        static float ResolveFloorY(float x, float z, float fallbackY)
+        /// Highest "Floor" MeshCollider under (x,z), or <paramref name="fallbackY"/>.
+        /// Shared with player spawn so level starts do not drop from map-sky height.
+        public static float ResolveFloorY(float x, float z, float fallbackY)
         {
             const float Far = 10000f;
             var hits = Physics.RaycastAll(

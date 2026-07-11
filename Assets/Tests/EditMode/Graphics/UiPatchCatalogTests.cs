@@ -76,6 +76,9 @@ namespace Doom.Graphics.Tests
             Assert.That(title.Width, Is.GreaterThan(0));
             Assert.That(catalog.TryGet("WIMAP0", out _), Is.True);
             Assert.That(catalog.TryGet("M_DOOM", out _), Is.True);
+            Assert.That(catalog.TryGet("M_OPTTTL", out _), Is.True);
+            Assert.That(catalog.TryGet("M_SFXVOL", out _), Is.True);
+            Assert.That(catalog.TryGet("STCFN065", out _), Is.True); // 'A'
         }
 
         [Test]

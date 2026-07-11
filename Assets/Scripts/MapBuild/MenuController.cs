@@ -261,6 +261,8 @@ namespace Doom.MapBuild
 
             if (Kind == MenuKind.Main)
                 DrawMainBackground(t);
+            else if (Kind == MenuKind.SaveSlots || Kind == MenuKind.LoadSlots)
+                DrawSlotBackground(t);
             else
                 DrawPauseDim(t);
 
@@ -271,28 +273,35 @@ namespace Doom.MapBuild
                 DrawItem(t, items[i], i == selected);
 
             if (!string.IsNullOrEmpty(statusMessage))
-            {
-                var style = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(12, (int)(10 * t.Scale)),
-                    alignment = TextAnchor.UpperCenter,
-                };
-                style.normal.textColor = Color.yellow;
-                var r = VirtualScreenRenderer.ToScreen(t, 0, 170, 320, 20);
-                GUI.Label(r, statusMessage, style);
-            }
+                DrawHuStringCentered(t, 170f, statusMessage.ToUpperInvariant());
+        }
+
+        void DrawSlotBackground(in VirtualScreenRenderer.Transform t)
+        {
+            var bg = VirtualScreenRenderer.ToScreen(t, 0, 0, 320, 200);
+            Color prev = GUI.color;
+            // Same plate as Options: solid dark-red from main, dim over world from pause.
+            if (returnKind == MenuKind.Pause)
+                GUI.color = new Color(0f, 0f, 0f, 0.55f);
+            else
+                GUI.color = new Color(0.55f, 0f, 0f, 1f);
+            GUI.DrawTexture(bg, Texture2D.whiteTexture);
+            GUI.color = prev;
         }
 
         void DrawSlotTitle(in VirtualScreenRenderer.Transform t)
         {
-            var style = new GUIStyle(GUI.skin.label)
+            string patch = Kind == MenuKind.SaveSlots ? "M_SGTTL" : "M_LGTTL";
+            if (textures != null && textures.TryGet(patch, out var e))
             {
-                fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
-                alignment = TextAnchor.UpperCenter,
-            };
-            style.normal.textColor = Color.white;
-            string title = Kind == MenuKind.SaveSlots ? "Save Game" : "Load Game";
-            GUI.Label(VirtualScreenRenderer.ToScreen(t, 0, 28, 320, 20), title, style);
+                float x = (320 - e.Width) * 0.5f;
+                var r = VirtualScreenRenderer.ToScreenSnapped(t, x, 20f, e.Width, e.Height);
+                GUI.DrawTexture(r, e.Texture);
+                return;
+            }
+
+            string title = Kind == MenuKind.SaveSlots ? "SAVE GAME" : "LOAD GAME";
+            DrawHuStringCentered(t, 20f, title);
         }
 
         void DrawMainBackground(in VirtualScreenRenderer.Transform t)
@@ -324,9 +333,6 @@ namespace Doom.MapBuild
             GUI.DrawTexture(r, Texture2D.whiteTexture);
             GUI.color = prev;
 
-            if (Kind == MenuKind.SaveSlots || Kind == MenuKind.LoadSlots)
-                return;
-
             if (textures != null && textures.TryGet("M_PAUSE", out var pause))
             {
                 float x = (320 - pause.Width) * 0.5f;
@@ -335,13 +341,7 @@ namespace Doom.MapBuild
             }
             else
             {
-                var style = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(16, (int)(14 * t.Scale)),
-                    alignment = TextAnchor.UpperCenter,
-                };
-                style.normal.textColor = Color.white;
-                GUI.Label(VirtualScreenRenderer.ToScreen(t, 0, 20, 320, 24), "Pause", style);
+                DrawHuStringCentered(t, 20f, "PAUSE");
             }
         }
 
@@ -357,16 +357,7 @@ namespace Doom.MapBuild
             }
 
             if (!drew)
-            {
-                var style = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
-                    alignment = TextAnchor.UpperLeft,
-                };
-                style.normal.textColor = isSelected ? Color.yellow : Color.white;
-                var r = VirtualScreenRenderer.ToScreen(t, item.X, item.Y, 160, 16);
-                GUI.Label(r, item.FallbackLabel, style);
-            }
+                DrawHuString(t, item.X, item.Y, item.FallbackLabel);
 
             if (isSelected)
                 DrawSkull(t, item.X - 32, item.Y - 2);
@@ -388,6 +379,77 @@ namespace Doom.MapBuild
             };
             style.normal.textColor = Color.red;
             GUI.Label(VirtualScreenRenderer.ToScreen(t, x, y, 24, 16), ">", style);
+        }
+
+        void DrawHuStringCentered(in VirtualScreenRenderer.Transform t, float y, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            float width = MeasureHuString(text);
+            DrawHuString(t, (320f - width) * 0.5f, y, text);
+        }
+
+        float MeasureHuString(string text)
+        {
+            if (string.IsNullOrEmpty(text) || textures == null) return text?.Length * 8f ?? 0f;
+            float w = 0f;
+            foreach (char ch in text.ToUpperInvariant())
+            {
+                if (ch == ' ') { w += 4f; continue; }
+                string lump = "STCFN" + ((int)ch).ToString("000");
+                if (textures.TryGet(lump, out var e)) w += e.Width;
+                else w += 4f;
+            }
+            return w;
+        }
+
+        void DrawHuString(in VirtualScreenRenderer.Transform t, float x, float y, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            if (textures == null)
+            {
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
+                    alignment = TextAnchor.UpperLeft,
+                };
+                style.normal.textColor = Color.white;
+                GUI.Label(VirtualScreenRenderer.ToScreen(t, x, y, 200, 16), text, style);
+                return;
+            }
+
+            float cx = x;
+            bool any = false;
+            foreach (char ch in text.ToUpperInvariant())
+            {
+                if (ch == ' ')
+                {
+                    cx += 4f;
+                    continue;
+                }
+
+                string lump = "STCFN" + ((int)ch).ToString("000");
+                if (!textures.TryGet(lump, out var e))
+                {
+                    cx += 4f;
+                    continue;
+                }
+
+                var r = VirtualScreenRenderer.ToScreenSnapped(t, cx, y, e.Width, e.Height);
+                GUI.DrawTexture(r, e.Texture);
+                cx += e.Width;
+                any = true;
+            }
+
+            if (!any)
+            {
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
+                };
+                style.normal.textColor = Color.white;
+                GUI.Label(VirtualScreenRenderer.ToScreen(t, x, y, 200, 16), text, style);
+            }
         }
     }
 }

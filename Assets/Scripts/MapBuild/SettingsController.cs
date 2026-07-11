@@ -5,16 +5,24 @@ using Doom.Game;
 namespace Doom.MapBuild
 {
     /// Applies and persists runtime settings; owns the Options submenu UI.
+    /// Drawn with the same WAD patches / TITLEPIC / skull cursor as MenuController.
     public sealed class SettingsController : MonoBehaviour
     {
         public static SettingsController Instance { get; private set; }
+
+        const int ItemX = 60;
+        const int SkullX = 28;
+        const int ThermoWidth = 16;
+        const float ThermoCell = 8f;
 
         SettingsStore store;
         IDisplayAdapter display;
         GameSettingsData current;
         GameSettingsData editSnapshot;
+        HudTextureCache textures;
         bool editing;
         int selected;
+        int skullTic;
         MenuKind returnMenuKind;
 
         static readonly string[] Labels =
@@ -26,6 +34,18 @@ namespace Doom.MapBuild
             "Fullscreen",
             "Apply",
             "Cancel",
+        };
+
+        /// Virtual Y of each selectable row (label line; thermos sit below volumes).
+        static readonly float[] RowY =
+        {
+            40f,  // SFX
+            70f,  // Music
+            100f, // Mouse
+            132f, // Invert Y
+            148f, // Fullscreen
+            164f, // Apply
+            180f, // Cancel
         };
 
         public GameSettingsData Current => current ?? GameSettingsData.Defaults;
@@ -80,10 +100,12 @@ namespace Doom.MapBuild
         {
             var flow = GameFlowController.Ensure();
             returnMenuKind = flow.Menu != null ? flow.Menu.Kind : MenuKind.None;
+            textures = ResolveTextures();
             editSnapshot = Current;
             current = editSnapshot;
             editing = true;
             selected = 0;
+            skullTic = 0;
             flow.Menu?.Hide();
             enabled = true;
             ApplyRuntime(current);
@@ -152,6 +174,7 @@ namespace Doom.MapBuild
         {
             editing = false;
             enabled = false;
+            textures = null;
 
             var flow = GameFlowController.Instance;
             if (flow == null) return;
@@ -192,6 +215,8 @@ namespace Doom.MapBuild
         void Update()
         {
             if (!editing) return;
+            skullTic++;
+
             var kb = Keyboard.current;
             if (kb == null) return;
 
@@ -239,48 +264,178 @@ namespace Doom.MapBuild
             if (!editing || Event.current.type != EventType.Repaint) return;
 
             var t = VirtualScreenRenderer.ComputeForScreen();
-            var bg = VirtualScreenRenderer.ToScreen(t, 0, 0, 320, 200);
-            Color prev = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.75f);
-            GUI.DrawTexture(bg, Texture2D.whiteTexture);
-            GUI.color = prev;
+            DrawBackground(t);
 
-            var title = new GUIStyle(GUI.skin.label)
+            if (textures != null && textures.TryGet("M_OPTTTL", out var titlePatch))
             {
-                fontSize = Mathf.Max(16, (int)(14 * t.Scale)),
-                alignment = TextAnchor.UpperCenter,
-            };
-            title.normal.textColor = Color.white;
-            GUI.Label(VirtualScreenRenderer.ToScreen(t, 0, 20, 320, 24), "Options", title);
-
-            var row = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.Max(12, (int)(11 * t.Scale)),
-                alignment = TextAnchor.UpperLeft,
-            };
+                float tx = (320 - titlePatch.Width) * 0.5f;
+                var tr = VirtualScreenRenderer.ToScreenSnapped(
+                    t, tx, 12f, titlePatch.Width, titlePatch.Height);
+                GUI.DrawTexture(tr, titlePatch.Texture);
+            }
+            else
+                DrawFallbackText(t, 0, 12, 320, "Options", centered: true);
 
             for (int i = 0; i < Labels.Length; i++)
+                DrawRow(t, i);
+
+            if (selected >= 0 && selected < RowY.Length)
+                DrawSkull(t, SkullX, RowY[selected] - 2f);
+        }
+
+        void DrawBackground(in VirtualScreenRenderer.Transform t)
+        {
+            var bg = VirtualScreenRenderer.ToScreen(t, 0, 0, 320, 200);
+            Color prev = GUI.color;
+            // Freedoom TITLEPIC is hellish red — same hue as M_* / STCFN patches,
+            // so Options on the title art is unreadable. Use a flat dark-red plate
+            // (main) or a dim over the paused world (pause), never the picture.
+            if (returnMenuKind == MenuKind.Pause)
+                GUI.color = new Color(0f, 0f, 0f, 0.55f);
+            else
+                GUI.color = new Color(0.55f, 0f, 0f, 1f);
+            GUI.DrawTexture(bg, Texture2D.whiteTexture);
+            GUI.color = prev;
+        }
+
+        void DrawRow(in VirtualScreenRenderer.Transform t, int index)
+        {
+            float y = RowY[index];
+            switch (index)
             {
-                row.normal.textColor = i == selected ? Color.yellow : Color.white;
-                string value = ValueLabel(i);
-                string text = string.IsNullOrEmpty(value)
-                    ? Labels[i]
-                    : $"{Labels[i]}: {value}";
-                GUI.Label(VirtualScreenRenderer.ToScreen(t, 60, 50 + i * 16, 220, 16), text, row);
+                case 0:
+                    if (!DrawPatch(t, "M_SFXVOL", ItemX, y))
+                        DrawFallbackText(t, ItemX, y, 200, Labels[0], centered: false);
+                    DrawThermo(t, ItemX, y + 13f, ThermoDot01(Current.SfxVolume));
+                    break;
+                case 1:
+                    if (!DrawPatch(t, "M_MUSVOL", ItemX, y))
+                        DrawFallbackText(t, ItemX, y, 200, Labels[1], centered: false);
+                    DrawThermo(t, ItemX, y + 13f, ThermoDot01(Current.MusicVolume));
+                    break;
+                case 2:
+                    if (!DrawPatch(t, "M_MSENS", ItemX, y))
+                        DrawFallbackText(t, ItemX, y, 200, Labels[2], centered: false);
+                    DrawThermo(t, ItemX, y + 13f, ThermoDotSensitivity(Current.MouseSensitivity));
+                    break;
+                case 3:
+                    DrawHuString(t, ItemX, y, "INVERT Y");
+                    DrawOnOff(t, ItemX + 120f, y, Current.InvertY);
+                    break;
+                case 4:
+                    DrawHuString(t, ItemX, y, "FULLSCREEN");
+                    DrawOnOff(t, ItemX + 120f, y, Current.Fullscreen);
+                    break;
+                case 5:
+                    DrawHuString(t, ItemX, y, "APPLY");
+                    break;
+                case 6:
+                    DrawHuString(t, ItemX, y, "CANCEL");
+                    break;
             }
         }
 
-        string ValueLabel(int index)
+        void DrawOnOff(in VirtualScreenRenderer.Transform t, float x, float y, bool on)
         {
-            switch (index)
+            string patch = on ? "M_MSGON" : "M_MSGOFF";
+            if (!DrawPatch(t, patch, x, y))
+                DrawFallbackText(t, x, y, 40, on ? "On" : "Off", centered: false);
+        }
+
+        void DrawThermo(in VirtualScreenRenderer.Transform t, float x, float y, int dot)
+        {
+            if (textures == null) return;
+            float xx = x;
+            if (!DrawPatch(t, "M_THERML", xx, y)) return;
+            xx += ThermoCell;
+            for (int i = 0; i < ThermoWidth; i++)
             {
-                case 0: return Current.SfxVolume.ToString("0.00");
-                case 1: return Current.MusicVolume.ToString("0.00");
-                case 2: return Current.MouseSensitivity.ToString("0.00");
-                case 3: return Current.InvertY ? "On" : "Off";
-                case 4: return Current.Fullscreen ? "On" : "Off";
-                default: return null;
+                DrawPatch(t, "M_THERMM", xx, y);
+                xx += ThermoCell;
             }
+            DrawPatch(t, "M_THERMR", xx, y);
+
+            int d = Mathf.Clamp(dot, 0, ThermoWidth);
+            DrawPatch(t, "M_THERMO", x + ThermoCell + d * ThermoCell, y);
+        }
+
+        static int ThermoDot01(float v01) =>
+            Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(v01) * ThermoWidth), 0, ThermoWidth);
+
+        static int ThermoDotSensitivity(float sens)
+        {
+            // Map [0.01, 2] onto the same 0..16 thermo used for volumes.
+            float t = (sens - 0.01f) / (2f - 0.01f);
+            return ThermoDot01(t);
+        }
+
+        void DrawSkull(in VirtualScreenRenderer.Transform t, float x, float y)
+        {
+            string skull = (skullTic / 8) % 2 == 0 ? "M_SKULL1" : "M_SKULL2";
+            if (DrawPatch(t, skull, x, y)) return;
+
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(14, (int)(12 * t.Scale)),
+            };
+            style.normal.textColor = Color.red;
+            GUI.Label(VirtualScreenRenderer.ToScreen(t, x, y, 24, 16), ">", style);
+        }
+
+        bool DrawPatch(in VirtualScreenRenderer.Transform t, string name, float x, float y)
+        {
+            if (textures == null || !textures.TryGet(name, out var e))
+                return false;
+            var r = VirtualScreenRenderer.ToScreenSnapped(t, x, y, e.Width, e.Height);
+            GUI.DrawTexture(r, e.Texture);
+            return true;
+        }
+
+        void DrawHuString(in VirtualScreenRenderer.Transform t, float x, float y, string text)
+        {
+            if (textures == null || string.IsNullOrEmpty(text))
+            {
+                DrawFallbackText(t, x, y, 200, text ?? "", centered: false);
+                return;
+            }
+
+            float cx = x;
+            bool any = false;
+            foreach (char ch in text.ToUpperInvariant())
+            {
+                if (ch == ' ')
+                {
+                    cx += 4f;
+                    continue;
+                }
+
+                string lump = "STCFN" + ((int)ch).ToString("000");
+                if (!textures.TryGet(lump, out var e))
+                {
+                    cx += 4f;
+                    continue;
+                }
+
+                var r = VirtualScreenRenderer.ToScreenSnapped(t, cx, y, e.Width, e.Height);
+                GUI.DrawTexture(r, e.Texture);
+                cx += e.Width;
+                any = true;
+            }
+
+            if (!any)
+                DrawFallbackText(t, x, y, 200, text, centered: false);
+        }
+
+        static void DrawFallbackText(
+            in VirtualScreenRenderer.Transform t, float x, float y, float w, string text, bool centered)
+        {
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(12, (int)(11 * t.Scale)),
+                alignment = centered ? TextAnchor.UpperCenter : TextAnchor.UpperLeft,
+            };
+            style.normal.textColor = Color.white;
+            GUI.Label(VirtualScreenRenderer.ToScreen(t, x, y, w, 16), text, style);
         }
     }
 }

@@ -10,13 +10,19 @@ namespace Doom.MapBuild
     /// Placement formula -- R_DrawPSprite: the patch is drawn in 320x200 space
     /// so that left edge = sx - leftOffset, top edge = sy - topOffset, where at
     /// rest sx=1, sy=WEAPONTOP=32. Weapon patches are authored with offsets
-    /// that assume these coordinates. Verified visually in the editor
-    /// (Stage 6c final check); note StairCaptureTests cannot capture this —
-    /// it renders via Camera.Render(), which excludes OnGUI/IMGUI output.
+    /// that assume these coordinates. Drawing is clipped to the view window
+    /// above the status bar (DOOM viewheight = 200−32) so tall weapons like
+    /// the chainsaw never paint over STBAR — vanilla overwrites with ST_Drawer;
+    /// we clip because OnGUI order vs DoomHud is not guaranteed.
+    /// Verified visually in the editor (Stage 6c final check); note
+    /// StairCaptureTests cannot capture this — it renders via Camera.Render(),
+    /// which excludes OnGUI/IMGUI output.
     public sealed class WeaponView : MonoBehaviour
     {
         const float WeaponTopPx = 32f;
         const float MaxBobPx = 16f;
+        const int ViewHeightPx =
+            VirtualScreenRenderer.Height - VirtualScreenRenderer.StatusBarHeight;
 
         PlayerWeapons weapons;
         SpriteCache cache;
@@ -93,10 +99,18 @@ namespace Doom.MapBuild
             float sy = WeaponTopPx + bob * Mathf.Abs(Mathf.Sin(phase));
             if (anim != null) { sx = 1f; sy = WeaponTopPx; } // no bob while firing
 
+            var t = VirtualScreenRenderer.ComputeForScreen();
+            // Clip to view window above STBAR (BeginClip makes draw coords relative).
+            var clip = VirtualScreenRenderer.ToScreen(
+                t, 0, 0, VirtualScreenRenderer.Width, ViewHeightPx);
+            GUI.BeginClip(clip);
+
             int frame = anim != null ? anim.FireFrames[animIdx] : def.IdleFrame;
-            DrawPatch(def.Sprite, frame, sx, sy);
+            DrawPatch(def.Sprite, frame, sx, sy, t, clip);
             if (anim != null && flashLeft > 0f && anim.FlashSprite != null)
-                DrawPatch(anim.FlashSprite, anim.FlashFrames[flashIdx], sx, sy);
+                DrawPatch(anim.FlashSprite, anim.FlashFrames[flashIdx], sx, sy, t, clip);
+
+            GUI.EndClip();
         }
 
         float BobAmplitudePx()
@@ -107,16 +121,18 @@ namespace Doom.MapBuild
             return Mathf.Min(MaxBobPx, unitsPerTic * unitsPerTic * 0.25f);
         }
 
-        void DrawPatch(string sprite, int frame, float sx, float sy)
+        void DrawPatch(string sprite, int frame, float sx, float sy,
+                       in VirtualScreenRenderer.Transform t, Rect clip)
         {
             var sm = cache.Get(sprite, frame, 0);
             if (!sm.IsValid) return;
             var tex = sm.Material != null ? sm.Material.mainTexture : null;
             if (tex == null) return;
 
-            var t = VirtualScreenRenderer.ComputeForScreen();
             var r = VirtualScreenRenderer.WeaponPatch(
                 t, sx, sy, sm.LeftOffset, sm.TopOffset, sm.Width, sm.Height);
+            r.x -= clip.x;
+            r.y -= clip.y;
             GUI.DrawTexture(r, tex);
         }
     }

@@ -176,9 +176,20 @@ namespace Doom.Graphics
                 "WIMINUS", "WIMSTAR", "WIMSTT", "WICOLON",
                 "M_DOOM", "M_NGAME", "M_OPTION", "M_LOADG", "M_SAVEG", "M_QUITG",
                 "M_ENDGAM", "M_SKULL1", "M_SKULL2", "M_PAUSE",
+                "M_LGTTL", "M_SGTTL",
+                // Options submenu (m_menu.c + Freedoom sound/sensitivity rows).
+                "M_OPTTTL", "M_SFXVOL", "M_MUSVOL", "M_MSENS",
+                "M_THERML", "M_THERMM", "M_THERMR", "M_THERMO",
+                "M_MSGON", "M_MSGOFF",
                 // Intentionally absent sentinel — verifies controlled miss path.
                 "ZZNOUIXX",
             };
+
+            // HU small font (STCFN + ASCII code) for Options rows without menu patches.
+            for (int c = 33; c <= 96; c++)
+                list.Add("STCFN" + c.ToString("000"));
+            foreach (int c in new[] { 121, 123, 124, 125 })
+                list.Add("STCFN" + c.ToString("000"));
 
             for (int i = 0; i <= 9; i++)
                 list.Add("WINUM" + i);
