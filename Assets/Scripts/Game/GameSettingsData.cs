@@ -5,7 +5,9 @@ namespace Doom.Game
     /// Validated runtime preferences. No Unity types; no PlayerPrefs.
     public sealed class GameSettingsData : IEquatable<GameSettingsData>
     {
-        public const int SchemaVersion = 1;
+        public const int SchemaVersion = 2;
+        /// First schema that stores preferences (pre-GraphicsMode).
+        public const int FirstSupportedSchemaVersion = 1;
 
         /// Matches MapLoader inspector default.
         public const float DefaultSfxVolume = 1f;
@@ -13,6 +15,7 @@ namespace Doom.Game
         public const float DefaultMusicVolume = 0.55f;
         /// Matches PlayerController inspector default.
         public const float DefaultMouseSensitivity = 0.1f;
+        public const GraphicsMode DefaultGraphicsMode = GraphicsMode.Classic;
 
         public float SfxVolume { get; }
         public float MusicVolume { get; }
@@ -22,6 +25,7 @@ namespace Doom.Game
         /// 0×0 means "use current / desktop default".
         public int ResolutionWidth { get; }
         public int ResolutionHeight { get; }
+        public GraphicsMode GraphicsMode { get; }
 
         public GameSettingsData(
             float sfxVolume,
@@ -30,7 +34,8 @@ namespace Doom.Game
             bool invertY,
             bool fullscreen,
             int resolutionWidth,
-            int resolutionHeight)
+            int resolutionHeight,
+            GraphicsMode graphicsMode = DefaultGraphicsMode)
         {
             SfxVolume = sfxVolume;
             MusicVolume = musicVolume;
@@ -39,6 +44,7 @@ namespace Doom.Game
             Fullscreen = fullscreen;
             ResolutionWidth = resolutionWidth;
             ResolutionHeight = resolutionHeight;
+            GraphicsMode = graphicsMode;
         }
 
         public static GameSettingsData Defaults { get; } = new GameSettingsData(
@@ -48,7 +54,8 @@ namespace Doom.Game
             invertY: false,
             fullscreen: true,
             resolutionWidth: 0,
-            resolutionHeight: 0);
+            resolutionHeight: 0,
+            DefaultGraphicsMode);
 
         public static bool TryCreate(
             float sfxVolume,
@@ -58,6 +65,20 @@ namespace Doom.Game
             bool fullscreen,
             int resolutionWidth,
             int resolutionHeight,
+            out GameSettingsData data,
+            out string error) =>
+            TryCreate(sfxVolume, musicVolume, mouseSensitivity, invertY, fullscreen,
+                resolutionWidth, resolutionHeight, DefaultGraphicsMode, out data, out error);
+
+        public static bool TryCreate(
+            float sfxVolume,
+            float musicVolume,
+            float mouseSensitivity,
+            bool invertY,
+            bool fullscreen,
+            int resolutionWidth,
+            int resolutionHeight,
+            GraphicsMode graphicsMode,
             out GameSettingsData data,
             out string error)
         {
@@ -82,6 +103,12 @@ namespace Doom.Game
                 return false;
             }
 
+            if (!IsDefinedGraphicsMode(graphicsMode))
+            {
+                error = "GraphicsMode must be Classic or Enhanced.";
+                return false;
+            }
+
             data = new GameSettingsData(
                 Clamp01(sfxVolume),
                 Clamp01(musicVolume),
@@ -89,9 +116,17 @@ namespace Doom.Game
                 invertY,
                 fullscreen,
                 resolutionWidth,
-                resolutionHeight);
+                resolutionHeight,
+                graphicsMode);
             return true;
         }
+
+        /// Maps unknown/out-of-range stored ints to Classic.
+        public static GraphicsMode NormalizeGraphicsMode(int raw) =>
+            IsDefinedGraphicsMode((GraphicsMode)raw) ? (GraphicsMode)raw : GraphicsMode.Classic;
+
+        public static bool IsDefinedGraphicsMode(GraphicsMode mode) =>
+            mode == GraphicsMode.Classic || mode == GraphicsMode.Enhanced;
 
         public GameSettingsData WithSfxVolume(float v) =>
             Clone(sfx: Clamp01(RequireFinite(v, nameof(v))));
@@ -104,6 +139,12 @@ namespace Doom.Game
 
         public GameSettingsData WithInvertY(bool v) => Clone(invert: v);
         public GameSettingsData WithFullscreen(bool v) => Clone(fs: v);
+        public GameSettingsData WithGraphicsMode(GraphicsMode mode)
+        {
+            if (!IsDefinedGraphicsMode(mode))
+                throw new ArgumentOutOfRangeException(nameof(mode));
+            return Clone(gfx: mode);
+        }
 
         public GameSettingsData WithResolution(int width, int height)
         {
@@ -121,7 +162,8 @@ namespace Doom.Game
             bool? invert = null,
             bool? fs = null,
             int? rw = null,
-            int? rh = null) =>
+            int? rh = null,
+            GraphicsMode? gfx = null) =>
             new GameSettingsData(
                 sfx ?? SfxVolume,
                 music ?? MusicVolume,
@@ -129,7 +171,8 @@ namespace Doom.Game
                 invert ?? InvertY,
                 fs ?? Fullscreen,
                 rw ?? ResolutionWidth,
-                rh ?? ResolutionHeight);
+                rh ?? ResolutionHeight,
+                gfx ?? GraphicsMode);
 
         static float RequireFinite(float v, string name)
         {
@@ -163,12 +206,24 @@ namespace Doom.Game
                    && InvertY == other.InvertY
                    && Fullscreen == other.Fullscreen
                    && ResolutionWidth == other.ResolutionWidth
-                   && ResolutionHeight == other.ResolutionHeight;
+                   && ResolutionHeight == other.ResolutionHeight
+                   && GraphicsMode == other.GraphicsMode;
         }
 
         public override bool Equals(object obj) => Equals(obj as GameSettingsData);
-        public override int GetHashCode() =>
-            HashCode.Combine(SfxVolume, MusicVolume, MouseSensitivity, InvertY, Fullscreen,
-                ResolutionWidth, ResolutionHeight);
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(SfxVolume);
+            hash.Add(MusicVolume);
+            hash.Add(MouseSensitivity);
+            hash.Add(InvertY);
+            hash.Add(Fullscreen);
+            hash.Add(ResolutionWidth);
+            hash.Add(ResolutionHeight);
+            hash.Add(GraphicsMode);
+            return hash.ToHashCode();
+        }
     }
 }

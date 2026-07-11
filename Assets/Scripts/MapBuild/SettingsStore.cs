@@ -42,6 +42,8 @@ namespace Doom.MapBuild
     }
 
     /// Versioned load/save for <see cref="GameSettingsData"/>. Separate from save slots.
+    /// Field keys keep the historical <c>v1</c> prefix so existing PlayerPrefs migrate
+    /// when schema bumps to 2 (GraphicsMode defaults to Classic).
     public sealed class SettingsStore
     {
         const string Prefix = "Doom.Settings.v1.";
@@ -53,6 +55,7 @@ namespace Doom.MapBuild
         const string KeyFullscreen = Prefix + "Fullscreen";
         const string KeyResW = Prefix + "ResW";
         const string KeyResH = Prefix + "ResH";
+        const string KeyGraphicsMode = Prefix + "GraphicsMode";
 
         readonly ISettingsStorage storage;
 
@@ -64,7 +67,8 @@ namespace Doom.MapBuild
         public GameSettingsData Load()
         {
             int version = storage.GetInt(KeyVersion, 0);
-            if (version != GameSettingsData.SchemaVersion)
+            if (version < GameSettingsData.FirstSupportedSchemaVersion ||
+                version > GameSettingsData.SchemaVersion)
                 return GameSettingsData.Defaults;
 
             float sfx = storage.GetFloat(KeySfx, GameSettingsData.DefaultSfxVolume);
@@ -75,7 +79,13 @@ namespace Doom.MapBuild
             int rw = storage.GetInt(KeyResW, 0);
             int rh = storage.GetInt(KeyResH, 0);
 
-            if (!GameSettingsData.TryCreate(sfx, music, sens, invert, fullscreen, rw, rh,
+            // v1 had no GraphicsMode key — default Classic. Unknown ints → Classic.
+            GraphicsMode gfx = version >= 2
+                ? GameSettingsData.NormalizeGraphicsMode(
+                    storage.GetInt(KeyGraphicsMode, (int)GraphicsMode.Classic))
+                : GraphicsMode.Classic;
+
+            if (!GameSettingsData.TryCreate(sfx, music, sens, invert, fullscreen, rw, rh, gfx,
                     out var data, out _))
                 return GameSettingsData.Defaults;
 
@@ -93,6 +103,7 @@ namespace Doom.MapBuild
             storage.SetInt(KeyFullscreen, data.Fullscreen ? 1 : 0);
             storage.SetInt(KeyResW, data.ResolutionWidth);
             storage.SetInt(KeyResH, data.ResolutionHeight);
+            storage.SetInt(KeyGraphicsMode, (int)data.GraphicsMode);
             storage.Save();
         }
     }
@@ -135,6 +146,25 @@ namespace Doom.MapBuild
                 Width = width;
                 Height = height;
             }
+        }
+    }
+
+    /// Applies GraphicsMode to the render stack. Task 2: no-op until URP (Task 4+).
+    public interface IGraphicsModeAdapter
+    {
+        GraphicsMode Current { get; }
+        void Apply(GraphicsMode mode);
+    }
+
+    public sealed class NoOpGraphicsModeAdapter : IGraphicsModeAdapter
+    {
+        public GraphicsMode Current { get; private set; } = GraphicsMode.Classic;
+
+        public void Apply(GraphicsMode mode)
+        {
+            if (!GameSettingsData.IsDefinedGraphicsMode(mode))
+                mode = GraphicsMode.Classic;
+            Current = mode;
         }
     }
 }

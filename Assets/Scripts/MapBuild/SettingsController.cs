@@ -17,6 +17,7 @@ namespace Doom.MapBuild
 
         SettingsStore store;
         IDisplayAdapter display;
+        IGraphicsModeAdapter graphics;
         GameSettingsData current;
         GameSettingsData editSnapshot;
         HudTextureCache textures;
@@ -32,6 +33,7 @@ namespace Doom.MapBuild
             "Mouse Sens",
             "Invert Y",
             "Fullscreen",
+            "Graphics Mode",
             "Apply",
             "Cancel",
         };
@@ -39,19 +41,21 @@ namespace Doom.MapBuild
         /// Virtual Y of each selectable row (label line; thermos sit below volumes).
         static readonly float[] RowY =
         {
-            40f,  // SFX
-            70f,  // Music
-            100f, // Mouse
-            132f, // Invert Y
-            148f, // Fullscreen
-            164f, // Apply
-            180f, // Cancel
+            36f,  // SFX
+            64f,  // Music
+            92f,  // Mouse
+            120f, // Invert Y
+            136f, // Fullscreen
+            152f, // Graphics Mode
+            168f, // Apply
+            184f, // Cancel
         };
 
         public GameSettingsData Current => current ?? GameSettingsData.Defaults;
         public bool IsEditing => editing;
         public int SelectedIndex => selected;
         public IDisplayAdapter Display => display;
+        public IGraphicsModeAdapter Graphics => graphics;
 
         public static SettingsController Ensure()
         {
@@ -73,6 +77,7 @@ namespace Doom.MapBuild
             Instance = this;
             store = new SettingsStore();
             display = new UnityDisplayAdapter();
+            graphics = new NoOpGraphicsModeAdapter();
             current = store.Load();
         }
 
@@ -81,11 +86,15 @@ namespace Doom.MapBuild
             if (Instance == this) Instance = null;
         }
 
-        /// Test hook: inject store/display before Apply.
-        public void ConfigureForTests(SettingsStore store, IDisplayAdapter display)
+        /// Test hook: inject store/display/graphics before Apply.
+        public void ConfigureForTests(
+            SettingsStore store,
+            IDisplayAdapter display,
+            IGraphicsModeAdapter graphics = null)
         {
             this.store = store ?? this.store;
             this.display = display ?? this.display;
+            this.graphics = graphics ?? this.graphics ?? new NoOpGraphicsModeAdapter();
             current = this.store.Load();
             ApplyRuntime(current);
         }
@@ -132,7 +141,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(v, Current.MusicVolume, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
             current = next;
             ApplyRuntime(current);
@@ -142,7 +151,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, v, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
             current = next;
             ApplyRuntime(current);
@@ -152,7 +161,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, Current.MusicVolume, v,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
             current = next;
             ApplyRuntime(current);
@@ -168,6 +177,23 @@ namespace Doom.MapBuild
         {
             current = Current.WithFullscreen(v);
             ApplyRuntime(current);
+        }
+
+        public void SetGraphicsMode(GraphicsMode mode)
+        {
+            if (!GameSettingsData.IsDefinedGraphicsMode(mode)) return;
+            current = Current.WithGraphicsMode(mode);
+            ApplyRuntime(current);
+        }
+
+        public void CycleGraphicsMode(int dir)
+        {
+            var next = Current.GraphicsMode == GraphicsMode.Classic
+                ? GraphicsMode.Enhanced
+                : GraphicsMode.Classic;
+            // dir ignored for two-value toggle; kept for left/right symmetry.
+            if (dir == 0) return;
+            SetGraphicsMode(next);
         }
 
         void CloseOptions()
@@ -204,6 +230,7 @@ namespace Doom.MapBuild
             }
 
             display?.Apply(data.Fullscreen, data.ResolutionWidth, data.ResolutionHeight);
+            graphics?.Apply(data.GraphicsMode);
         }
 
         static HudTextureCache ResolveTextures()
@@ -245,6 +272,7 @@ namespace Doom.MapBuild
                 case 2: SetMouseSensitivity(Current.MouseSensitivity + dir * 0.02f); break;
                 case 3: SetInvertY(!Current.InvertY); break;
                 case 4: SetFullscreen(!Current.Fullscreen); break;
+                case 5: CycleGraphicsMode(dir); break;
             }
         }
 
@@ -254,8 +282,9 @@ namespace Doom.MapBuild
             {
                 case 3: SetInvertY(!Current.InvertY); break;
                 case 4: SetFullscreen(!Current.Fullscreen); break;
-                case 5: ApplyAndSave(); break;
-                case 6: Cancel(); break;
+                case 5: CycleGraphicsMode(1); break;
+                case 6: ApplyAndSave(); break;
+                case 7: Cancel(); break;
             }
         }
 
@@ -327,9 +356,14 @@ namespace Doom.MapBuild
                     DrawOnOff(t, ItemX + 120f, y, Current.Fullscreen);
                     break;
                 case 5:
-                    DrawHuString(t, ItemX, y, "APPLY");
+                    DrawHuString(t, ItemX, y, "GRAPHICS MODE");
+                    DrawHuString(t, ItemX + 140f, y,
+                        Current.GraphicsMode == GraphicsMode.Enhanced ? "ENHANCED" : "CLASSIC");
                     break;
                 case 6:
+                    DrawHuString(t, ItemX, y, "APPLY");
+                    break;
+                case 7:
                     DrawHuString(t, ItemX, y, "CANCEL");
                     break;
             }

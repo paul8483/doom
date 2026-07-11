@@ -16,6 +16,15 @@ namespace Doom.Game.Tests
             Assert.That(d.Fullscreen, Is.True);
             Assert.That(d.ResolutionWidth, Is.EqualTo(0));
             Assert.That(d.ResolutionHeight, Is.EqualTo(0));
+            Assert.That(d.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
+            Assert.That(GameSettingsData.SchemaVersion, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void GraphicsMode_enum_values_are_stable()
+        {
+            Assert.That((int)GraphicsMode.Classic, Is.EqualTo(0));
+            Assert.That((int)GraphicsMode.Enhanced, Is.EqualTo(1));
         }
 
         [Test]
@@ -26,6 +35,7 @@ namespace Doom.Game.Tests
             Assert.That(data.SfxVolume, Is.EqualTo(1f));
             Assert.That(data.MusicVolume, Is.EqualTo(0f));
             Assert.That(data.MouseSensitivity, Is.EqualTo(2f));
+            Assert.That(data.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
         }
 
         [Test]
@@ -47,7 +57,25 @@ namespace Doom.Game.Tests
         }
 
         [Test]
-        public void Withers_round_trip_invert_fullscreen_resolution()
+        public void TryCreate_rejects_undefined_graphics_mode()
+        {
+            Assert.That(GameSettingsData.TryCreate(
+                1f, 0.55f, 0.1f, false, true, 0, 0, (GraphicsMode)99, out _, out var err),
+                Is.False);
+            Assert.That(err, Does.Contain("GraphicsMode"));
+        }
+
+        [Test]
+        public void NormalizeGraphicsMode_maps_unknown_to_Classic()
+        {
+            Assert.That(GameSettingsData.NormalizeGraphicsMode(0), Is.EqualTo(GraphicsMode.Classic));
+            Assert.That(GameSettingsData.NormalizeGraphicsMode(1), Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(GameSettingsData.NormalizeGraphicsMode(42), Is.EqualTo(GraphicsMode.Classic));
+            Assert.That(GameSettingsData.NormalizeGraphicsMode(-1), Is.EqualTo(GraphicsMode.Classic));
+        }
+
+        [Test]
+        public void Withers_round_trip_invert_fullscreen_resolution_graphics()
         {
             var d = GameSettingsData.Defaults
                 .WithInvertY(true)
@@ -55,7 +83,8 @@ namespace Doom.Game.Tests
                 .WithResolution(1280, 720)
                 .WithSfxVolume(0.25f)
                 .WithMusicVolume(0.4f)
-                .WithMouseSensitivity(0.2f);
+                .WithMouseSensitivity(0.2f)
+                .WithGraphicsMode(GraphicsMode.Enhanced);
 
             Assert.That(d.InvertY, Is.True);
             Assert.That(d.Fullscreen, Is.False);
@@ -64,7 +93,10 @@ namespace Doom.Game.Tests
             Assert.That(d.SfxVolume, Is.EqualTo(0.25f));
             Assert.That(d.MusicVolume, Is.EqualTo(0.4f));
             Assert.That(d.MouseSensitivity, Is.EqualTo(0.2f));
+            Assert.That(d.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
             Assert.That(d, Is.EqualTo(d));
+            Assert.That(d.GetHashCode(), Is.EqualTo(d.GetHashCode()));
+            Assert.That(d, Is.Not.EqualTo(GameSettingsData.Defaults));
         }
     }
 }

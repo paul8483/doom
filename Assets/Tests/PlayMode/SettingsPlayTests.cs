@@ -70,6 +70,40 @@ namespace Doom.Stage3.PlayTests
             Assert.That(reloaded.MouseSensitivity, Is.EqualTo(0.22f).Within(0.001f));
             Assert.That(reloaded.InvertY, Is.True);
             Assert.That(reloaded.Fullscreen, Is.False);
+            Assert.That(reloaded.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
+        }
+
+        [UnityTest]
+        public IEnumerator Options_graphics_mode_apply_persist_and_cancel()
+        {
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForPlaying();
+
+            var gfx = new NoOpGraphicsModeAdapter();
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display, gfx);
+
+            settings.OpenOptions();
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
+
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
+
+            settings.ApplyAndSave();
+            Assert.That(settings.IsEditing, Is.False);
+
+            var reloaded = new SettingsStore(memory).Load();
+            Assert.That(reloaded.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+
+            // Cancel restores snapshot including graphics mode.
+            settings.ConfigureForTests(new SettingsStore(memory), display, gfx);
+            settings.OpenOptions();
+            settings.SetGraphicsMode(GraphicsMode.Classic);
+            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Classic));
+            settings.Cancel();
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
         }
 
         [UnityTest]

@@ -16,8 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; реализация не начата. Stage 8 начинается после закрытия
-Stage 7e Task 15.
+**Статус:** утверждён; **Task 1 ✅, Task 2 ✅**. Next: Task 3 URP pipeline.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -29,9 +28,8 @@ Input System 1.11.2, `freedoom1.wad`, существующие `Doom.Wad`,
 maps, models, skyboxes или sounds. Runtime normals/effect textures строятся
 только в памяти из WAD pixels/палитры.
 
-**Базовая линия на дату плана:** 253 EditMode + 34 PlayMode. Перед стартом
-сверить актуальные totals после завершения Stage 7e и не объявлять старые XML
-новым PASS.
+**Базовая линия на дату старта Stage 8:** 413 EditMode + 67 PlayMode
+(Stage 7 close, 2026-07-12). Не объявлять старые XML новым PASS.
 
 ## Запуск тестов
 
@@ -109,35 +107,51 @@ materials, camera/Volume state и bounded resources; визуальный пар
 - Create: `Assets/Tests/PlayMode/GraphicsBaselineCaptureTests.cs`
 - Modify: `Assets/Tests/PlayMode/Doom.Stage3.PlayTests.asmdef` при необходимости
 
-- [ ] **Step 1: Зафиксировать исходное состояние.**
+- [x] **Step 1: Зафиксировать исходное состояние.**
 
 Записать Unity/GPU/разрешение, активный Built-in pipeline, Gamma color space,
 актуальные test totals и pre-existing project-setting diffs. Не менять renderer
 до завершения captures.
 
-- [ ] **Step 2: Добавить deterministic capture harness.**
+Recorded in `Logs/stage8-graphics-baseline-notes.md` (Built-in, Gamma,
+413 EditMode + 67 PlayMode, RTX 3070 Ti / D3D12).
+
+- [x] **Step 2: Добавить deterministic capture harness.**
 
 Для E1M1, E1M3, E1M7 и E1M9 задать map, camera transform, FOV и resolution.
 Capture должен сохранять world PNG и machine-readable metrics, не пытаться
 захватить OnGUI через `Camera.Render()`.
 
-- [ ] **Step 3: Снять baseline.**
+`Assets/Tests/PlayMode/GraphicsBaselineCaptureTests.cs` →
+`Logs/stage8-captures/{map}-classic.png` + `metrics.txt`.
+
+- [x] **Step 3: Снять baseline.**
 
 Записать CPU/GPU frame time, batches, SetPass, triangles, renderers/materials/
 textures, managed memory и build time. Raw PNG/profiler captures оставить
 локальными; в `.md` сохранить команды, числа и camera poses.
 
-- [ ] **Step 4: Определить budgets.**
+Numbers in baseline notes (build + Camera.Render sample + object counts).
+
+- [x] **Step 4: Определить budgets.**
 
 После измерения записать Classic parity tolerance для captures и Enhanced
 budgets: frame time, render-target memory, active lights/shadows, decals,
 particles и отсутствие роста после warm-up. Не придумывать числа до измерения.
 
-- [ ] **Step 5: Запустить текущие полные suites.**
+Classic budgets set from measurement; Enhanced numeric frame/RT budgets deferred
+until first Enhanced profile run (pool caps sketched).
+
+- [x] **Step 5: Запустить текущие полные suites.**
 
 EditMode и PlayMode должны быть зелёными до URP migration.
 
+2026-07-12: **413 EditMode** + **68 PlayMode** (includes
+`GraphicsBaselineCaptureTests`) — all Passed.
+`Logs/stage8-t1-full-edit.xml`, `Logs/stage8-t1-full-play.xml`.
+
 **Commit checkpoint:** `Stage 8: capture classic graphics baseline`
+_(awaiting explicit user commit request)_
 
 ### Task 2: Settings schema v2 и Options selector
 
@@ -149,35 +163,39 @@ EditMode и PlayMode должны быть зелёными до URP migration.
 - Create: `Assets/Tests/EditMode/Game/SettingsStoreTests.cs`
 - Modify: `Assets/Tests/PlayMode/SettingsPlayTests.cs`
 
-- [ ] **Step 1: Написать failing pure tests.**
+- [x] **Step 1: Написать failing pure tests.**
 
 Проверить `GraphicsMode` explicit values, default Classic, equality/hash,
 `WithGraphicsMode`, invalid enum fallback, v2 round-trip и v1 → v2 migration с
 сохранением volume/look/display fields.
 
-- [ ] **Step 2: Реализовать immutable contract.**
+- [x] **Step 2: Реализовать immutable contract.**
 
 Добавить `GraphicsMode` в `Doom.Game`, поднять `SchemaVersion` до 2 и расширить
 `GameSettingsData.TryCreate`/clone APIs. `SettingsStore` не должен сбрасывать все
 v1 preferences из-за version mismatch.
 
-- [ ] **Step 3: Написать failing Options tests.**
+- [x] **Step 3: Написать failing Options tests.**
 
 Options содержит строку `Graphics Mode`; left/right/activate переключают только
 Classic/Enhanced. Apply persist'ит, Cancel возвращает snapshot. На этом шаге
 runtime adapter может быть fake.
 
-- [ ] **Step 4: Расширить `SettingsController`.**
+- [x] **Step 4: Расширить `SettingsController`.**
 
 Добавить setter/UI label/value и `IGraphicsModeAdapter`. Не искать URP objects
 из pure settings tests. Default adapter временно no-op до Task 4.
 
-- [ ] **Step 5: Прогнать тесты.**
+- [x] **Step 5: Прогнать тесты.**
 
 Узко: `GameSettingsTests`, `SettingsStoreTests`, `SettingsPlayTests`. Затем
 полный `Doom.Game.Tests` и PlayMode suite.
 
+2026-07-12: EditMode filter 12/12 PASS; SettingsPlayTests 4/4 PASS
+(`Logs/stage8-t2-edit.xml`, `Logs/stage8-t2-play.xml`).
+
 **Commit checkpoint:** `Stage 8a: add classic and enhanced setting`
+_(awaiting explicit user commit request)_
 
 ---
 

@@ -1,7 +1,7 @@
 {
     "name": "Doom.Game.Tests",
     "rootNamespace": "Doom.Game.Tests",
-    "references": ["Doom.Game", "Doom.Things", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+    "references": ["Doom.Game", "Doom.Things", "Doom.MapBuild", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
