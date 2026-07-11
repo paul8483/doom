@@ -36,7 +36,7 @@ namespace Doom.Game.Tests
         [Test]
         public void BestAvailable_follows_p_checkammo_order()
         {
-            // Порядок P_CheckAmmo: chaingun → shotgun → pistol → fist.
+            // Порядок P_CheckAmmo: rocket → chaingun → shotgun → pistol → fist.
             var l = new WeaponLoadout();
             var ammo = new AmmoModel();          // 50 пуль, 0 дроби
             l.Give(WeaponId.Shotgun); l.Give(WeaponId.Chaingun);
@@ -46,6 +46,9 @@ namespace Doom.Game.Tests
                 "пули кончились, дроби не было — вниз до кулака");
             ammo.Add(AmmoType.Shells, 4);
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Shotgun));
+            l.Give(WeaponId.RocketLauncher);
+            ammo.Add(AmmoType.Rockets, 1);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.RocketLauncher));
         }
 
         [Test]

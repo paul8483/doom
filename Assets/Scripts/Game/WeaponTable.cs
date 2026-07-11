@@ -46,12 +46,25 @@ namespace Doom.Game
             FireSound = "DSPISTOL",
         };
 
+        static readonly WeaponDef RocketLauncher = new WeaponDef
+        {
+            Id = WeaponId.RocketLauncher, Slot = 5, Ammo = AmmoType.Rockets, AmmoPerShot = 1,
+            Pellets = 0, Melee = false, FirstShotAccurate = true,
+            Sprite = "MISG", IdleFrame = 0,
+            FireFrames = new[] { 1, 1 }, FireTics = new[] { 8, 12 },
+            FlashSprite = "MISF", FlashFrames = new[] { 0, 1, 2, 3 },
+            FlashTics = new[] { 3, 4, 4, 4 },
+            FireSound = "DSRLAUNC",
+        };
+
         public static WeaponDef Get(WeaponId id) => id switch
         {
             WeaponId.Fist => Fist,
             WeaponId.Pistol => Pistol,
             WeaponId.Shotgun => Shotgun,
-            _ => Chaingun,
+            WeaponId.Chaingun => Chaingun,
+            WeaponId.RocketLauncher => RocketLauncher,
+            _ => Fist,
         };
     }
 }

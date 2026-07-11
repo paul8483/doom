@@ -7,7 +7,7 @@ namespace Doom.Game
     public sealed class WeaponDef
     {
         public WeaponId Id;
-        public int Slot;                 // клавиши 1..4
+        public int Slot;                 // клавиши 1..5
         public AmmoType Ammo;
         public int AmmoPerShot;          // 0 для кулака
         public int Pellets;              // лучей за выстрел (дробовик 7)

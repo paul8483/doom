@@ -19,12 +19,14 @@ namespace Doom.Game
 
         public int Bullets { get; }
         public int Shells { get; }
+        public int Rockets { get; }
         public bool HasBackpack { get; }
 
         public bool OwnsFist { get; }
         public bool OwnsPistol { get; }
         public bool OwnsShotgun { get; }
         public bool OwnsChaingun { get; }
+        public bool OwnsRocketLauncher { get; }
         public WeaponId CurrentWeapon { get; }
         public bool HasPendingWeapon { get; }
         public WeaponId PendingWeapon { get; }
@@ -49,6 +51,28 @@ namespace Doom.Game
             int keyBits,
             bool berserk, int ironFeetTics,
             int randomIndex)
+            : this(
+                x, y, z, yawDegrees, pitchDegrees,
+                health, armor, armorType,
+                bullets, shells, 0, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, false,
+                currentWeapon, hasPendingWeapon, pendingWeapon,
+                keyBits, berserk, ironFeetTics, randomIndex)
+        {
+        }
+
+        public PlayerSnapshot(
+            float x, float y, float z,
+            float yawDegrees, float pitchDegrees,
+            int health, int armor, ArmorKind armorType,
+            int bullets, int shells, int rockets, bool hasBackpack,
+            bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsRocketLauncher,
+            WeaponId currentWeapon,
+            bool hasPendingWeapon, WeaponId pendingWeapon,
+            int keyBits,
+            bool berserk, int ironFeetTics,
+            int randomIndex)
         {
             X = x;
             Y = y;
@@ -60,11 +84,13 @@ namespace Doom.Game
             ArmorType = armorType;
             Bullets = bullets;
             Shells = shells;
+            Rockets = rockets;
             HasBackpack = hasBackpack;
             OwnsFist = ownsFist;
             OwnsPistol = ownsPistol;
             OwnsShotgun = ownsShotgun;
             OwnsChaingun = ownsChaingun;
+            OwnsRocketLauncher = ownsRocketLauncher;
             CurrentWeapon = currentWeapon;
             HasPendingWeapon = hasPendingWeapon;
             PendingWeapon = pendingWeapon;
@@ -80,6 +106,29 @@ namespace Doom.Game
             int health, int armor, ArmorKind armorType,
             int bullets, int shells, bool hasBackpack,
             bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            WeaponId currentWeapon,
+            bool hasPendingWeapon, WeaponId pendingWeapon,
+            int keyBits,
+            bool berserk, int ironFeetTics,
+            int randomIndex,
+            out PlayerSnapshot snapshot,
+            out string error)
+            => TryCreate(
+                x, y, z, yawDegrees, pitchDegrees,
+                health, armor, armorType,
+                bullets, shells, 0, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, false,
+                currentWeapon, hasPendingWeapon, pendingWeapon,
+                keyBits, berserk, ironFeetTics, randomIndex,
+                out snapshot, out error);
+
+        public static bool TryCreate(
+            float x, float y, float z,
+            float yawDegrees, float pitchDegrees,
+            int health, int armor, ArmorKind armorType,
+            int bullets, int shells, int rockets, bool hasBackpack,
+            bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsRocketLauncher,
             WeaponId currentWeapon,
             bool hasPendingWeapon, WeaponId pendingWeapon,
             int keyBits,
@@ -128,7 +177,7 @@ namespace Doom.Game
                 return false;
             }
 
-            if (bullets < 0 || shells < 0)
+            if (bullets < 0 || shells < 0 || rockets < 0)
             {
                 error = "Ammo counts must be non-negative.";
                 return false;
@@ -136,7 +185,8 @@ namespace Doom.Game
 
             int maxBullets = hasBackpack ? AmmoModel.MaxBulletsBackpack : AmmoModel.MaxBullets;
             int maxShells = hasBackpack ? AmmoModel.MaxShellsBackpack : AmmoModel.MaxShells;
-            if (bullets > maxBullets || shells > maxShells)
+            int maxRockets = hasBackpack ? AmmoModel.MaxRocketsBackpack : AmmoModel.MaxRockets;
+            if (bullets > maxBullets || shells > maxShells || rockets > maxRockets)
             {
                 error = "Ammo exceeds max for backpack state.";
                 return false;
@@ -179,14 +229,18 @@ namespace Doom.Game
                 return false;
             }
 
-            if (!Owns(currentWeapon, ownsFist, ownsPistol, ownsShotgun, ownsChaingun))
+            if (!Owns(
+                    currentWeapon, ownsFist, ownsPistol, ownsShotgun, ownsChaingun,
+                    ownsRocketLauncher))
             {
                 error = "Current weapon is not owned.";
                 return false;
             }
 
             if (hasPendingWeapon
-                && !Owns(pendingWeapon, ownsFist, ownsPistol, ownsShotgun, ownsChaingun))
+                && !Owns(
+                    pendingWeapon, ownsFist, ownsPistol, ownsShotgun, ownsChaingun,
+                    ownsRocketLauncher))
             {
                 error = "Pending weapon is not owned.";
                 return false;
@@ -195,8 +249,8 @@ namespace Doom.Game
             snapshot = new PlayerSnapshot(
                 x, y, z, yawDegrees, pitchDegrees,
                 health, armor, armorType,
-                bullets, shells, hasBackpack,
-                ownsFist, ownsPistol, ownsShotgun, ownsChaingun,
+                bullets, shells, rockets, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
                 currentWeapon, hasPendingWeapon, pendingWeapon,
                 keyBits, berserk, ironFeetTics, randomIndex);
             return true;
@@ -222,9 +276,11 @@ namespace Doom.Game
             if (!TryCreate(
                     x, y, z, yawDegrees, pitchDegrees,
                     health.Health, health.Armor, health.ArmorType,
-                    ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells), ammo.HasBackpack,
+                    ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells),
+                    ammo.Get(AmmoType.Rockets), ammo.HasBackpack,
                     loadout.Has(WeaponId.Fist), loadout.Has(WeaponId.Pistol),
                     loadout.Has(WeaponId.Shotgun), loadout.Has(WeaponId.Chaingun),
+                    loadout.Has(WeaponId.RocketLauncher),
                     loadout.Current,
                     loadout.HasPending, loadout.HasPending ? loadout.Pending : WeaponId.Fist,
                     keys.CaptureBits(),
@@ -252,9 +308,9 @@ namespace Doom.Game
             if (random == null) throw new ArgumentNullException(nameof(random));
 
             health.Restore(Health, Armor, ArmorType);
-            ammo.Restore(Bullets, Shells, HasBackpack);
+            ammo.Restore(Bullets, Shells, Rockets, HasBackpack);
             loadout.Restore(
-                OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun,
+                OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun, OwnsRocketLauncher,
                 CurrentWeapon,
                 HasPendingWeapon ? (WeaponId?)PendingWeapon : null);
             keys.RestoreBits(KeyBits);
@@ -266,16 +322,19 @@ namespace Doom.Game
 
         static bool IsValidWeapon(WeaponId id) =>
             id == WeaponId.Fist || id == WeaponId.Pistol
-            || id == WeaponId.Shotgun || id == WeaponId.Chaingun;
+            || id == WeaponId.Shotgun || id == WeaponId.Chaingun
+            || id == WeaponId.RocketLauncher;
 
         static bool Owns(
-            WeaponId id, bool fist, bool pistol, bool shotgun, bool chaingun) =>
+            WeaponId id, bool fist, bool pistol, bool shotgun, bool chaingun,
+            bool rocketLauncher) =>
             id switch
             {
                 WeaponId.Fist => fist,
                 WeaponId.Pistol => pistol,
                 WeaponId.Shotgun => shotgun,
                 WeaponId.Chaingun => chaingun,
+                WeaponId.RocketLauncher => rocketLauncher,
                 _ => false,
             };
 
@@ -288,9 +347,11 @@ namespace Doom.Game
                    && Health == other.Health && Armor == other.Armor
                    && ArmorType == other.ArmorType
                    && Bullets == other.Bullets && Shells == other.Shells
+                   && Rockets == other.Rockets
                    && HasBackpack == other.HasBackpack
                    && OwnsFist == other.OwnsFist && OwnsPistol == other.OwnsPistol
                    && OwnsShotgun == other.OwnsShotgun && OwnsChaingun == other.OwnsChaingun
+                   && OwnsRocketLauncher == other.OwnsRocketLauncher
                    && CurrentWeapon == other.CurrentWeapon
                    && HasPendingWeapon == other.HasPendingWeapon
                    && (!HasPendingWeapon || PendingWeapon == other.PendingWeapon)
@@ -304,9 +365,9 @@ namespace Doom.Game
         public override int GetHashCode() =>
             HashCode.Combine(
                 HashCode.Combine(X, Y, Z, YawDegrees, PitchDegrees, Health, Armor, (int)ArmorType),
-                HashCode.Combine(Bullets, Shells, HasBackpack, OwnsPistol, OwnsShotgun, OwnsChaingun,
-                    (int)CurrentWeapon, KeyBits),
+                HashCode.Combine(Bullets, Shells, Rockets, HasBackpack, OwnsPistol,
+                    OwnsShotgun, OwnsChaingun, OwnsRocketLauncher),
                 HashCode.Combine(HasPendingWeapon, (int)PendingWeapon, Berserk, IronFeetTics,
-                    RandomIndex));
+                    RandomIndex, (int)CurrentWeapon, KeyBits));
     }
 }

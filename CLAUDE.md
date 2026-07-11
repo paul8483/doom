@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Stages 0–6 are done (6a–6f including music). **Stage 7** is in progress: **7a** (session/exits), **7b** (HUD/intermission), **7c** (menus/settings), **7d** (full-world saves), and **7e Task 14** (E1 teleports + spectre/baron AI) are done; **7e Task 15** (smoke/baseline/build) is largely done pending interactive E1 sign-off and full PlayMode totals.
+Stages 0–6 are done (6a–6f including music). **Stage 7** is in progress: **7a** (session/exits), **7b** (HUD/intermission), **7c** (menus/settings), **7d** (full-world saves), and **7e Task 14** (E1 teleports + spectre/baron AI) are done; **7e Task 15** (smoke/baseline/build) is largely done pending interactive E1 sign-off and full PlayMode totals. Post-6c, the rocket launcher (slot 5), rocket ammo/pickups, MISL projectile, splash/self-damage, HUD, carry, and save schema v2 support were added.
 
 - **Stage 0:** Unity project scaffolded at the repo root, Git initialized (branch `main`), Freedoom Phase 1 placed under `Assets/StreamingAssets/wads/freedoom1.wad`.
 - **Stage 1:** WAD reader implemented in `Assets/Scripts/Wad/` (asmdef `Doom.Wad`, `noEngineReferences: true`). Public surface: `WadFile.Open(path)`, `Header`, `Directory`, `FindLump`, `ReadLump`, plus `WadMapNames.IsMapMarker`. Editor menu `Tools > Doom > Dump freedoom1.wad` confirms it reads the bundled WAD end-to-end. 30 EditMode tests (unit + integration) pass via Unity Test Framework.

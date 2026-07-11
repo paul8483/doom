@@ -231,6 +231,8 @@ namespace Doom.MapBuild
                 ("PUNG", new[] { 0, 1, 2, 3 }), ("PISG", new[] { 0, 1, 2 }), ("PISF", new[] { 0 }),
                 ("SHTG", new[] { 0, 1, 2, 3 }), ("SHTF", new[] { 0, 1 }),
                 ("CHGG", new[] { 0, 1 }), ("CHGF", new[] { 0, 1 }),
+                ("MISG", new[] { 0, 1 }), ("MISF", new[] { 0, 1, 2, 3 }),
+                ("MISL", new[] { 0, 1, 2, 3 }),
                 ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),
             })
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
@@ -456,7 +458,7 @@ namespace Doom.MapBuild
 
             // Weapons and shooting (Stage 6c) + inventory / pickups (Stage 6e).
             var weapons = player.AddComponent<PlayerWeapons>();
-            weapons.Init(spriteCache, worldScale, cameraGO.transform);
+            weapons.Init(spriteCache, worldScale, cameraGO.transform, Sound);
             var weaponView = cameraGO.AddComponent<WeaponView>();
             weaponView.Init(weapons, spriteCache, worldScale, cc);
 

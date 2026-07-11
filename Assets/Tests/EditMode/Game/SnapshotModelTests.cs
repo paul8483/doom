@@ -136,8 +136,11 @@ namespace Doom.Game.Tests
             var ammo = new AmmoModel();
             ammo.GiveBackpack();
             ammo.Add(AmmoType.Shells, 12);
+            ammo.Add(AmmoType.Rockets, 7);
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.Shotgun);
+            loadout.Give(WeaponId.RocketLauncher);
+            loadout.TrySelect(WeaponId.Shotgun);
             loadout.TryQueuePending(WeaponId.Pistol);
             var keys = new KeyInventory();
             keys.Give(PlayerKey.YellowCard);
@@ -165,8 +168,10 @@ namespace Doom.Game.Tests
             Assert.That(health.ArmorType, Is.EqualTo(ArmorKind.Green));
             Assert.That(ammo.HasBackpack, Is.True);
             Assert.That(ammo.Get(AmmoType.Shells), Is.EqualTo(snap.Shells));
+            Assert.That(ammo.Get(AmmoType.Rockets), Is.EqualTo(snap.Rockets));
             Assert.That(snap.Shells, Is.EqualTo(12 + AmmoModel.BackpackClipShells));
             Assert.That(loadout.Has(WeaponId.Shotgun), Is.True);
+            Assert.That(loadout.Has(WeaponId.RocketLauncher), Is.True);
             Assert.That(loadout.Current, Is.EqualTo(WeaponId.Shotgun));
             Assert.That(loadout.HasPending, Is.True);
             Assert.That(loadout.Pending, Is.EqualTo(WeaponId.Pistol));

@@ -211,6 +211,12 @@ namespace Doom.MapBuild
             foreach (var proj in world.Projectiles)
             {
                 if (registry.TryGetSpawned(proj.SpawnId, out _)) continue;
+                if (proj.Type == RocketRules.SnapshotType)
+                {
+                    PlayerRocketProjectile.LaunchFromSnapshot(
+                        spriteCache, worldScale, rng, proj, player.transform, sound);
+                    continue;
+                }
                 if (!MonsterTable.TryGet(proj.Type, out var def) || def == null) continue;
                 if (string.IsNullOrEmpty(def.MissileSprite)) continue;
 

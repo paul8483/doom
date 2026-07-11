@@ -7,7 +7,8 @@ namespace Doom.Game
     /// in-memory contract.
     public sealed class SaveGame : IEquatable<SaveGame>
     {
-        public const int SchemaVersion = 1;
+        public const int FirstSupportedSchemaVersion = 1;
+        public const int SchemaVersion = 2;
         /// ASCII 'D','S','A','V' — little-endian uint 0x56415344.
         public const uint Magic = 0x56415344;
 
@@ -39,9 +40,27 @@ namespace Doom.Game
             WorldSnapshot world,
             out SaveGame save,
             out string error)
+            => TryCreate(
+                SchemaVersion, mapName, wadIdentity, player, world,
+                out save, out error);
+
+        public static bool TryCreate(
+            int version,
+            string mapName,
+            string wadIdentity,
+            PlayerSnapshot player,
+            WorldSnapshot world,
+            out SaveGame save,
+            out string error)
         {
             save = null;
             error = null;
+
+            if (version < FirstSupportedSchemaVersion || version > SchemaVersion)
+            {
+                error = "Unsupported save schema version: " + version;
+                return false;
+            }
 
             if (player == null)
             {
@@ -67,7 +86,7 @@ namespace Doom.Game
                 return false;
             }
 
-            save = new SaveGame(SchemaVersion, canonical, wadIdentity, player, world);
+            save = new SaveGame(version, canonical, wadIdentity, player, world);
             return true;
         }
 

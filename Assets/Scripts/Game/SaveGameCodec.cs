@@ -107,7 +107,8 @@ namespace Doom.Game
                     }
 
                     int version = r.ReadInt32();
-                    if (version != SaveGame.SchemaVersion)
+                    if (version < SaveGame.FirstSupportedSchemaVersion
+                        || version > SaveGame.SchemaVersion)
                     {
                         error = "Unsupported save schema version: " + version;
                         return false;
@@ -153,14 +154,17 @@ namespace Doom.Game
                         return false;
                     }
 
-                    if (!TryDecodePayload(payload, out PlayerSnapshot player, out WorldSnapshot world,
+                    if (!TryDecodePayload(
+                            payload, version, out PlayerSnapshot player, out WorldSnapshot world,
                             out error))
                         return false;
 
-                    if (!SaveGame.TryCreate(mapName, wadIdentity, player, world, out save, out error))
+                    if (!SaveGame.TryCreate(
+                            version, mapName, wadIdentity, player, world, out save, out error))
                         return false;
 
-                    // Preserve encoded version field (TryCreate always stamps SchemaVersion).
+                    // Preserve the encoded version so v1 saves can be loaded and
+                    // upgraded naturally the next time a fresh v2 save is captured.
                     if (save.Version != version)
                     {
                         error = "Decoded version mismatch.";
@@ -314,7 +318,8 @@ namespace Doom.Game
         }
 
         static bool TryDecodePayload(
-            byte[] payload, out PlayerSnapshot player, out WorldSnapshot world, out string error)
+            byte[] payload, int version,
+            out PlayerSnapshot player, out WorldSnapshot world, out string error)
         {
             player = null;
             world = null;
@@ -324,7 +329,7 @@ namespace Doom.Game
                 using (var ms = new MemoryStream(payload, writable: false))
                 using (var r = new BinaryReader(ms, Encoding.ASCII, leaveOpen: true))
                 {
-                    if (!TryReadPlayer(r, out player, out error)) return false;
+                    if (!TryReadPlayer(r, version, out player, out error)) return false;
                     if (!TryReadWorld(r, out world, out error)) return false;
                     if (ms.Position != ms.Length)
                     {
@@ -371,9 +376,12 @@ namespace Doom.Game
             WriteBool(w, p.Berserk);
             w.Write(p.IronFeetTics);
             w.Write(p.RandomIndex);
+            w.Write(p.Rockets);
+            WriteBool(w, p.OwnsRocketLauncher);
         }
 
-        static bool TryReadPlayer(BinaryReader r, out PlayerSnapshot player, out string error)
+        static bool TryReadPlayer(
+            BinaryReader r, int version, out PlayerSnapshot player, out string error)
         {
             float x = r.ReadSingle();
             float y = r.ReadSingle();
@@ -397,6 +405,13 @@ namespace Doom.Game
             bool berserk = ReadBool(r);
             int ironFeet = r.ReadInt32();
             int randomIndex = r.ReadInt32();
+            int rockets = 0;
+            bool ownsRocketLauncher = false;
+            if (version >= 2)
+            {
+                rockets = r.ReadInt32();
+                ownsRocketLauncher = ReadBool(r);
+            }
 
             if (!Enum.IsDefined(typeof(ArmorKind), armorTypeRaw))
             {
@@ -416,8 +431,8 @@ namespace Doom.Game
             return PlayerSnapshot.TryCreate(
                 x, y, z, yaw, pitch,
                 health, armor, (ArmorKind)armorTypeRaw,
-                bullets, shells, hasBackpack,
-                ownsFist, ownsPistol, ownsShotgun, ownsChaingun,
+                bullets, shells, rockets, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, ownsRocketLauncher,
                 (WeaponId)currentWeapon, hasPending, (WeaponId)pendingWeapon,
                 keyBits, berserk, ironFeet, randomIndex,
                 out player, out error);

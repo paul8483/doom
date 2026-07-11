@@ -7,7 +7,7 @@ namespace Doom.MapBuild
     /// Monster projectile (imp fireball): straight flight at DOOM speed,
     /// sphere-cast collision, explosion frames, then Destroy. Fly/explode
     /// frames come from MonsterDef; damage is rolled on impact (p_inter.c).
-    public sealed class Projectile : MonoBehaviour
+    public sealed class Projectile : MonoBehaviour, IProjectileSnapshotSource
     {
         SpriteCache cache;
         MonsterDef def;

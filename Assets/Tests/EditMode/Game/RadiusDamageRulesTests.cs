@@ -33,5 +33,17 @@ namespace Doom.Game.Tests
             Assert.That(RadiusDamageRules.BarrelDamageAt(-10f),
                 Is.EqualTo(RadiusDamageRules.BarrelMaxDamage));
         }
+
+        [Test]
+        public void Rocket_uses_canonical_direct_and_splash_constants()
+        {
+            Assert.That(RocketRules.DirectDamageMult, Is.EqualTo(20));
+            Assert.That(RocketRules.DirectDamageMod, Is.EqualTo(8));
+            Assert.That(RocketRules.SplashDamage, Is.EqualTo(128));
+            Assert.That(RocketRules.SplashRadiusDoom, Is.EqualTo(128f));
+            Assert.That(
+                RadiusDamageRules.DamageAt(RocketRules.SplashDamage, 64f),
+                Is.EqualTo(64));
+        }
     }
 }

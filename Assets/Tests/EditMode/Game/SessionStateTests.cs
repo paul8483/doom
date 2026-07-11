@@ -126,8 +126,10 @@ namespace Doom.Game.Tests
             // GiveBackpack already grants BackpackClipShells (4); top up to a known total.
             while (ammo.Get(AmmoType.Shells) < 20)
                 ammo.Add(AmmoType.Shells, 1);
+            ammo.Add(AmmoType.Rockets, 7);
             var loadout = new WeaponLoadout();
             loadout.Give(WeaponId.Chaingun);
+            loadout.Give(WeaponId.RocketLauncher);
 
             var carry = PlayerCarryState.Capture(health, ammo, loadout);
 
@@ -141,8 +143,10 @@ namespace Doom.Game.Tests
             Assert.That(h2.ArmorType, Is.EqualTo(ArmorKind.Blue));
             Assert.That(a2.HasBackpack, Is.True);
             Assert.That(a2.Get(AmmoType.Shells), Is.EqualTo(20));
+            Assert.That(a2.Get(AmmoType.Rockets), Is.EqualTo(8)); // backpack gave 1 + 7
             Assert.That(l2.Has(WeaponId.Chaingun), Is.True);
-            Assert.That(l2.Current, Is.EqualTo(WeaponId.Chaingun));
+            Assert.That(l2.Has(WeaponId.RocketLauncher), Is.True);
+            Assert.That(l2.Current, Is.EqualTo(WeaponId.RocketLauncher));
         }
     }
 }

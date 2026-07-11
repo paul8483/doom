@@ -9,7 +9,7 @@ namespace Doom.Game.Tests
     public class SaveGameCodecTests
     {
         [Test]
-        public void Encode_Decode_round_trips_full_v1_snapshot()
+        public void Encode_Decode_round_trips_full_v2_snapshot()
         {
             SaveGame original = BuildGoldenSave();
             byte[] bytes = SaveGameCodec.Encode(original);
@@ -21,6 +21,35 @@ namespace Doom.Game.Tests
             Assert.That(decoded.World.Sectors[1].MoverWaitTics, Is.EqualTo(12));
             Assert.That(decoded.World.Projectiles[0].Owner, Is.EqualTo(SaveEntityId.MapThing(0)));
             Assert.That(decoded.Player.OwnsShotgun, Is.True);
+            Assert.That(decoded.Player.OwnsRocketLauncher, Is.True);
+            Assert.That(decoded.Player.Rockets, Is.EqualTo(7));
+        }
+
+        [Test]
+        public void Decode_v1_defaults_rocket_state()
+        {
+            const string wad = "wad:test";
+            byte[] v2 = SaveGameCodec.Encode(BuildMinimalSave(wad));
+            int payloadOffset = FindPayloadOffset(v2, wad, "E1M1");
+            int payloadLength = BitConverter.ToInt32(v2, payloadOffset - 8);
+            const int V1PlayerBytes = 67;
+            const int V2ExtraBytes = 5;
+
+            var v1 = new byte[v2.Length - V2ExtraBytes];
+            Array.Copy(v2, 0, v1, 0, payloadOffset + V1PlayerBytes);
+            Array.Copy(
+                v2, payloadOffset + V1PlayerBytes + V2ExtraBytes,
+                v1, payloadOffset + V1PlayerBytes,
+                v2.Length - payloadOffset - V1PlayerBytes - V2ExtraBytes);
+            BitConverter.GetBytes(1).CopyTo(v1, 4);
+            BitConverter.GetBytes(payloadLength - V2ExtraBytes).CopyTo(v1, payloadOffset - 8);
+            RecomputeChecksum(v1, wad, "E1M1", payloadOffset, payloadLength - V2ExtraBytes);
+
+            Assert.That(SaveGameCodec.TryDecode(v1, out var decoded, out string error),
+                Is.True, error);
+            Assert.That(decoded.Version, Is.EqualTo(1));
+            Assert.That(decoded.Player.Rockets, Is.Zero);
+            Assert.That(decoded.Player.OwnsRocketLauncher, Is.False);
         }
 
         [Test]
@@ -200,8 +229,8 @@ namespace Doom.Game.Tests
             Assert.That(PlayerSnapshot.TryCreate(
                 1.5f, 2.25f, 0.75f, 90f, -12f,
                 75, 100, ArmorKind.Green,
-                50, 20, true,
-                true, true, true, false,
+                50, 20, 7, true,
+                true, true, true, false, true,
                 WeaponId.Shotgun, true, WeaponId.Pistol,
                 1 << (int)PlayerKey.YellowCard,
                 true, 100, 17,
@@ -346,7 +375,8 @@ namespace Doom.Game.Tests
         static void SkipPlayer(BinaryReader r)
         {
             // 5 floats; health, armor, armorType, bullets, shells; 5 bool bytes;
-            // currentWeapon; hasPending; pendingWeapon; keyBits; berserk; ironFeet; randomIndex
+            // currentWeapon; hasPending; pendingWeapon; keyBits; berserk; ironFeet; randomIndex;
+            // rockets; ownsRocketLauncher
             for (int i = 0; i < 5; i++) r.ReadSingle();
             for (int i = 0; i < 5; i++) r.ReadInt32();
             for (int i = 0; i < 5; i++) r.ReadByte();
@@ -357,6 +387,8 @@ namespace Doom.Game.Tests
             r.ReadByte();
             r.ReadInt32();
             r.ReadInt32();
+            r.ReadInt32();
+            r.ReadByte();
         }
 
         static void SkipIntArray(BinaryReader r)

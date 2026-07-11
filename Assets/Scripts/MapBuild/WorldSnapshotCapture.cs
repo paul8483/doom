@@ -72,10 +72,12 @@ namespace Doom.MapBuild
             {
                 if (!registry.TryGetSpawned(spawnId, out var identity) || identity == null)
                     continue;
-                var proj = identity.GetComponent<Projectile>();
+                var proj = identity.GetComponent<IProjectileSnapshotSource>();
                 if (proj != null)
                 {
-                    projectiles.Add(proj.CaptureSnapshot(spawnId, registry));
+                    var snapshot = proj.CaptureSnapshot(spawnId, registry);
+                    if (snapshot != null)
+                        projectiles.Add(snapshot);
                     continue;
                 }
 

@@ -45,6 +45,10 @@
 
 > **Дополнено 2026-07-11:** взрыв бочек (2035) реализован — HP 20, BEXP,
 > `RadiusDamageRules` / `BarrelExplosion`, DSBAREXP. См. план 6c known-simplifications.
+>
+> **Дополнено 2026-07-11:** ракетница перенесена из deferred в реализованное:
+> слот 5, Rockets 50/100, pickups 2003/2010/2046, MISG/MISF/MISL,
+> прямой урон + splash/self-damage 128/128, HUD, carry и save schema v2.
 
 ## Ключевые решения (из brainstorming)
 

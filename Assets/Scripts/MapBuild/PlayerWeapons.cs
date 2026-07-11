@@ -6,7 +6,7 @@ using Doom.Game;
 
 namespace Doom.MapBuild
 {
-    /// Player weapons: input (LMB, 1-4), cooldowns in tics, hitscan rays, damage,
+    /// Player weapons: input (LMB, slots 1-5), cooldowns in tics, hitscan/projectile damage,
     /// effects. Rules live in Doom.Game; this is only the Unity glue.
     public sealed class PlayerWeapons : MonoBehaviour
     {
@@ -20,6 +20,7 @@ namespace Doom.MapBuild
         SpriteCache cache;
         float worldScale;
         Transform cam;
+        SoundSystem sound;
         readonly DoomRandom rng = new DoomRandom();
         readonly List<HitscanShot> volley = new List<HitscanShot>();
         PlayerInventory inventory;
@@ -29,15 +30,18 @@ namespace Doom.MapBuild
         float cooldown;       // seconds until the next shot is allowed
         bool refire;          // LMB has been held since the last shot
 
-        public void Init(SpriteCache cache, float worldScale, Transform cameraTransform)
+        public void Init(
+            SpriteCache cache, float worldScale, Transform cameraTransform,
+            SoundSystem soundSystem = null)
         {
             this.cache = cache;
             this.worldScale = worldScale;
             cam = cameraTransform;
+            sound = soundSystem;
 
             map = new InputActionMap("Weapons");
             fireAction = map.AddAction("fire", InputActionType.Button, "<Mouse>/leftButton");
-            for (int slot = 1; slot <= 4; slot++)
+            for (int slot = 1; slot <= 5; slot++)
             {
                 int s = slot;
                 var a = map.AddAction($"slot{s}", InputActionType.Button, $"<Keyboard>/{s}");
@@ -77,6 +81,16 @@ namespace Doom.MapBuild
             if (!Ammo.TryConsume(def.Ammo, def.AmmoPerShot))
             {
                 Loadout.TrySelect(Loadout.BestAvailable(Ammo)); // auto-downgrade
+                return;
+            }
+
+            if (def.Id == WeaponId.RocketLauncher)
+            {
+                PlayerRocketProjectile.Launch(
+                    cache, worldScale, rng, cam.position, cam.forward, transform, sound);
+                cooldown = def.CycleTics / 35f;
+                refire = true;
+                Fired?.Invoke(def);
                 return;
             }
 

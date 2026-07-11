@@ -11,11 +11,13 @@ namespace Doom.Game
         public ArmorKind ArmorType { get; }
         public int Bullets { get; }
         public int Shells { get; }
+        public int Rockets { get; }
         public bool HasBackpack { get; }
         public bool OwnsFist { get; }
         public bool OwnsPistol { get; }
         public bool OwnsShotgun { get; }
         public bool OwnsChaingun { get; }
+        public bool OwnsRocketLauncher { get; }
         public WeaponId CurrentWeapon { get; }
 
         public PlayerCarryState(
@@ -23,17 +25,32 @@ namespace Doom.Game
             int bullets, int shells, bool hasBackpack,
             bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
             WeaponId currentWeapon)
+            : this(
+                health, armor, armorType,
+                bullets, shells, 0, hasBackpack,
+                ownsFist, ownsPistol, ownsShotgun, ownsChaingun, false,
+                currentWeapon)
+        {
+        }
+
+        public PlayerCarryState(
+            int health, int armor, ArmorKind armorType,
+            int bullets, int shells, int rockets, bool hasBackpack,
+            bool ownsFist, bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsRocketLauncher, WeaponId currentWeapon)
         {
             Health = health;
             Armor = armor;
             ArmorType = armorType;
             Bullets = bullets;
             Shells = shells;
+            Rockets = rockets;
             HasBackpack = hasBackpack;
             OwnsFist = ownsFist;
             OwnsPistol = ownsPistol;
             OwnsShotgun = ownsShotgun;
             OwnsChaingun = ownsChaingun;
+            OwnsRocketLauncher = ownsRocketLauncher;
             CurrentWeapon = currentWeapon;
         }
 
@@ -54,9 +71,11 @@ namespace Doom.Game
 
             return new PlayerCarryState(
                 health.Health, health.Armor, health.ArmorType,
-                ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells), ammo.HasBackpack,
+                ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells),
+                ammo.Get(AmmoType.Rockets), ammo.HasBackpack,
                 loadout.Has(WeaponId.Fist), loadout.Has(WeaponId.Pistol),
                 loadout.Has(WeaponId.Shotgun), loadout.Has(WeaponId.Chaingun),
+                loadout.Has(WeaponId.RocketLauncher),
                 loadout.Current);
         }
 
@@ -67,8 +86,10 @@ namespace Doom.Game
             if (loadout == null) throw new ArgumentNullException(nameof(loadout));
 
             health.Restore(Health, Armor, ArmorType);
-            ammo.Restore(Bullets, Shells, HasBackpack);
-            loadout.Restore(OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun, CurrentWeapon);
+            ammo.Restore(Bullets, Shells, Rockets, HasBackpack);
+            loadout.Restore(
+                OwnsFist, OwnsPistol, OwnsShotgun, OwnsChaingun,
+                OwnsRocketLauncher, CurrentWeapon);
         }
     }
 }

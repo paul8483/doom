@@ -25,6 +25,7 @@ namespace Doom.Game
         public readonly bool OwnsPistol;
         public readonly bool OwnsShotgun;
         public readonly bool OwnsChaingun;
+        public readonly bool OwnsRocketLauncher;
 
         public readonly bool BlueCard;
         public readonly bool YellowCard;
@@ -43,7 +44,7 @@ namespace Doom.Game
             int readyAmmo, bool readyAmmoVisible,
             int bullets, int shells, int rockets, int cells,
             int maxBullets, int maxShells, int maxRockets, int maxCells,
-            bool ownsPistol, bool ownsShotgun, bool ownsChaingun,
+            bool ownsPistol, bool ownsShotgun, bool ownsChaingun, bool ownsRocketLauncher,
             bool blueCard, bool yellowCard, bool redCard,
             bool blueSkull, bool yellowSkull, bool redSkull,
             bool berserk, bool ironFeet,
@@ -65,6 +66,7 @@ namespace Doom.Game
             OwnsPistol = ownsPistol;
             OwnsShotgun = ownsShotgun;
             OwnsChaingun = ownsChaingun;
+            OwnsRocketLauncher = ownsRocketLauncher;
             BlueCard = blueCard;
             YellowCard = yellowCard;
             RedCard = redCard;
@@ -98,11 +100,14 @@ namespace Doom.Game
             return new HudModel(
                 health.Health, health.Armor, health.ArmorType,
                 ready, ammoVisible,
-                ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells), 0, 0,
-                ammo.GetMax(AmmoType.Bullets), ammo.GetMax(AmmoType.Shells), 0, 0,
+                ammo.Get(AmmoType.Bullets), ammo.Get(AmmoType.Shells),
+                ammo.Get(AmmoType.Rockets), 0,
+                ammo.GetMax(AmmoType.Bullets), ammo.GetMax(AmmoType.Shells),
+                ammo.GetMax(AmmoType.Rockets), 0,
                 loadout.Has(WeaponId.Pistol),
                 loadout.Has(WeaponId.Shotgun),
                 loadout.Has(WeaponId.Chaingun),
+                loadout.Has(WeaponId.RocketLauncher),
                 keys.Has(PlayerKey.BlueCard),
                 keys.Has(PlayerKey.YellowCard),
                 keys.Has(PlayerKey.RedCard),

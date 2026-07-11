@@ -10,6 +10,7 @@ namespace Doom.Game.Tests
         {
             Assert.That(PickupSoundTable.Get(2001), Is.EqualTo(PickupSoundKind.Weapon));
             Assert.That(PickupSoundTable.Get(2002), Is.EqualTo(PickupSoundKind.Weapon));
+            Assert.That(PickupSoundTable.Get(2003), Is.EqualTo(PickupSoundKind.Weapon));
             Assert.That(PickupSoundTable.Get(2013), Is.EqualTo(PickupSoundKind.Power));
             Assert.That(PickupSoundTable.Get(2023), Is.EqualTo(PickupSoundKind.Power));
             Assert.That(PickupSoundTable.Get(2025), Is.EqualTo(PickupSoundKind.Power));
@@ -18,6 +19,8 @@ namespace Doom.Game.Tests
             Assert.That(PickupSoundTable.Get(5), Is.EqualTo(PickupSoundKind.Item));
             Assert.That(PickupSoundTable.Get(8), Is.EqualTo(PickupSoundKind.Item));
             Assert.That(PickupSoundTable.Get(2007), Is.EqualTo(PickupSoundKind.Item));
+            Assert.That(PickupSoundTable.Get(2010), Is.EqualTo(PickupSoundKind.Item));
+            Assert.That(PickupSoundTable.Get(2046), Is.EqualTo(PickupSoundKind.Item));
             Assert.That(PickupSoundTable.Get(9999), Is.EqualTo(PickupSoundKind.None));
         }
 

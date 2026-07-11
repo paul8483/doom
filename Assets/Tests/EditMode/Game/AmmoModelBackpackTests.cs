@@ -13,8 +13,10 @@ namespace Doom.Game.Tests
             Assert.That(a.HasBackpack, Is.True);
             Assert.That(a.GetMax(AmmoType.Bullets), Is.EqualTo(400));
             Assert.That(a.GetMax(AmmoType.Shells), Is.EqualTo(100));
+            Assert.That(a.GetMax(AmmoType.Rockets), Is.EqualTo(100));
             Assert.That(a.Get(AmmoType.Bullets), Is.EqualTo(60)); // 50+10
             Assert.That(a.Get(AmmoType.Shells), Is.EqualTo(4));
+            Assert.That(a.Get(AmmoType.Rockets), Is.EqualTo(1));
         }
 
         [Test]

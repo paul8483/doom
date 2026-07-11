@@ -1,26 +1,31 @@
 namespace Doom.Game
 {
     /// Счётчики патронов игрока. Значения DOOM: старт 50 пуль,
-    /// максимумы maxammo = 200 пуль / 50 дроби (p_inter.c, без рюкзака);
-    /// с рюкзаком — 400 / 100.
+    /// максимумы maxammo = 200 пуль / 50 дроби / 50 ракет (p_inter.c);
+    /// с рюкзаком — 400 / 100 / 100.
     public sealed class AmmoModel
     {
         public const int MaxBullets = 200;
         public const int MaxShells = 50;
+        public const int MaxRockets = 50;
         public const int MaxBulletsBackpack = 400;
         public const int MaxShellsBackpack = 100;
+        public const int MaxRocketsBackpack = 100;
         public const int StartBullets = 50;
         public const int BackpackClipBullets = 10;
         public const int BackpackClipShells = 4;
+        public const int BackpackClipRockets = 1;
 
         int bullets = StartBullets;
         int shells;
+        int rockets;
         public bool HasBackpack { get; private set; }
 
         public int Get(AmmoType t) => t switch
         {
             AmmoType.Bullets => bullets,
             AmmoType.Shells => shells,
+            AmmoType.Rockets => rockets,
             _ => 0,
         };
 
@@ -28,6 +33,7 @@ namespace Doom.Game
         {
             AmmoType.Bullets => HasBackpack ? MaxBulletsBackpack : MaxBullets,
             AmmoType.Shells => HasBackpack ? MaxShellsBackpack : MaxShells,
+            AmmoType.Rockets => HasBackpack ? MaxRocketsBackpack : MaxRockets,
             _ => 0,
         };
 
@@ -55,6 +61,7 @@ namespace Doom.Game
             HasBackpack = true;
             Add(AmmoType.Bullets, BackpackClipBullets);
             Add(AmmoType.Shells, BackpackClipShells);
+            Add(AmmoType.Rockets, BackpackClipRockets);
             return true;
         }
 
@@ -62,22 +69,36 @@ namespace Doom.Game
         {
             bullets = StartBullets;
             shells = 0;
+            rockets = 0;
             HasBackpack = false;
         }
 
         /// Authoritative restore for carry-over / save. Counts are clamped to the
         /// max implied by <paramref name="hasBackpack"/>.
         public void Restore(int bulletCount, int shellCount, bool hasBackpack)
+            => Restore(bulletCount, shellCount, 0, hasBackpack);
+
+        public void Restore(int bulletCount, int shellCount, int rocketCount, bool hasBackpack)
         {
             HasBackpack = hasBackpack;
             bullets = Clamp(bulletCount, GetMax(AmmoType.Bullets));
             shells = Clamp(shellCount, GetMax(AmmoType.Shells));
+            rockets = Clamp(rocketCount, GetMax(AmmoType.Rockets));
         }
 
         public void Capture(out int bulletCount, out int shellCount, out bool hasBackpack)
         {
             bulletCount = bullets;
             shellCount = shells;
+            hasBackpack = HasBackpack;
+        }
+
+        public void Capture(
+            out int bulletCount, out int shellCount, out int rocketCount, out bool hasBackpack)
+        {
+            bulletCount = bullets;
+            shellCount = shells;
+            rocketCount = rockets;
             hasBackpack = HasBackpack;
         }
 
@@ -91,6 +112,7 @@ namespace Doom.Game
         {
             if (t == AmmoType.Bullets) bullets = v;
             else if (t == AmmoType.Shells) shells = v;
+            else if (t == AmmoType.Rockets) rockets = v;
         }
     }
 }

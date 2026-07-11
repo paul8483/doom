@@ -129,5 +129,67 @@ namespace Doom.Stage3.PlayTests
             Assert.That(weapons.Ammo.Get(AmmoType.Shells), Is.EqualTo(8), "+8 shells");
             Assert.That(pickupGo == null || !pickupGo, Is.True, "item GO destroyed");
         }
+
+        [UnityTest]
+        public IEnumerator Rocket_launcher_pickup_fires_projectile_and_spends_rocket()
+        {
+            yield return LoadLevel();
+            var player = GameObject.Find("Player");
+            var weapons = player.GetComponent<PlayerWeapons>();
+            var cc = player.GetComponent<CharacterController>();
+
+            foreach (var pickup in GameObject.FindObjectsByType<ThingPickup>(
+                         FindObjectsSortMode.None))
+                pickup.gameObject.SetActive(false);
+
+            var pickupGo = new GameObject("Thing_2003_LAUN");
+            pickupGo.transform.position = player.transform.position;
+            pickupGo.AddComponent<ThingPickup>().Init(2003, 1f / 32f);
+
+            cc.enabled = false;
+            player.transform.position = pickupGo.transform.position;
+            cc.enabled = true;
+            for (int i = 0; i < 10; i++)
+            {
+                cc.Move(new Vector3(0.01f, 0f, 0f));
+                yield return null;
+            }
+            Assert.That(weapons.Loadout.Has(WeaponId.RocketLauncher), Is.True);
+            Assert.That(weapons.Ammo.Get(AmmoType.Rockets), Is.EqualTo(2));
+
+            weapons.FireOnceForTest();
+            Assert.That(weapons.Ammo.Get(AmmoType.Rockets), Is.EqualTo(1));
+            Assert.That(
+                Object.FindFirstObjectByType<PlayerRocketProjectile>(),
+                Is.Not.Null, "player rocket was spawned");
+        }
+
+        [UnityTest]
+        public IEnumerator Rocket_direct_hit_kills_target_and_splash_hurts_player()
+        {
+            yield return LoadLevel();
+            var player = GameObject.Find("Player");
+            var weapons = player.GetComponent<PlayerWeapons>();
+            var health = player.GetComponent<PlayerHealth>();
+            yield return SettleOnFloor(player.GetComponent<CharacterController>());
+            var cam = Camera.main.transform;
+
+            Assert.That(weapons.Pickup(2003), Is.True);
+            var target = new GameObject("RocketTarget");
+            target.transform.position = cam.position + cam.forward * 3f - Vector3.up * 0.8f;
+            var col = target.AddComponent<CapsuleCollider>();
+            col.height = 1.75f;
+            col.radius = 0.5f;
+            col.center = new Vector3(0f, 0.875f, 0f);
+            var enemy = target.AddComponent<EnemyHealth>();
+            enemy.Init(20, corpseFrame: -1, billboard: null, capsule: col);
+
+            weapons.FireOnceForTest();
+            for (int i = 0; i < 90 && !enemy.IsDead; i++) yield return null;
+
+            Assert.That(enemy.IsDead, Is.True, "rocket direct hit reached target");
+            Assert.That(health.Health, Is.LessThan(HealthModel.MaxHealth),
+                "nearby player received rocket splash self-damage");
+        }
     }
 }

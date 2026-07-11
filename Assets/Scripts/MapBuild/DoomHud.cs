@@ -165,7 +165,7 @@ namespace Doom.MapBuild
             DrawArmDigit(t, 0, model.OwnsPistol, 2);
             DrawArmDigit(t, 1, model.OwnsShotgun, 3);
             DrawArmDigit(t, 2, model.OwnsChaingun, 4);
-            DrawArmDigit(t, 3, false, 5);
+            DrawArmDigit(t, 3, model.OwnsRocketLauncher, 5);
             DrawArmDigit(t, 4, false, 6);
             DrawArmDigit(t, 5, false, 7);
         }

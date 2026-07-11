@@ -1,5 +1,6 @@
 using UnityEngine;
 using Doom.Game;
+using System.Collections.Generic;
 
 namespace Doom.MapBuild
 {
@@ -10,10 +11,18 @@ namespace Doom.MapBuild
 
         public static void ApplyBarrelBlast(
             Vector3 center, float worldScale, Transform self, DamageSource source)
+            => ApplyBlast(center, worldScale, self, source,
+                RadiusDamageRules.BarrelMaxDamage, RadiusDamageRules.BarrelRadiusDoom);
+
+        public static void ApplyBlast(
+            Vector3 center, float worldScale, Transform self, DamageSource source,
+            int maxDamage, float radiusDoom)
         {
-            float radius = RadiusDamageRules.BarrelRadiusDoom * worldScale;
+            float radius = radiusDoom * worldScale;
             var cols = Physics.OverlapSphere(
                 center, radius, ~0, QueryTriggerInteraction.Ignore);
+            var hitEnemies = new HashSet<EnemyHealth>();
+            var hitPlayers = new HashSet<PlayerHealth>();
             foreach (var c in cols)
             {
                 if (c == null) continue;
@@ -21,23 +30,23 @@ namespace Doom.MapBuild
                     continue;
 
                 var eh = c.GetComponentInParent<EnemyHealth>();
-                if (eh != null && !eh.IsDead)
+                if (eh != null && !eh.IsDead && hitEnemies.Add(eh))
                 {
                     float targetRadiusDoom = CapsuleRadiusDoom(c, worldScale);
                     float distDoom = HorizontalDistDoom(center, eh.transform.position, worldScale)
                                      - targetRadiusDoom;
-                    int dmg = RadiusDamageRules.BarrelDamageAt(distDoom);
+                    int dmg = RadiusDamageRules.DamageAt(maxDamage, distDoom);
                     if (dmg > 0)
                         eh.TakeDamage(dmg, source);
                     continue;
                 }
 
                 var ph = c.GetComponentInParent<PlayerHealth>();
-                if (ph != null)
+                if (ph != null && hitPlayers.Add(ph))
                 {
                     float distDoom = HorizontalDistDoom(center, ph.transform.position, worldScale)
                                      - PlayerRadiusDoom;
-                    int dmg = RadiusDamageRules.BarrelDamageAt(distDoom);
+                    int dmg = RadiusDamageRules.DamageAt(maxDamage, distDoom);
                     if (dmg > 0)
                         ph.TakeDamage(dmg);
                 }

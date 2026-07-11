@@ -85,6 +85,22 @@ namespace Doom.Game.Tests
             Assert.That(ctx.Loadout.Has(WeaponId.Shotgun), Is.True);
             Assert.That(ctx.Ammo.Get(AmmoType.Shells), Is.EqualTo(8));
         }
+
+        [Test]
+        public void Rocket_launcher_and_ammo_pickups_work()
+        {
+            var ctx = Fresh();
+            Assert.That(ItemRules.TryPickup(2003, ctx), Is.True);
+            Assert.That(ctx.Loadout.Has(WeaponId.RocketLauncher), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Rockets), Is.EqualTo(2));
+
+            Assert.That(ItemRules.TryPickup(2010, ctx), Is.True);
+            Assert.That(ItemRules.TryPickup(2046, ctx), Is.True);
+            Assert.That(ctx.Ammo.Get(AmmoType.Rockets), Is.EqualTo(8));
+            Assert.That(ItemRules.IsPickup(2003), Is.True);
+            Assert.That(ItemRules.IsPickup(2010), Is.True);
+            Assert.That(ItemRules.IsPickup(2046), Is.True);
+        }
     }
 
     public class DeathDropTableTests

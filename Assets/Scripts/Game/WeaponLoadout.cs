@@ -3,7 +3,7 @@ namespace Doom.Game
     /// Арсенал игрока: чем владеет, что в руках. Старт DOOM — кулак+пистолет.
     public sealed class WeaponLoadout
     {
-        readonly bool[] owned = new bool[4];
+        readonly bool[] owned = new bool[5];
         public WeaponId Current { get; private set; }
         /// Queued weapon switch (save contract); cleared on Reset / successful select.
         WeaponId? pending;
@@ -45,7 +45,11 @@ namespace Doom.Game
         /// Лучшее оружие, на которое хватает патронов (порядок P_CheckAmmo).
         public WeaponId BestAvailable(AmmoModel ammo)
         {
-            foreach (var id in new[] { WeaponId.Chaingun, WeaponId.Shotgun, WeaponId.Pistol })
+            foreach (var id in new[]
+            {
+                WeaponId.RocketLauncher, WeaponId.Chaingun,
+                WeaponId.Shotgun, WeaponId.Pistol
+            })
             {
                 var def = WeaponTable.Get(id);
                 if (owned[(int)id] && ammo.Get(def.Ammo) >= def.AmmoPerShot) return id;
@@ -68,17 +72,25 @@ namespace Doom.Game
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun, WeaponId current)
         {
-            Restore(fist, pistol, shotgun, chaingun, current, pendingWeapon: null);
+            Restore(fist, pistol, shotgun, chaingun, false, current, pendingWeapon: null);
         }
 
         public void Restore(
             bool fist, bool pistol, bool shotgun, bool chaingun,
             WeaponId current, WeaponId? pendingWeapon)
         {
+            Restore(fist, pistol, shotgun, chaingun, false, current, pendingWeapon);
+        }
+
+        public void Restore(
+            bool fist, bool pistol, bool shotgun, bool chaingun, bool rocketLauncher,
+            WeaponId current, WeaponId? pendingWeapon = null)
+        {
             owned[(int)WeaponId.Fist] = true; // always
             owned[(int)WeaponId.Pistol] = pistol;
             owned[(int)WeaponId.Shotgun] = shotgun;
             owned[(int)WeaponId.Chaingun] = chaingun;
+            owned[(int)WeaponId.RocketLauncher] = rocketLauncher;
             _ = fist; // fist flag accepted for DTO symmetry; ownership forced true
 
             if (owned[(int)current])
@@ -104,6 +116,15 @@ namespace Doom.Game
             chaingun = owned[(int)WeaponId.Chaingun];
             current = Current;
             pendingWeapon = pending;
+        }
+
+        public void Capture(
+            out bool fist, out bool pistol, out bool shotgun, out bool chaingun,
+            out bool rocketLauncher, out WeaponId current, out WeaponId? pendingWeapon)
+        {
+            Capture(out fist, out pistol, out shotgun, out chaingun,
+                out current, out pendingWeapon);
+            rocketLauncher = owned[(int)WeaponId.RocketLauncher];
         }
     }
 }
