@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Doom.Game;
 
 namespace Doom.MapBuild
 {
@@ -8,9 +9,19 @@ namespace Doom.MapBuild
     {
         private SoundCache cache;
         private readonly List<AudioSource> pool = new();
+        private readonly List<SoundChannelState> channelSnapshot = new();
+        private readonly Dictionary<AudioSource, PlaybackState> playback = new();
         private readonly Dictionary<object, AudioSource> loops = new();
+        private DoomRandom pitchRandom = new();
+        private long playSequence;
         private float worldScale = 1f / 32f;
         private float sfxVolume = 1f;
+
+        private sealed class PlaybackState
+        {
+            public SoundPriority Priority;
+            public long StartedAt;
+        }
 
         /// Last lump name passed to PlayLocal/PlayAt/PlayLoop (test probe).
         public string LastPlayedLump { get; private set; }
@@ -30,10 +41,13 @@ namespace Doom.MapBuild
         public SoundCache Cache => cache;
         public float Volume => sfxVolume;
 
-        public void Init(SoundCache soundCache, float scale, int poolSize = 16, float volume = 1f)
+        public void Init(SoundCache soundCache, float scale, int poolSize = 16, float volume = 1f,
+                         int randomSeed = 0)
         {
             cache = soundCache ?? throw new System.ArgumentNullException(nameof(soundCache));
             worldScale = scale;
+            pitchRandom = new DoomRandom(randomSeed);
+            playSequence = 0;
             SetVolume(volume);
 
             for (int i = pool.Count; i < poolSize; i++)
@@ -46,7 +60,12 @@ namespace Doom.MapBuild
                 src.dopplerLevel = 0f;
                 src.rolloffMode = AudioRolloffMode.Linear;
                 pool.Add(src);
+                playback[src] = new PlaybackState();
             }
+
+            for (int i = 0; i < pool.Count; i++)
+                if (pool[i] != null && !playback.ContainsKey(pool[i]))
+                    playback[pool[i]] = new PlaybackState();
         }
 
         /// Runtime volume for existing and future pooled sources.
@@ -64,27 +83,37 @@ namespace Doom.MapBuild
         {
             var clip = Resolve(lumpName);
             if (clip == null) return null;
-            var src = AcquireOneShot();
+            SoundCueMetadata metadata = SoundPlaybackPolicy.Describe(lumpName, local: true);
+            var src = AcquireOneShot(metadata);
             if (src == null) return null;
+            ResetSource(src);
             ConfigureLocal(src);
             src.transform.position = transform.position;
             src.clip = clip;
             src.volume = sfxVolume;
+            src.pitch = SoundPlaybackPolicy.ResolvePitch(metadata, pitchRandom);
+            MarkStarted(src, metadata);
             src.Play();
             NotePlayed(lumpName);
             return src;
         }
 
-        public AudioSource PlayAt(string lumpName, Vector3 position)
+        public AudioSource PlayAt(string lumpName, Vector3 position,
+                                  SoundCueContext context = SoundCueContext.World)
         {
             var clip = Resolve(lumpName);
             if (clip == null) return null;
-            var src = AcquireOneShot();
+            SoundCueMetadata metadata = SoundPlaybackPolicy.Describe(
+                lumpName, local: false, context: context);
+            var src = AcquireOneShot(metadata);
             if (src == null) return null;
+            ResetSource(src);
             ConfigureWorld(src);
             src.transform.position = position;
             src.clip = clip;
             src.volume = sfxVolume;
+            src.pitch = SoundPlaybackPolicy.ResolvePitch(metadata, pitchRandom);
+            MarkStarted(src, metadata);
             src.Play();
             NotePlayed(lumpName);
             return src;
@@ -103,13 +132,17 @@ namespace Doom.MapBuild
 
             var clip = Resolve(lumpName);
             if (clip == null) return;
-            var src = AcquireOneShot();
+            SoundCueMetadata metadata = SoundPlaybackPolicy.Describe(lumpName, local: false, loop: true);
+            var src = AcquireOneShot(metadata);
             if (src == null) return;
+            ResetSource(src);
             ConfigureWorld(src);
             src.loop = true;
             src.transform.position = position;
             src.clip = clip;
             src.volume = sfxVolume;
+            src.pitch = SoundPlaybackPolicy.ResolvePitch(metadata, pitchRandom);
+            MarkStarted(src, metadata);
             src.Play();
             loops[ownerKey] = src;
             NotePlayed(lumpName);
@@ -122,12 +155,14 @@ namespace Doom.MapBuild
             loops.Remove(ownerKey);
             if (src != null)
             {
-                src.Stop();
-                src.loop = false;
-                src.clip = null;
+                Vector3 stopPosition = src.transform.position;
+                ResetSource(src);
+                if (!string.IsNullOrEmpty(stopLump))
+                    PlayAt(stopLump, stopPosition);
+                return;
             }
             if (!string.IsNullOrEmpty(stopLump))
-                PlayAt(stopLump, src != null ? src.transform.position : transform.position);
+                PlayAt(stopLump, transform.position);
         }
 
         void OnDestroy()
@@ -137,6 +172,7 @@ namespace Doom.MapBuild
                 if (kv.Value != null) kv.Value.Stop();
             }
             loops.Clear();
+            playback.Clear();
             cache?.DestroyAll();
             cache = null;
         }
@@ -154,36 +190,30 @@ namespace Doom.MapBuild
             played.Add(name);
         }
 
-        private AudioSource AcquireOneShot()
+        private AudioSource AcquireOneShot(SoundCueMetadata metadata)
         {
-            // Prefer an idle non-loop source.
+            channelSnapshot.Clear();
             for (int i = 0; i < pool.Count; i++)
             {
                 var src = pool[i];
-                if (src == null) continue;
-                if (IsLoopSource(src)) continue;
-                if (!src.isPlaying) return src;
+                if (src == null)
+                {
+                    channelSnapshot.Add(new SoundChannelState(
+                        true, true, SoundPriority.Critical, long.MaxValue));
+                    continue;
+                }
+
+                bool isLoop = IsLoopSource(src);
+                PlaybackState state = playback[src];
+                channelSnapshot.Add(new SoundChannelState(
+                    isLoop || src.isPlaying,
+                    isLoop,
+                    state.Priority,
+                    state.StartedAt));
             }
 
-            // Steal the quietest/oldest one-shot (not a tracked loop).
-            AudioSource best = null;
-            float bestVol = float.MaxValue;
-            for (int i = 0; i < pool.Count; i++)
-            {
-                var src = pool[i];
-                if (src == null || IsLoopSource(src)) continue;
-                if (src.volume < bestVol)
-                {
-                    bestVol = src.volume;
-                    best = src;
-                }
-            }
-            if (best != null)
-            {
-                best.Stop();
-                best.loop = false;
-            }
-            return best;
+            int selected = SoundPlaybackPolicy.SelectChannel(channelSnapshot, metadata.Priority);
+            return selected >= 0 ? pool[selected] : null;
         }
 
         private bool IsLoopSource(AudioSource src)
@@ -209,6 +239,32 @@ namespace Doom.MapBuild
             src.minDistance = 160f * worldScale;
             src.maxDistance = 1200f * worldScale;
             src.dopplerLevel = 0f;
+        }
+
+        private void MarkStarted(AudioSource src, SoundCueMetadata metadata)
+        {
+            PlaybackState state = playback[src];
+            state.Priority = metadata.Priority;
+            state.StartedAt = ++playSequence;
+        }
+
+        private void ResetSource(AudioSource src)
+        {
+            src.Stop();
+            src.clip = null;
+            src.loop = false;
+            src.pitch = 1f;
+            src.volume = sfxVolume;
+            src.spatialBlend = 0f;
+            src.minDistance = 1f;
+            src.maxDistance = 500f;
+            src.rolloffMode = AudioRolloffMode.Linear;
+            src.dopplerLevel = 0f;
+            if (playback.TryGetValue(src, out PlaybackState state))
+            {
+                state.Priority = SoundPriority.Ambient;
+                state.StartedAt = 0;
+            }
         }
 
         private static string Normalize(string lumpName) => lumpName.ToUpperInvariant();

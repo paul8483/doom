@@ -44,6 +44,7 @@ namespace Doom.MapBuild
 
         public MonsterBrain Brain => brain;
         public bool IsAmbush => ambush;
+        public bool SupportsExtremeDeath => def?.XDeath != null;
 
         public void Init(MonsterDef def, bool ambush, int corpseFrame,
                          SpriteCache cache, float worldScale,
@@ -66,7 +67,7 @@ namespace Doom.MapBuild
         public Transform TargetForTest => target;
         public void NotifyNoise() => brain.NotifyNoise();
         public void NotifyDamaged() => brain.NotifyDamaged();
-        public void NotifyKilled() => brain.NotifyKilled();
+        public void NotifyKilled(bool extreme = false) => brain.NotifyKilled(extreme);
 
         /// Apply transform/health/frame from a save. Dead monsters become corpses
         /// without re-spawning death drops (those live in SpawnedPickups).
@@ -175,7 +176,13 @@ namespace Doom.MapBuild
                 c.SpawnDeathDrop();
             }
             public void OnBecameCorpse()
-            { if (c.bb != null && c.corpseFrame >= 0) c.bb.SetStaticFrame(c.corpseFrame); }
+            {
+                if (c.bb == null) return;
+                int finalFrame = c.brain.IsExtremeDeath && c.def.XDeathCorpseFrame >= 0
+                    ? c.def.XDeathCorpseFrame
+                    : c.corpseFrame;
+                if (finalFrame >= 0) c.bb.SetStaticFrame(finalFrame);
+            }
             public void PlaySound(MonsterSoundCue cue, int variant)
             {
                 using (SoundMarker.Auto())
@@ -188,7 +195,7 @@ namespace Doom.MapBuild
             if (sound == null || def?.Sounds == null) return;
             string name = ResolveCue(cue, variant);
             if (!string.IsNullOrEmpty(name))
-                sound.PlayAt(name, transform.position);
+                sound.PlayAt(name, transform.position, SoundCueContext.Monster);
         }
 
         string ResolveCue(MonsterSoundCue cue, int variant)

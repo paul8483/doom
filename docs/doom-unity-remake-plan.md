@@ -204,6 +204,40 @@ E1M1–E1M9; Classic сохраняет текущий вид, Enhanced испо
 
 ---
 
+## Этап 9. E1 compatibility polish 🚧
+
+Ограниченная compatibility-веха после Stage 8, закрывающая известные пробелы
+уже поддерживаемого E1 без расширения проекта до полного source-port:
+
+- linedef texture scroll 48/85;
+- crushers, crush damage и save schema v6 с сохранением decode v1–v5;
+- queued weapon switch и опускание weapon view при смерти;
+- WAD-driven анимация pickups;
+- XDEATH для поддерживаемого E1 roster;
+- компактная SFX pitch/priority policy и единый полный pre-warm catalog;
+- focused/full suites, dual-profile E1 smoke, Windows build и интерактивная
+  приёмка.
+
+**Статус:** 🚧 automated verification green (2026-07-12); interactive
+sign-off pending. Fresh totals: **492 EditMode + 107 PlayMode**; Windows
+standalone Success (~128 MB). Notes:
+`Logs/stage9-e1-compatibility-notes.md`. `CLAUDE.md` закрывается только после
+интерактивного checklist.
+
+**Не входит:** sound occlusion, полная DMX channel emulation, automap, новые
+powerups, flying monsters, Doom II, общая PWAD/mod compatibility и finale.
+
+**Дизайн:**
+`docs/superpowers/specs/2026-07-12-e1-compatibility-polish-design.md`  
+**План реализации:**
+`docs/superpowers/plans/2026-07-12-e1-compatibility-polish.md`
+
+**Результат этапа:** E1M1–E1M9 сохраняют текущую архитектуру и контент, но
+получают недостающие scrolling/crusher/weapon/item/death/audio compatibility
+детали. До прохождения verification gates этап не считается завершённым.
+
+---
+
 ## Рекомендации по ведению проекта
 
 - **Маленькие вехи.** Первая цель — серая геометрия E1M1, по которой можно ходить. Большинство ремейков бросают именно на текстурах, спрайтах и ИИ — поэтому каждый шаг должен давать видимый результат.

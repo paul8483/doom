@@ -27,6 +27,9 @@ namespace Doom.Game
         int reaction;
         bool justAttacked;
         bool justHit;
+        bool extremeDeath;
+
+        public bool IsExtremeDeath => extremeDeath;
 
         public MonsterBrain(MonsterDef def, DoomRandom rng, IMonsterWorld world, bool ambush)
         {
@@ -70,13 +73,14 @@ namespace Doom.Game
             }
         }
 
-        public void NotifyKilled()
+        public void NotifyKilled(bool extreme = false)
         {
             if (State == MonsterState.Die || State == MonsterState.Dead) return;
+            extremeDeath = extreme && def.XDeath != null;
             State = MonsterState.Die;
             world.OnDeathStarted();
             EmitVariant(MonsterSoundCue.Death, def.Sounds?.Death);
-            StartSeq(def.Death, loop: false);
+            StartSeq(extremeDeath ? def.XDeath : def.Death, loop: false);
         }
 
         void Wake()
@@ -303,8 +307,8 @@ namespace Doom.Game
                 MonsterState.Chase => def.Run,
                 MonsterState.Attack => def.Attack,
                 MonsterState.Pain => def.Pain,
-                MonsterState.Die => def.Death,
-                _ => def.Death,
+                MonsterState.Die => extremeDeath && def.XDeath != null ? def.XDeath : def.Death,
+                _ => extremeDeath && def.XDeath != null ? def.XDeath : def.Death,
             };
             seqLoop = state == MonsterState.Sleep || state == MonsterState.Chase;
             if (seq.Frames != null && seq.Frames.Length > 0)

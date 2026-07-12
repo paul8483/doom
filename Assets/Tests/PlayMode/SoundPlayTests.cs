@@ -48,6 +48,7 @@ namespace Doom.Stage3.PlayTests
             var sound = systems[0];
             Assert.That(sound.Cache, Is.Not.Null);
             Assert.That(sound.Cache.IsCached("DSPISTOL"), Is.True);
+            Assert.That(sound.Cache.IsCached("DSTELEPT"), Is.True);
 
             var musicPlayers = Object.FindObjectsByType<MusicPlayer>(FindObjectsSortMode.None);
             Assert.That(musicPlayers.Length, Is.EqualTo(1), "exactly one MusicPlayer");
@@ -232,6 +233,65 @@ namespace Doom.Stage3.PlayTests
             health.TakeDamage(999);
             Assert.That(health.IsDead, Is.True);
             Assert.That(sound.LastPlayedLump, Is.EqualTo("DSPLDETH"));
+        }
+
+        [UnityTest]
+        public IEnumerator Source_reuse_resets_pitch_and_local_state()
+        {
+            yield return LoadLevel();
+            string path = System.IO.Path.Combine(
+                Application.streamingAssetsPath, "wads", "freedoom1.wad");
+            using var wad = Doom.Wad.WadFile.Open(path);
+            var cache = new SoundCache(wad);
+            cache.Get("DSDOROPN");
+            cache.Get("DSPISTOL");
+
+            var go = new GameObject("SoundPolicyReuseTest");
+            var sound = go.AddComponent<SoundSystem>();
+            sound.Init(cache, 1f / 32f, poolSize: 1, randomSeed: 0);
+
+            var world = sound.PlayAt("DSDOROPN", Vector3.one);
+            Assert.That(world, Is.Not.Null);
+            Assert.That(world.pitch, Is.EqualTo(1.0625f).Within(0.0001f));
+            Assert.That(world.spatialBlend, Is.EqualTo(1f));
+
+            var local = sound.PlayLocal("DSPISTOL");
+            Assert.That(local, Is.SameAs(world), "higher-priority local cue should reuse the channel");
+            Assert.That(local.pitch, Is.EqualTo(1f));
+            Assert.That(local.spatialBlend, Is.EqualTo(0f));
+            Assert.That(local.loop, Is.False);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Tracked_loop_is_not_stolen_when_pool_is_full()
+        {
+            yield return LoadLevel();
+            string path = System.IO.Path.Combine(
+                Application.streamingAssetsPath, "wads", "freedoom1.wad");
+            using var wad = Doom.Wad.WadFile.Open(path);
+            var cache = new SoundCache(wad);
+            cache.Get("DSSTNMOV");
+            cache.Get("DSPISTOL");
+
+            var go = new GameObject("SoundPolicyLoopTest");
+            var sound = go.AddComponent<SoundSystem>();
+            sound.Init(cache, 1f / 32f, poolSize: 1);
+            var owner = new object();
+
+            sound.PlayLoop("DSSTNMOV", owner, Vector3.zero);
+            Assert.That(sound.ActiveLoopCount, Is.EqualTo(1));
+            Assert.That(sound.PlayLocal("DSPISTOL"), Is.Null);
+            Assert.That(sound.ActiveLoopCount, Is.EqualTo(1));
+
+            sound.StopLoop(owner);
+            Assert.That(sound.ActiveLoopCount, Is.Zero);
+            Assert.That(sound.PlayLocal("DSPISTOL"), Is.Not.Null);
+
+            Object.Destroy(go);
+            yield return null;
         }
     }
 }

@@ -57,5 +57,14 @@ namespace Doom.Game.Tests
             Assert.That(MonsterRules.CheckMissileRange(r, dist: 70f, hasMelee: true), Is.True,
                 "70-64=6, бросок 8 >= 6");
         }
+
+        [Test]
+        public void Extreme_death_requires_strict_overkill_and_sequence()
+        {
+            Assert.That(MonsterRules.ShouldUseExtremeDeath(-20, 20, true), Is.False,
+                "exactly -spawnHealth is a normal death");
+            Assert.That(MonsterRules.ShouldUseExtremeDeath(-21, 20, true), Is.True);
+            Assert.That(MonsterRules.ShouldUseExtremeDeath(-21, 20, false), Is.False);
+        }
     }
 }

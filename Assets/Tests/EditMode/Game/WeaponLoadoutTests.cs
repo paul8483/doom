@@ -100,6 +100,20 @@ namespace Doom.Game.Tests
         }
 
         [Test]
+        public void Pending_switch_last_valid_request_wins()
+        {
+            var l = new WeaponLoadout();
+            l.Give(WeaponId.Shotgun);
+
+            Assert.That(l.TryQueuePending(WeaponId.Fist), Is.True);
+            Assert.That(l.TryQueuePending(WeaponId.Chaingun), Is.False,
+                "an unowned request must not replace the queue");
+            Assert.That(l.Pending, Is.EqualTo(WeaponId.Fist));
+            Assert.That(l.TryQueuePending(WeaponId.Shotgun), Is.True);
+            Assert.That(l.Pending, Is.EqualTo(WeaponId.Shotgun));
+        }
+
+        [Test]
         public void Reset_restores_start()
         {
             var l = new WeaponLoadout();

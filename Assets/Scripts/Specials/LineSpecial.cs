@@ -3,8 +3,8 @@ namespace Doom.Specials
     /// How a linedef special is activated.
     public enum TriggerKind { Push, Walk, Switch, Gun }
 
-    /// Action family. Door/Floor/Ceiling/Plat/Stair are executed in Stage 6a;
-    /// the rest are recognized but inert (no-op + log) until later stages.
+    /// Action family. Runtime executors are exposed through IsExecutable; Scroll is
+    /// a build-time renderer effect and therefore intentionally remains outside it.
     public enum SpecialCategory
     {
         None, Door, LockedDoor, Floor, Ceiling, Plat, Stair,
@@ -57,6 +57,7 @@ namespace Doom.Specials
             Category == SpecialCategory.Door || Category == SpecialCategory.LockedDoor ||
             Category == SpecialCategory.Floor || Category == SpecialCategory.Ceiling ||
             Category == SpecialCategory.Plat || Category == SpecialCategory.Stair ||
+            Category == SpecialCategory.Crusher ||
             Category == SpecialCategory.Exit || Category == SpecialCategory.Teleport ||
             Category == SpecialCategory.Light;
     }

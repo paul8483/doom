@@ -33,6 +33,17 @@ namespace Doom.MapBuild
             int count = 0;
             int floorMisses = 0;
             int seedCounter = 0;
+
+            // Runtime pickups share the same animator but may spawn after the WAD
+            // stream closes, so warm every supported pickup frame up front.
+            foreach (var entry in PickupAnimationTable.All)
+            {
+                if (!ThingTable.TryGet(entry.Key, out var pickupDef)) continue;
+                foreach (int frame in entry.Value.Frames)
+                    for (int rot = 0; rot < 8; rot++)
+                        cache.Get(pickupDef.Sprite, frame, rot);
+            }
+
             for (int thingIndex = 0; thingIndex < map.Things.Length; thingIndex++)
             {
                 var t = map.Things[thingIndex];
@@ -110,9 +121,15 @@ namespace Doom.MapBuild
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
                                 bb, col, eh, new DoomRandom(seedCounter++), t.Type, sound);
                         eh.SetController(mc);
-                        foreach (var seq in new[] { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death })
+                        foreach (var seq in new[]
+                                 { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death, mdef.XDeath })
+                        {
+                            if (seq == null) continue;
                             foreach (int f in seq.Frames)
                                 for (int rot = 0; rot < 8; rot++) cache.Get(def.Sprite, f, rot);
+                        }
+                        if (mdef.XDeathCorpseFrame >= 0)
+                            cache.Get(def.Sprite, mdef.XDeathCorpseFrame, 0);
                         if (mdef.HasMissile)
                         {
                             foreach (int f in mdef.MissileFlyFrames) cache.Get(mdef.MissileSprite, f, 0);
@@ -123,7 +140,16 @@ namespace Doom.MapBuild
 
                 // E1 pickups (Stage 6e) — full ItemRules set.
                 if (ItemRules.IsPickup(t.Type))
+                {
                     go.AddComponent<ThingPickup>().Init(t.Type, worldScale, thingIndex);
+                    if (PickupAnimationTable.TryGet(t.Type, out var pickupAnimation))
+                    {
+                        foreach (int frame in pickupAnimation.Frames)
+                            for (int rot = 0; rot < 8; rot++)
+                                cache.Get(def.Sprite, frame, rot);
+                        go.AddComponent<PickupAnimator>().Init(bb, pickupAnimation);
+                    }
+                }
 
                 // Enhanced sticky decoration lights (presentation only; pooled).
                 if (EnhancedEmissionTable.TryGet(t.Type, out var emission))

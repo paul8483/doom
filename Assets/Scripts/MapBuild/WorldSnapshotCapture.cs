@@ -130,7 +130,7 @@ namespace Doom.MapBuild
                          FindObjectsSortMode.None))
             {
                 if (mover == null || !mover.TryCapture(out int sector, out _, out _, out _,
-                        out _, out _, out _, out _))
+                        out _, out _, out _, out _, out _, out _, out _))
                     continue;
                 // One mover per sector is the runtime invariant.
                 dict[sector] = mover;
@@ -154,7 +154,8 @@ namespace Doom.MapBuild
 
             if (mover == null || !mover.TryCapture(
                     out _, out var plane, out var phase, out int dir,
-                    out float target, out float speed, out int waitTics, out bool hasMover)
+                    out float target, out float speed, out int waitTics, out bool hasMover,
+                    out var behavior, out bool cycle, out float origin)
                 || !hasMover)
             {
                 return new SectorSnapshot(
@@ -165,7 +166,8 @@ namespace Doom.MapBuild
 
             return new SectorSnapshot(
                 index, floor, ceil, light,
-                hasMover: true, plane, phase, dir, target, speed, waitTics, lightCount);
+                hasMover: true, plane, phase, dir, target, speed, waitTics, lightCount,
+                behavior, cycle, origin);
         }
 
         static LineSnapshot[] CaptureLines(LineActivator activator, int lineCount)

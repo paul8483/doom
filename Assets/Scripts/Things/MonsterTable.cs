@@ -18,6 +18,9 @@ namespace Doom.Things
                 FireIndex = 1,
                 Pain = new MonsterSeq(new[] { 6, 6 }, new[] { 3, 3 }),
                 Death = new MonsterSeq(new[] { 7, 8, 9, 10 }, new[] { 5, 5, 5, 5 }),
+                XDeath = new MonsterSeq(new[] { 12, 13, 14, 15, 16, 17, 18, 19 },
+                                        new[] { 5, 5, 5, 5, 5, 5, 5, 5 }),
+                XDeathCorpseFrame = 20,
                 Sounds = new MonsterSoundSet
                 {
                     Sight = new[] { "DSPOSIT1", "DSPOSIT2", "DSPOSIT3" },
@@ -39,6 +42,9 @@ namespace Doom.Things
                 FireIndex = 1,
                 Pain = new MonsterSeq(new[] { 6, 6 }, new[] { 3, 3 }),
                 Death = new MonsterSeq(new[] { 7, 8, 9, 10 }, new[] { 5, 5, 5, 5 }),
+                XDeath = new MonsterSeq(new[] { 12, 13, 14, 15, 16, 17, 18, 19 },
+                                        new[] { 5, 5, 5, 5, 5, 5, 5, 5 }),
+                XDeathCorpseFrame = 20,
                 Sounds = new MonsterSoundSet
                 {
                     Sight = new[] { "DSPOSIT1", "DSPOSIT2", "DSPOSIT3" },
@@ -64,6 +70,9 @@ namespace Doom.Things
                 FireIndex = 2,
                 Pain = new MonsterSeq(new[] { 7, 7 }, new[] { 2, 2 }),
                 Death = new MonsterSeq(new[] { 8, 9, 10, 11 }, new[] { 8, 8, 6, 6 }),
+                XDeath = new MonsterSeq(new[] { 13, 14, 15, 16, 17, 18, 19 },
+                                        new[] { 5, 5, 5, 5, 5, 5, 5 }),
+                XDeathCorpseFrame = 20,
                 Sounds = new MonsterSoundSet
                 {
                     Sight = new[] { "DSBGSIT1", "DSBGSIT2" },

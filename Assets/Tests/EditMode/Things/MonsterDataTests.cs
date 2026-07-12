@@ -48,5 +48,29 @@ namespace Doom.Things.Tests
                     $"{def.Sprite} frame {corpse} should exist in freedoom1");
             }
         }
+
+        [Test]
+        public void Supported_xdeath_sequences_resolve_in_freedoom()
+        {
+            using var wad = WadFile.Open(FreedoomPath);
+            var sprites = SpriteSet.Load(wad);
+            foreach (int ed in new[] { 3004, 9, 3001 })
+            {
+                ThingTable.TryGet(ed, out var thing);
+                Assert.That(MonsterTable.TryGet(ed, out var monster), Is.True);
+                Assert.That(monster.XDeath, Is.Not.Null, $"{thing.Sprite} xdeath");
+                foreach (int frame in monster.XDeath.Frames)
+                    Assert.That(sprites.TryGet(thing.Sprite, frame, 0, out _), Is.True,
+                        $"{thing.Sprite} frame {(char)('A' + frame)}");
+                Assert.That(monster.XDeathCorpseFrame, Is.EqualTo(20));
+                Assert.That(sprites.TryGet(
+                    thing.Sprite, monster.XDeathCorpseFrame, 0, out _), Is.True,
+                    $"{thing.Sprite} final xdeath corpse");
+            }
+            Assert.That(MonsterTable.TryGet(3002, out var demon), Is.True);
+            Assert.That(demon.XDeath, Is.Null, "demon has no xdeathstate in DOOM");
+            Assert.That(MonsterTable.TryGet(3003, out var baron), Is.True);
+            Assert.That(baron.XDeath, Is.Null, "baron has no xdeathstate in DOOM");
+        }
     }
 }

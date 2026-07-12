@@ -65,18 +65,27 @@ namespace Doom.MapBuild
 
         void SelectSlot(int slot)
         {
-            if (scheduler.IsRunning && !scheduler.CanBegin(WeaponTable.Get(Loadout.Current)))
-                return;
+            WeaponId? requested = ResolveSlot(slot);
+            if (!requested.HasValue) return;
+
+            if (scheduler.IsRunning)
+                Loadout.TryQueuePending(requested.Value);
+            else
+                Loadout.TrySelect(requested.Value);
+        }
+
+        WeaponId? ResolveSlot(int slot)
+        {
             if (slot == 1)
             {
                 if (Loadout.Has(WeaponId.Chainsaw))
-                    Loadout.TrySelect(WeaponId.Chainsaw);
-                else
-                    Loadout.TrySelect(WeaponId.Fist);
-                return;
+                    return WeaponId.Chainsaw;
+                return WeaponId.Fist;
             }
             foreach (WeaponId id in Enum.GetValues(typeof(WeaponId)))
-                if (WeaponTable.Get(id).Slot == slot) { Loadout.TrySelect(id); return; }
+                if (WeaponTable.Get(id).Slot == slot && Loadout.Has(id))
+                    return id;
+            return null;
         }
 
         void Update()
@@ -98,6 +107,9 @@ namespace Doom.MapBuild
 
         void TryStartAttack()
         {
+            // A queued slot request owns the next ready boundary; do not let
+            // held-fire refire restart the scheduler and postpone it forever.
+            if (scheduler.IsRunning && Loadout.HasPending) return;
             var def = WeaponTable.Get(Loadout.Current);
             if (!scheduler.CanBegin(def)) return;
             if (def.Ammo != AmmoType.None && Ammo.Get(def.Ammo) < def.AmmoPerShot)
@@ -146,9 +158,11 @@ namespace Doom.MapBuild
         void AdvanceOneTic()
         {
             if (!scheduler.IsRunning) return;
-            scheduler.Advance(out bool justCommitted, out _);
+            scheduler.Advance(out bool justCommitted, out bool justFinished);
             if (justCommitted)
                 CommitAction(scheduler.Active);
+            if (justFinished && Loadout.HasPending)
+                Loadout.TrySelect(Loadout.Pending);
         }
 
         void CommitAction(WeaponDef def)
@@ -247,6 +261,8 @@ namespace Doom.MapBuild
             for (int i = 0; i < tics; i++)
                 AdvanceOneTic();
         }
+
+        public void SelectSlotForTest(int slot) => SelectSlot(slot);
 
         public float CooldownForTest =>
             scheduler.IsRunning

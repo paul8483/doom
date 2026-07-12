@@ -177,6 +177,31 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Supported_monster_overkill_uses_xdeath_and_one_final_corpse()
+        {
+            yield return LoadLevel();
+            var mc = FindZombie(nonAmbushOnly: false);
+            Assert.That(mc, Is.Not.Null);
+            var eh = mc.GetComponent<EnemyHealth>();
+            var billboard = mc.GetComponent<SpriteBillboard>();
+            int healthEntitiesBefore = Object.FindObjectsByType<EnemyHealth>(
+                FindObjectsSortMode.None).Length;
+
+            eh.TakeDamage(41); // POSS 20 -> -21, strictly below -spawnHealth
+            Assert.That(mc.Brain.IsExtremeDeath, Is.True);
+            Assert.That(billboard.CurrentFrame, Is.EqualTo(12), "POSS xdeath starts at M");
+
+            for (int i = 0; i < 120 && mc.Brain.State != MonsterState.Dead; i++)
+                yield return null;
+
+            Assert.That(mc.Brain.State, Is.EqualTo(MonsterState.Dead));
+            Assert.That(billboard.CurrentFrame, Is.EqualTo(20), "final xdeath corpse is U");
+            Assert.That(Object.FindObjectsByType<EnemyHealth>(
+                FindObjectsSortMode.None).Length, Is.EqualTo(healthEntitiesBefore),
+                "xdeath remains the original entity");
+        }
+
+        [UnityTest]
         public IEnumerator Monster_damage_from_monster_retargets()
         {
             yield return LoadLevel();

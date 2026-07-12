@@ -183,8 +183,8 @@ namespace Doom.Map.Tests
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.Implemented,
                         "Light special — RuntimeSectorLights");
                 case SpecialCategory.Scroll:
-                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.HarmlessVisual,
-                        "Scroll special — cosmetic UV motion deferred");
+                    return new CompatibilityEntry("linedef", type, CompatibilityStatus.Implemented,
+                        "Scroll special — WallScrollController");
                 default:
                     return new CompatibilityEntry("linedef", type, CompatibilityStatus.Unsupported,
                         $"unknown non-executable category {sp.Category}");

@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Doom.Game;
 using Doom.MapBuild;
 
 namespace Doom.Stage3.PlayTests
@@ -94,13 +95,28 @@ namespace Doom.Stage3.PlayTests
             var health = Object.FindAnyObjectByType<PlayerHealth>();
             var pc = health.GetComponent<PlayerController>();
             var death = health.GetComponent<PlayerDeathHandler>();
+            var weapons = health.GetComponent<PlayerWeapons>();
+            var inventory = health.GetComponent<PlayerInventory>();
+            var weaponView = Object.FindAnyObjectByType<WeaponView>();
             Assert.That(pc, Is.Not.Null);
             Assert.That(death, Is.Not.Null);
+            Assert.That(weaponView, Is.Not.Null);
+
+            inventory.Keys.Give(PlayerKey.BlueCard);
+            weapons.Loadout.Give(WeaponId.Shotgun);
+            weapons.Ammo.Add(AmmoType.Shells, 12);
 
             health.TakeDamage(1000);              // fatal
             yield return null;
             Assert.That(health.IsDead, Is.True);
             Assert.That(pc.enabled, Is.False, "controls freeze on death");
+            Assert.That(GameFlowController.ShouldDrawStatusHud(), Is.True,
+                "death keeps the HUD visible");
+            Assert.That(weaponView.IsLoweringForTest, Is.True);
+            float lower0 = weaponView.LowerYForTest;
+            weaponView.AdvanceLowerForTest(0.1f);
+            Assert.That(weaponView.LowerYForTest, Is.GreaterThan(lower0),
+                "psprite lowers after death instead of disappearing immediately");
 
             // Wander away while dead, then respawn.
             var wanderedPos = health.transform.position + new Vector3(5f, 0f, 5f);
@@ -108,6 +124,14 @@ namespace Doom.Stage3.PlayTests
             death.Respawn();
             Assert.That(health.Health, Is.EqualTo(100));
             Assert.That(pc.enabled, Is.True, "controls restore on respawn");
+            Assert.That(weaponView.IsLoweringForTest, Is.False);
+            Assert.That(weapons.Loadout.Current, Is.EqualTo(WeaponId.Pistol));
+            Assert.That(weapons.Loadout.Has(WeaponId.Shotgun), Is.False,
+                "respawn intentionally restores start weapons");
+            Assert.That(weapons.Ammo.Get(AmmoType.Bullets), Is.EqualTo(50));
+            Assert.That(weapons.Ammo.Get(AmmoType.Shells), Is.EqualTo(0));
+            Assert.That(inventory.Keys.Has(PlayerKey.BlueCard), Is.True,
+                "keys are intentionally retained across respawn");
 
             // Respawn() teleports to the handler's STORED start (the original spawn
             // point captured in Init), which differs from any in-test sampled position.

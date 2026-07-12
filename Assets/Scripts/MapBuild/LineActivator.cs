@@ -3,7 +3,9 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using Doom.Map;
+using Doom.MapBuild.Rendering;
 using Doom.Specials;
+using Doom.Things;
 
 namespace Doom.MapBuild
 {
@@ -250,8 +252,10 @@ namespace Doom.MapBuild
             sb.AppendLine($"camera.pos=({cp.x:F4}, {cp.y:F4}, {cp.z:F4}) forward=({fwd.x:F4}, {fwd.y:F4}, {fwd.z:F4})");
 
             AppendFloorInfo(sb);
+            AppendGraphicsLightInfo(sb);
             AppendViewHits(sb);
             AppendNearbyPickups(sb, 256f);
+            AppendNearbyEmissiveThings(sb, 512f);
             AppendNearbyLines(sb, 128f);
             sb.AppendLine("========== END DOOM LOCATION DUMP ==========");
 
@@ -311,6 +315,89 @@ namespace Doom.MapBuild
                     $"  hit[{i}] distanceDU={hit.distance / worldScale:F1} trigger={hit.collider.isTrigger} " +
                     $"object={HierarchyPath(hit.collider.transform)} {lineInfo}");
             }
+        }
+
+        void AppendGraphicsLightInfo(StringBuilder sb)
+        {
+            var gfx = GraphicsModeController.Instance;
+            var lights = EnhancedLightSystem.Instance;
+            if (gfx == null)
+            {
+                sb.AppendLine("graphics=none");
+                return;
+            }
+
+            sb.AppendLine(
+                $"graphics.mode={gfx.Current} profileLights={gfx.ActiveProfile.DynamicLights} " +
+                $"error={(gfx.LastError ?? "-")}");
+            if (lights == null)
+            {
+                sb.AppendLine("lights=none");
+                return;
+            }
+
+            sb.AppendLine(
+                $"lights.enabled={lights.IsProfileEnabled} active={lights.ActiveLightCount}/" +
+                $"{lights.PoolCapacity} shadows={lights.ShadowCasterCount}/{lights.ShadowCapacity} " +
+                $"requests={lights.RequestCount}");
+        }
+
+        void AppendNearbyEmissiveThings(StringBuilder sb, float radiusDU)
+        {
+            Vector3 p = transform.position;
+            float radius = radiusDU * worldScale;
+            float radiusSq = radius * radius;
+            var billboards = FindObjectsByType<SpriteBillboard>(FindObjectsSortMode.None);
+            var nearby = new List<(string name, int doomed, bool emits, float distanceSq, Vector3 pos)>();
+            for (int i = 0; i < billboards.Length; i++)
+            {
+                var bb = billboards[i];
+                if (bb == null) continue;
+                Vector3 ip = bb.transform.position;
+                Vector3 d = ip - p;
+                float dSq = d.x * d.x + d.z * d.z;
+                if (dSq > radiusSq) continue;
+                if (!TryParseThingDoomedNum(bb.gameObject.name, out int doomed)) continue;
+                bool emits = EnhancedEmissionTable.Contains(doomed);
+                // Keep emissive hits plus a few nearest decorations for context.
+                nearby.Add((HierarchyPath(bb.transform), doomed, emits, dSq, ip));
+            }
+
+            nearby.Sort((a, b) =>
+            {
+                int emitCmp = b.emits.CompareTo(a.emits);
+                return emitCmp != 0 ? emitCmp : a.distanceSq.CompareTo(b.distanceSq);
+            });
+
+            int emissiveCount = 0;
+            for (int i = 0; i < nearby.Count; i++)
+                if (nearby[i].emits) emissiveCount++;
+
+            sb.AppendLine(
+                $"nearby.emissive={emissiveCount} decorations={nearby.Count} radiusDU={radiusDU:F0} " +
+                $"(dynamic lights attach only to EnhancedEmissionTable types)");
+            int count = System.Math.Min(nearby.Count, 16);
+            for (int i = 0; i < count; i++)
+            {
+                var n = nearby[i];
+                sb.AppendLine(
+                    $"  thing[{i}] doomed={n.doomed} emit={n.emits} " +
+                    $"xyDU={Mathf.Sqrt(n.distanceSq) / worldScale:F1} " +
+                    $"dyDU={(n.pos.y - p.y) / worldScale:F1} " +
+                    $"pos=({n.pos.x / worldScale:F1}, {n.pos.z / worldScale:F1}, y={n.pos.y / worldScale:F1}) " +
+                    $"object={n.name}");
+            }
+        }
+
+        static bool TryParseThingDoomedNum(string goName, out int doomed)
+        {
+            doomed = 0;
+            // ThingSpawner names: Thing_{type}_{SPRITE}
+            if (string.IsNullOrEmpty(goName) || !goName.StartsWith("Thing_")) return false;
+            int a = "Thing_".Length;
+            int b = goName.IndexOf('_', a);
+            if (b <= a) return false;
+            return int.TryParse(goName.Substring(a, b - a), out doomed);
         }
 
         void AppendNearbyPickups(StringBuilder sb, float radiusDU)
@@ -731,6 +818,33 @@ namespace Doom.MapBuild
         void StartMover(int sector, LineSpecial sp)
         {
             if (sector < 0 || sector >= map.Sectors.Length) return;
+            if (CrusherRules.TryGet(sp.Type, out var crusher))
+            {
+                var existing = FindCrusher(sector);
+                if (crusher.Behavior == CrusherBehavior.Stop)
+                {
+                    existing?.StopCrusher();
+                    return;
+                }
+                if (existing != null)
+                {
+                    existing.ResumeCrusher();
+                    moving[sector] = true;
+                    return;
+                }
+                if (moving[sector]) return;
+                float target = CrusherRules.TargetHeight(heights.FloorRaw(sector));
+                var crusherMover = gameObject.AddComponent<SectorMover>();
+                crusherMover.BeginCrusher(
+                    heights, geometry, sector, target, crusher.SpeedUnitsPerSecond,
+                    crusher.Cycles, crusher.SlowsWhenCrushing, worldScale,
+                    onDone: () => moving[sector] = false,
+                    sound: sound, silent: crusher.Silent,
+                    soundOrigin: SectorSoundOrigin(sector));
+                moving[sector] = true;
+                return;
+            }
+
             if (moving[sector]) return; // one mover per sector at a time; cleared on mover completion
 
             float speed = SectorMover.SpeedUnitsPerSec(sp.Speed);
@@ -775,6 +889,14 @@ namespace Doom.MapBuild
             }
             moving[sector] = true;
             // Cleared when the mover finishes (onDone), so the line can be re-triggered.
+        }
+
+        SectorMover FindCrusher(int sector)
+        {
+            foreach (var mover in GetComponents<SectorMover>())
+                if (mover != null && mover.IsCrusher && mover.SectorIndex == sector)
+                    return mover;
+            return null;
         }
     }
 }

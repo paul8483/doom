@@ -39,7 +39,9 @@ namespace Doom.MapBuild
 
             try
             {
-                RestoreSectors(world, map, heights, geometry, player, registry.Lines, loader.SectorLights);
+                RestoreSectors(
+                    world, save.Version, map, heights, geometry, player,
+                    registry.Lines, loader.SectorLights, worldScale);
                 RestoreLines(world, map, registry.Lines);
                 RestoreMapThings(world, registry);
                 RestoreSpawnedPickups(world, registry, spriteCache, worldScale, player);
@@ -60,9 +62,9 @@ namespace Doom.MapBuild
         }
 
         static void RestoreSectors(
-            WorldSnapshot world, MapData map, RuntimeSectorHeights heights,
+            WorldSnapshot world, int saveVersion, MapData map, RuntimeSectorHeights heights,
             SectorGeometry geometry, GameObject player, LineActivator lines,
-            RuntimeSectorLights lights)
+            RuntimeSectorLights lights, float worldScale)
         {
             if (world.Sectors == null) return;
 
@@ -88,9 +90,15 @@ namespace Doom.MapBuild
                 var surface = s.MoverPlane == MoverPlane.Ceiling
                     ? SectorMover.Surface.Ceiling
                     : SectorMover.Surface.Floor;
-                float returnOrigin = s.MoverPlane == MoverPlane.Ceiling
-                    ? map.Sectors[s.Index].CeilingHeight
-                    : map.Sectors[s.Index].FloorHeight;
+                float returnOrigin = saveVersion >= 6 ? s.MoverOrigin
+                    : s.MoverPlane == MoverPlane.Ceiling
+                        ? map.Sectors[s.Index].CeilingHeight
+                        : map.Sectors[s.Index].FloorHeight;
+                var behavior = saveVersion >= 6 ? s.MoverBehavior
+                    : s.MoverPhase == MoverPhase.Waiting
+                        ? MoverBehavior.Cycle : MoverBehavior.OneShot;
+                bool cycle = saveVersion >= 6
+                    ? s.MoverCycle : s.MoverPhase == MoverPhase.Waiting;
 
                 int sectorIndex = s.Index;
                 var mover = player.AddComponent<SectorMover>();
@@ -98,7 +106,9 @@ namespace Doom.MapBuild
                     heights, geometry, sectorIndex, surface,
                     s.MoverTarget, s.MoverSpeed,
                     s.MoverPhase, s.MoverWaitTics, returnOrigin,
-                    onDone: () => lines?.SetSectorMoving(sectorIndex, false));
+                    behavior, cycle,
+                    onDone: () => lines?.SetSectorMoving(sectorIndex, false),
+                    worldScale: worldScale);
                 lines?.SetSectorMoving(sectorIndex, true);
             }
         }

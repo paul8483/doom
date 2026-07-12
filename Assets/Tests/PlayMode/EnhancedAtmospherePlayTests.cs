@@ -11,6 +11,13 @@ namespace Doom.Stage3.PlayTests
 {
     public class EnhancedAtmospherePlayTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            MapLoader.MapNameOverride = null;
+            GameSessionHost.ResetForTests();
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -18,6 +25,7 @@ namespace Doom.Stage3.PlayTests
             LogAssert.ignoreFailingMessages = false;
             MapLoader.MapNameOverride = null;
             RenderSettings.fog = false;
+            GameSessionHost.ResetForTests();
         }
 
         [UnityTest]
@@ -58,8 +66,12 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             // Simulate persisted Enhanced before map build (standalone New Game path).
-            var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            // MapLoader.Start calls ApplyLoadedSettings after Build, so only settings
+            // persistence keeps Enhanced across boot — gfx.Apply alone is overwritten.
+            var memory = new MemorySettingsStorage();
+            var store = new SettingsStore(memory);
+            store.Save(GameSettingsData.Defaults.WithGraphicsMode(GraphicsMode.Enhanced));
+            SettingsController.Ensure().ConfigureForTests(store, new FakeDisplayAdapter());
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             for (int i = 0; i < 90; i++) yield return null;

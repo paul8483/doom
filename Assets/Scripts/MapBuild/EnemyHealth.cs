@@ -1,4 +1,5 @@
 using UnityEngine;
+using Doom.Game;
 using Doom.Things;
 
 namespace Doom.MapBuild
@@ -9,6 +10,7 @@ namespace Doom.MapBuild
     public sealed class EnemyHealth : MonoBehaviour
     {
         int hp;
+        int spawnHealth;
         int corpseFrame;
         int mapThingIndex = -1;
         SpriteBillboard billboard;   // may be null in synthetic tests
@@ -28,6 +30,7 @@ namespace Doom.MapBuild
                          bool countKill = true, bool noBlood = false)
         {
             hp = health;
+            spawnHealth = health;
             this.corpseFrame = corpseFrame;
             this.billboard = billboard;
             this.capsule = capsule;
@@ -62,10 +65,12 @@ namespace Doom.MapBuild
             hp -= damage;
             if (hp <= 0)
             {
+                bool extreme = MonsterRules.ShouldUseExtremeDeath(
+                    hp, spawnHealth, controller != null && controller.SupportsExtremeDeath);
                 hp = 0;
                 if (countKill && mapThingIndex >= 0)
                     LevelStatsTracker.Instance?.RegisterKill(mapThingIndex);
-                if (controller != null) controller.NotifyKilled();
+                if (controller != null) controller.NotifyKilled(extreme);
                 else if (barrel != null) barrel.Begin(source);
                 else Die();
                 return;

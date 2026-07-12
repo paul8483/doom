@@ -27,5 +27,11 @@ namespace Doom.Game
             if (dist > 200f) dist = 200f;
             return r.Next() >= dist;
         }
+
+        /// P_DamageMobj overkill gate: xdeathstate is used only when the health
+        /// remaining after the hit is strictly below negative spawn health.
+        public static bool ShouldUseExtremeDeath(
+            int remainingHealth, int spawnHealth, bool hasSequence)
+            => hasSequence && spawnHealth > 0 && remainingHealth < -spawnHealth;
     }
 }

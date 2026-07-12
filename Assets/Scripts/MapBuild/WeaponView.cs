@@ -20,6 +20,8 @@ namespace Doom.MapBuild
     public sealed class WeaponView : MonoBehaviour
     {
         const float WeaponTopPx = 32f;
+        const float WeaponBottomPx = 128f;
+        const float LowerPixelsPerTic = 6f;
         const float MaxBobPx = 16f;
         const int ViewHeightPx =
             VirtualScreenRenderer.Height - VirtualScreenRenderer.StatusBarHeight;
@@ -36,6 +38,10 @@ namespace Doom.MapBuild
         int flashIdx;
         float flashDelayLeft;
         bool flashRandomHold;
+        PlayerHealth health;
+        PlayerDeathHandler deathHandler;
+        bool lowering;
+        float lowerY;
 
         public void Init(PlayerWeapons weapons, SpriteCache cache, float worldScale,
                          CharacterController controller)
@@ -45,9 +51,33 @@ namespace Doom.MapBuild
             this.worldScale = worldScale;
             cc = controller;
             weapons.Fired += OnFired;
+            health = weapons.GetComponent<PlayerHealth>();
+            deathHandler = weapons.GetComponent<PlayerDeathHandler>();
+            if (health != null) health.Died += OnPlayerDied;
+            if (deathHandler != null) deathHandler.Respawned += OnRespawned;
         }
 
-        void OnDestroy() { if (weapons != null) weapons.Fired -= OnFired; }
+        void OnDestroy()
+        {
+            if (weapons != null) weapons.Fired -= OnFired;
+            if (health != null) health.Died -= OnPlayerDied;
+            if (deathHandler != null) deathHandler.Respawned -= OnRespawned;
+        }
+
+        void OnPlayerDied()
+        {
+            anim = null;
+            flashLeft = 0f;
+            flashDelayLeft = 0f;
+            lowering = true;
+            lowerY = WeaponTopPx;
+        }
+
+        void OnRespawned()
+        {
+            lowering = false;
+            lowerY = WeaponTopPx;
+        }
 
         void OnFired(WeaponDef def)
         {
@@ -75,6 +105,10 @@ namespace Doom.MapBuild
 
         void Update()
         {
+            if (lowering)
+                lowerY = Mathf.Min(WeaponBottomPx,
+                    lowerY + LowerPixelsPerTic * 35f * Time.deltaTime);
+
             if (anim != null)
             {
                 animLeft -= Time.deltaTime;
@@ -106,7 +140,8 @@ namespace Doom.MapBuild
         void OnGUI()
         {
             if (weapons == null || Event.current.type != EventType.Repaint) return;
-            if (!GameFlowController.ShouldDrawWeaponView()) return;
+            if (!GameFlowController.ShouldDrawWeaponView() && !lowering) return;
+            if (lowering && lowerY >= WeaponBottomPx) return;
             var def = WeaponTable.Get(weapons.Loadout.Current);
 
             // Bob (A_WeaponReady): angle advances 128 units/tic out of 8192 per circle.
@@ -116,6 +151,7 @@ namespace Doom.MapBuild
             // DOOM folds the angle into a half-circle: sy follows |sin| at the same rate.
             float sy = WeaponTopPx + bob * Mathf.Abs(Mathf.Sin(phase));
             if (anim != null) { sx = 1f; sy = WeaponTopPx; } // no bob while firing
+            if (lowering) { sx = 1f; sy = lowerY; }
 
             var t = VirtualScreenRenderer.ComputeForScreen();
             // Clip to view window above STBAR (BeginClip makes draw coords relative).
@@ -137,6 +173,15 @@ namespace Doom.MapBuild
             var v = cc.velocity; v.y = 0f;
             float unitsPerTic = v.magnitude / worldScale / 35f;   // DOOM momx/momy
             return Mathf.Min(MaxBobPx, unitsPerTic * unitsPerTic * 0.25f);
+        }
+
+        public bool IsLoweringForTest => lowering;
+        public float LowerYForTest => lowerY;
+        public void AdvanceLowerForTest(float seconds)
+        {
+            if (lowering)
+                lowerY = Mathf.Min(WeaponBottomPx,
+                    lowerY + LowerPixelsPerTic * 35f * seconds);
         }
 
         void DrawPatch(string sprite, int frame, float sx, float sy,

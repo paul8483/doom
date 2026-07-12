@@ -10,13 +10,19 @@ namespace Doom.Map
         public string Texture { get; }
         public bool Masked { get; }
         public bool Blocks { get; }
+        /// Linedef special shared by this section. Geometry with different specials
+        /// is kept in separate buckets so renderer-level effects (for example wall
+        /// scrolling) never leak onto neighbouring walls that reuse the texture.
+        public int LineSpecial { get; }
         public MeshData Mesh { get; }
 
-        public WallSection(string texture, bool masked, MeshData mesh, bool blocks = true)
+        public WallSection(string texture, bool masked, MeshData mesh, bool blocks = true,
+                           int lineSpecial = 0)
         {
             Texture = texture;
             Masked = masked;
             Blocks = blocks;
+            LineSpecial = lineSpecial;
             Mesh = mesh;
         }
     }

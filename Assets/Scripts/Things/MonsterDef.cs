@@ -39,6 +39,8 @@ namespace Doom.Things
         public int FireIndex { get; init; }        // damage/projectile happens entering this entry
         public MonsterSeq Pain { get; init; }      // one-shot
         public MonsterSeq Death { get; init; }     // one-shot; then ThingDef.CorpseFrame
+        public MonsterSeq XDeath { get; init; }    // optional overkill sequence
+        public int XDeathCorpseFrame { get; init; } = -1;
 
         /// DMX lump names for this monster (Stage 6f). Never null for E1 roster.
         public MonsterSoundSet Sounds { get; init; }

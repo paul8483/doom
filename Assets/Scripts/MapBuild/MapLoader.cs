@@ -481,6 +481,7 @@ namespace Doom.MapBuild
                 "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
                 "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
                 "DSFIRSHT", "DSFIRXPL", "DSRXPLOD", "DSCLAW", "DSBAREXP",
+                "DSTELEPT",
             })
                 Add(n);
 
@@ -732,6 +733,7 @@ namespace Doom.MapBuild
                     if (wall != null && ws.Blocks)
                         wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
                 }
+                ConfigureWallEffects(wall, ws);
                 wi++;
             }
 
@@ -768,6 +770,25 @@ namespace Doom.MapBuild
                 // Re-created on every rebuild because this is the shared build path.
                 if (wall != null && ws.Blocks)
                     wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
+                ConfigureWallEffects(wall, ws);
+            }
+        }
+
+        static void ConfigureWallEffects(GameObject wall, WallSection section)
+        {
+            if (wall == null || section == null) return;
+            var renderer = wall.GetComponent<MeshRenderer>();
+            var scroll = wall.GetComponent<WallScrollController>();
+            if (section.LineSpecial == 48 || section.LineSpecial == 85)
+            {
+                if (scroll == null) scroll = wall.AddComponent<WallScrollController>();
+                scroll.Configure(renderer, section.LineSpecial);
+            }
+            else if (scroll != null)
+            {
+                // Pooled wall objects may be reused for another section after a
+                // sector rebuild. Explicitly disable stale renderer effects.
+                scroll.Configure(renderer, 0);
             }
         }
 

@@ -9,7 +9,7 @@ namespace Doom.Game.Tests
     public class SaveGameCodecTests
     {
         [Test]
-        public void Encode_Decode_round_trips_full_v4_snapshot()
+        public void Encode_Decode_round_trips_full_v6_snapshot()
         {
             SaveGame original = BuildGoldenSave();
             byte[] bytes = SaveGameCodec.Encode(original);
@@ -19,6 +19,9 @@ namespace Doom.Game.Tests
             Assert.That(decoded.Version, Is.EqualTo(SaveGame.SchemaVersion));
             Assert.That(decoded.MapName, Is.EqualTo("E1M1"));
             Assert.That(decoded.World.Sectors[1].MoverWaitTics, Is.EqualTo(12));
+            Assert.That(decoded.World.Sectors[1].MoverBehavior, Is.EqualTo(MoverBehavior.Crusher));
+            Assert.That(decoded.World.Sectors[1].MoverCycle, Is.True);
+            Assert.That(decoded.World.Sectors[1].MoverOrigin, Is.EqualTo(128f));
             Assert.That(decoded.World.Projectiles[0].Owner, Is.EqualTo(SaveEntityId.MapThing(0)));
             Assert.That(decoded.World.Projectiles[0].Phase, Is.EqualTo(ProjectilePhase.Exploding));
             Assert.That(decoded.World.Projectiles[0].FrameIndex, Is.EqualTo(2));
@@ -172,6 +175,46 @@ namespace Doom.Game.Tests
             Assert.That(projectile.ShotDirY, Is.Zero);
             Assert.That(projectile.ShotDirZ, Is.Zero);
             Assert.That(projectile.SprayApplied, Is.False);
+        }
+
+        [Test]
+        public void Decode_v5_sector_records_default_v6_mover_fields()
+        {
+            SaveGame save = BuildGoldenSave();
+            byte[] current = SaveGameCodec.Encode(save);
+            int payloadOffset = FindPayloadOffset(current, save.WadIdentity, save.MapName);
+            int payloadLength = BitConverter.ToInt32(current, payloadOffset - 8);
+            int sectorCountOffset = FindSectorCountOffset(current, payloadOffset);
+            int sectorCount = BitConverter.ToInt32(current, sectorCountOffset);
+            const int V5SectorBytes = 39;
+            const int V6SectorExtraBytes = 6;
+            int firstSectorOffset = sectorCountOffset + sizeof(int);
+
+            var v5 = new byte[current.Length - sectorCount * V6SectorExtraBytes];
+            Array.Copy(current, 0, v5, 0, firstSectorOffset);
+            int src = firstSectorOffset;
+            int dst = firstSectorOffset;
+            for (int i = 0; i < sectorCount; i++)
+            {
+                Array.Copy(current, src, v5, dst, V5SectorBytes);
+                src += V5SectorBytes + V6SectorExtraBytes;
+                dst += V5SectorBytes;
+            }
+            Array.Copy(current, src, v5, dst, current.Length - src);
+
+            int legacyPayloadLength = payloadLength - sectorCount * V6SectorExtraBytes;
+            BitConverter.GetBytes(5).CopyTo(v5, 4);
+            BitConverter.GetBytes(legacyPayloadLength).CopyTo(v5, payloadOffset - 8);
+            RecomputeChecksum(
+                v5, save.WadIdentity, save.MapName, payloadOffset, legacyPayloadLength);
+
+            Assert.That(SaveGameCodec.TryDecode(v5, out var decoded, out string error),
+                Is.True, error);
+            Assert.That(decoded.Version, Is.EqualTo(5));
+            Assert.That(decoded.World.Sectors[1].MoverBehavior,
+                Is.EqualTo(MoverBehavior.OneShot));
+            Assert.That(decoded.World.Sectors[1].MoverCycle, Is.False);
+            Assert.That(decoded.World.Sectors[1].MoverOrigin, Is.Zero);
         }
 
         [Test]
@@ -364,7 +407,7 @@ namespace Doom.Game.Tests
                 new SectorSnapshot(0, 0f, 128f, 160, false, MoverPlane.Floor, MoverPhase.None,
                     0, 0f, 0f, 0),
                 new SectorSnapshot(2, 16f, 128f, 160, true, MoverPlane.Ceiling, MoverPhase.Waiting,
-                    -1, 64f, 4f, 12),
+                    -1, 64f, 4f, 12, 0, MoverBehavior.Crusher, true, 128f),
             };
             var lines = new[] { new LineSnapshot(0, true, true) };
             var things = new[]
@@ -589,6 +632,10 @@ namespace Doom.Game.Tests
             r.ReadSingle();
             r.ReadSingle();
             r.ReadInt32();
+            r.ReadInt32(); // v5 lightCount
+            r.ReadByte();  // v6 moverBehavior
+            r.ReadByte();  // v6 moverCycle
+            r.ReadSingle();// v6 moverOrigin
         }
 
         static void SkipThing(BinaryReader r)

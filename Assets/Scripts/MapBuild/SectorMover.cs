@@ -9,7 +9,7 @@ namespace Doom.MapBuild
     public sealed class SectorMover : MonoBehaviour
     {
         public enum Surface { Floor, Ceiling }
-        public enum Phase { MovingToTarget, Waiting, Returning, Done }
+        public enum Phase { MovingToTarget, Waiting, Returning, Stopped, Done }
 
         RuntimeSectorHeights heights;
         SectorGeometry geometry;
@@ -28,6 +28,9 @@ namespace Doom.MapBuild
         Vector3 soundOrigin;
         object loopKey;
         bool stopPlayed;
+        MoverBehavior behavior;
+        bool crusherSlows;
+        CrusherDamageSystem crusherDamage;
 
         // DOOM speeds (units/tic × 35 tics/sec). Normal door ≈ 2 u/tic, fast ≈ 8.
         public static float SpeedUnitsPerSec(MoveSpeed s) => s switch
@@ -52,6 +55,8 @@ namespace Doom.MapBuild
             this.soundOrigin = soundOrigin;
             loopKey = this;
             stopPlayed = false;
+            behavior = cycle ? MoverBehavior.Cycle : MoverBehavior.OneShot;
+            crusherSlows = false;
             origin = Current();
             phase = Phase.MovingToTarget;
             PlayStartOrLoop();
@@ -65,7 +70,8 @@ namespace Doom.MapBuild
             RuntimeSectorHeights heights, SectorGeometry geometry, int sector,
             Surface surface, float targetHeight, float speedUnitsPerSec,
             MoverPhase moverPhase, int waitTics, float returnOrigin,
-            System.Action onDone = null)
+            MoverBehavior moverBehavior, bool moverCycle,
+            System.Action onDone = null, float worldScale = 1f / 32f)
         {
             this.heights = heights; this.geometry = geometry; this.sector = sector;
             this.surface = surface; this.speedUnitsPerSec = speedUnitsPerSec;
@@ -75,12 +81,13 @@ namespace Doom.MapBuild
             this.soundOrigin = default;
             loopKey = this;
             stopPlayed = false;
+            behavior = moverBehavior;
+            cycle = moverCycle;
+            origin = returnOrigin;
 
             if (moverPhase == MoverPhase.Waiting)
             {
                 target = targetHeight;
-                origin = returnOrigin;
-                cycle = true;
                 waitSeconds = Mathf.Max(0f, waitTics / 35f);
                 phase = Phase.Waiting;
                 waitTimer = waitSeconds;
@@ -88,11 +95,56 @@ namespace Doom.MapBuild
             else
             {
                 target = targetHeight;
-                origin = Current();
-                cycle = false;
                 waitSeconds = 0f;
-                phase = Phase.MovingToTarget;
+                phase = moverPhase == MoverPhase.Returning ? Phase.Returning
+                    : moverPhase == MoverPhase.Stopped ? Phase.Stopped
+                    : Phase.MovingToTarget;
             }
+            if (behavior == MoverBehavior.Crusher)
+            {
+                crusherSlows = speedUnitsPerSec <= 35.01f;
+                crusherDamage = gameObject.AddComponent<CrusherDamageSystem>();
+                crusherDamage.Begin(this, heights, geometry, sector, worldScale);
+            }
+        }
+
+        public void BeginCrusher(
+            RuntimeSectorHeights heights, SectorGeometry geometry, int sector,
+            float targetHeight, float speedUnitsPerSec, bool cycle, bool slowsWhenCrushing,
+            float worldScale, System.Action onDone = null,
+            SoundSystem sound = null, bool silent = false,
+            Vector3 soundOrigin = default)
+        {
+            Begin(heights, geometry, sector, Surface.Ceiling, targetHeight,
+                speedUnitsPerSec, cycle, 0f, onDone, sound,
+                silent ? default : MoverSoundProfile.FloorOrLift, soundOrigin);
+            behavior = MoverBehavior.Crusher;
+            crusherSlows = slowsWhenCrushing;
+            crusherDamage = gameObject.AddComponent<CrusherDamageSystem>();
+            crusherDamage.Begin(this, heights, geometry, sector, worldScale);
+        }
+
+        public int SectorIndex => sector;
+        public bool IsCrusher => behavior == MoverBehavior.Crusher;
+        public bool IsCrusherDescending =>
+            IsCrusher && phase == Phase.MovingToTarget;
+        public bool IsStopped => phase == Phase.Stopped;
+
+        public void StopCrusher()
+        {
+            if (!IsCrusher || phase == Phase.Done) return;
+            phase = Phase.Stopped;
+            if (sound != null && !string.IsNullOrEmpty(sfx.LoopLump))
+                sound.StopLoop(loopKey, sfx.StopLump);
+            else
+                StopLoopOnly();
+        }
+
+        public void ResumeCrusher()
+        {
+            if (!IsCrusher || phase != Phase.Stopped) return;
+            phase = Current() <= target ? Phase.Returning : Phase.MovingToTarget;
+            PlayStartOrLoop();
         }
 
         float Current() => surface == Surface.Floor ? heights.FloorRaw(sector) : heights.CeilRaw(sector);
@@ -101,6 +153,7 @@ namespace Doom.MapBuild
         void Update()
         {
             if (phase == Phase.Done) { Destroy(this); return; }
+            if (phase == Phase.Stopped) return;
             if (phase == Phase.Waiting)
             {
                 waitTimer -= Time.deltaTime;
@@ -118,16 +171,28 @@ namespace Doom.MapBuild
             float goal = phase == Phase.Returning ? origin : target;
             float cur = Current();
             int before = Mathf.RoundToInt(cur);
-            float step = speedUnitsPerSec * Time.deltaTime;
+            float actualSpeed = speedUnitsPerSec;
+            if (crusherSlows && phase == Phase.MovingToTarget
+                && crusherDamage != null && crusherDamage.IsObstructed)
+                actualSpeed *= CrusherRules.CrushingSlowdown;
+            float step = actualSpeed * Time.deltaTime;
             float next = Mathf.MoveTowards(cur, goal, step);
             Set(next);
 
             if (Mathf.RoundToInt(next) != before)
-                geometry.RebuildSectorAndNeighbors(sector);
+                geometry?.RebuildSectorAndNeighbors(sector);
 
             if (Mathf.Approximately(next, goal))
             {
-                if (phase == Phase.MovingToTarget && cycle)
+                if (behavior == MoverBehavior.Crusher && phase == Phase.MovingToTarget && cycle)
+                {
+                    phase = Phase.Returning;
+                }
+                else if (behavior == MoverBehavior.Crusher && phase == Phase.Returning && cycle)
+                {
+                    phase = Phase.MovingToTarget;
+                }
+                else if (phase == Phase.MovingToTarget && cycle)
                 {
                     StopLoopOnly();
                     phase = Phase.Waiting;
@@ -160,7 +225,7 @@ namespace Doom.MapBuild
 
         void Finish()
         {
-            geometry.RebuildSectorAndNeighbors(sector);
+            geometry?.RebuildSectorAndNeighbors(sector);
             if (!stopPlayed && !string.IsNullOrEmpty(sfx.StopLump))
             {
                 sound?.StopLoop(loopKey, sfx.StopLump);
@@ -181,7 +246,10 @@ namespace Doom.MapBuild
             out float targetHeight,
             out float speed,
             out int waitTics,
-            out bool active)
+            out bool active,
+            out MoverBehavior moverBehavior,
+            out bool moverCycle,
+            out float moverOrigin)
         {
             sectorIndex = sector;
             plane = surface == Surface.Floor ? MoverPlane.Floor : MoverPlane.Ceiling;
@@ -191,6 +259,9 @@ namespace Doom.MapBuild
             direction = 0;
             moverPhase = MoverPhase.None;
             active = false;
+            moverBehavior = behavior;
+            moverCycle = cycle;
+            moverOrigin = origin;
 
             if (heights == null || phase == Phase.Done)
                 return false;
@@ -204,9 +275,12 @@ namespace Doom.MapBuild
                     direction = target >= cur ? 1 : -1;
                     break;
                 case Phase.Returning:
-                    moverPhase = MoverPhase.Moving;
+                    moverPhase = MoverPhase.Returning;
                     direction = origin >= cur ? 1 : -1;
-                    targetHeight = origin;
+                    break;
+                case Phase.Stopped:
+                    moverPhase = MoverPhase.Stopped;
+                    direction = 0;
                     break;
                 case Phase.Waiting:
                     moverPhase = MoverPhase.Waiting;

@@ -14,10 +14,18 @@ namespace Doom.Map
         // Accumulates geometry per (texture, masked) bucket.
         private sealed class Bucket
         {
+            public readonly string Texture;
+            public readonly int LineSpecial;
             public readonly List<Float3> V = new();
             public readonly List<int> T = new();
             public readonly List<Float2> Uv = new();
             public readonly List<Float3> C = new();
+
+            public Bucket(string texture, int lineSpecial)
+            {
+                Texture = texture;
+                LineSpecial = lineSpecial;
+            }
         }
 
         public static IReadOnlyList<WallSection> BuildForSector(
@@ -55,7 +63,7 @@ namespace Doom.Map
                 {
                     // One-sided: middle texture spans floor..ceiling.
                     if (onFront)
-                        EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
+                        EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
                                  v1, v2, secFloor, secCeil,
                                  side.MiddleTexture, WallPart.OneSidedMiddle,
                                  secFloor, secCeil, facingFront: true, isMasked: false);
@@ -74,14 +82,14 @@ namespace Doom.Map
 
                 // Lower step: neighbour floor higher than ours.
                 if (otherFloor > secFloor && HasTex(side.LowerTexture))
-                    EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
                              v1, v2, secFloor, otherFloor,
                              side.LowerTexture, WallPart.Lower,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
 
                 // Upper step: neighbour ceiling lower than ours.
                 if (otherCeil < secCeil && HasTex(side.UpperTexture))
-                    EmitQuad(opaque, null, sizes, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
                              v1, v2, otherCeil, secCeil,
                              side.UpperTexture, WallPart.Upper,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
@@ -95,7 +103,7 @@ namespace Doom.Map
                     {
                         bool blocks = (ld.Flags & WallSection.FlagBlocking) != 0;
                         var maskedBucket = blocks ? maskedBlocking : maskedPassable;
-                        EmitQuad(opaque, maskedBucket, sizes, ld.Flags, side, light, worldScale,
+                        EmitQuad(opaque, maskedBucket, sizes, ld.Special, ld.Flags, side, light, worldScale,
                                  v1, v2, gapLow, gapHigh,
                                  side.MiddleTexture, WallPart.TwoSidedMiddle,
                                  gapLow, gapHigh, facingFront: onFront, isMasked: true);
@@ -105,26 +113,27 @@ namespace Doom.Map
 
             var result = new List<WallSection>();
             foreach (var kv in opaque)
-                result.Add(ToSection(kv.Key, masked: false, blocks: true, kv.Value));
+                result.Add(ToSection(masked: false, blocks: true, kv.Value));
             foreach (var kv in maskedBlocking)
-                result.Add(ToSection(kv.Key, masked: true, blocks: true, kv.Value));
+                result.Add(ToSection(masked: true, blocks: true, kv.Value));
             foreach (var kv in maskedPassable)
-                result.Add(ToSection(kv.Key, masked: true, blocks: false, kv.Value));
+                result.Add(ToSection(masked: true, blocks: false, kv.Value));
             return result;
         }
 
         private enum WallPart { OneSidedMiddle, Upper, Lower, TwoSidedMiddle }
 
-        private static WallSection ToSection(string tex, bool masked, bool blocks, Bucket b)
-            => new WallSection(tex, masked,
+        private static WallSection ToSection(bool masked, bool blocks, Bucket b)
+            => new WallSection(b.Texture, masked,
                    new MeshData(b.V.ToArray(), b.T.ToArray(), b.Uv.ToArray(), b.C.ToArray()),
-                   blocks);
+                   blocks, b.LineSpecial);
 
         private static bool HasTex(string t) => !string.IsNullOrEmpty(t) && t != "-";
 
         private static void EmitQuad(
             Dictionary<string, Bucket> opaque, Dictionary<string, Bucket> masked,
-            ITextureSizeSource sizes, ushort flags, SideDef side, float light, float worldScale,
+            ITextureSizeSource sizes, int lineSpecial, ushort flags, SideDef side,
+            float light, float worldScale,
             Vertex a, Vertex b, int yLowDoom, int yHighDoom,
             string texture, WallPart part, int regionLowDoom, int regionHighDoom,
             bool facingFront, bool isMasked)
@@ -161,7 +170,7 @@ namespace Doom.Map
 
             var target = isMasked ? masked : opaque;
             if (target == null) return;
-            var bucket = GetBucket(target, texture);
+            var bucket = GetBucket(target, texture, lineSpecial);
             int baseIdx = bucket.V.Count;
 
             // Winding mirrors the Stage 2 convention (front sees CCW from +normal).
@@ -218,9 +227,18 @@ namespace Doom.Map
             }
         }
 
-        private static Bucket GetBucket(Dictionary<string, Bucket> map, string tex)
+        private static Bucket GetBucket(Dictionary<string, Bucket> map, string tex, int lineSpecial)
         {
-            if (!map.TryGetValue(tex, out var b)) { b = new Bucket(); map[tex] = b; }
+            // A renderer-level MaterialPropertyBlock affects the whole section.
+            // Only specials with a renderer effect need a distinct bucket; keeping
+            // gameplay-only specials grouped preserves the established mesh budget.
+            int rendererSpecial = lineSpecial == 48 || lineSpecial == 85 ? lineSpecial : 0;
+            string key = tex + "\n" + rendererSpecial.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!map.TryGetValue(key, out var b))
+            {
+                b = new Bucket(tex, rendererSpecial);
+                map[key] = b;
+            }
             return b;
         }
 

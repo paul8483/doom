@@ -25,6 +25,13 @@ namespace Doom.MapBuild
             cache.Get(def.Sprite, def.Frame, 0);
 
             go.AddComponent<ThingPickup>().Init(doomedNum, worldScale);
+            if (PickupAnimationTable.TryGet(doomedNum, out var animation))
+            {
+                foreach (int frame in animation.Frames)
+                    for (int rot = 0; rot < 8; rot++)
+                        cache.Get(def.Sprite, frame, rot);
+                go.AddComponent<PickupAnimator>().Init(bb, animation);
+            }
 
             var registry = WorldStateRegistry.Instance;
             if (registry != null)

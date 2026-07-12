@@ -9,6 +9,7 @@ using Doom.Game;
 using Doom.Map;
 using Doom.MapBuild;
 using Doom.Specials;
+using Doom.Things;
 using Doom.Wad;
 
 namespace Doom.Stage3.PlayTests
@@ -178,6 +179,30 @@ namespace Doom.Stage3.PlayTests
                 .FirstOrDefault(p => p.DoomedNum == 2007 &&
                     (p.transform.position - at).sqrMagnitude < 1f);
             Assert.That(clip, Is.Not.Null, "POSS death should spawn CLIP pickup");
+        }
+
+        [UnityTest]
+        public IEnumerator Animated_pickups_use_shared_wad_state_player()
+        {
+            yield return LoadLevel();
+            var mapAnimator = Object.FindObjectsByType<PickupAnimator>(
+                    FindObjectsSortMode.None)
+                .FirstOrDefault();
+            Assert.That(mapAnimator, Is.Not.Null,
+                "map-spawned animated pickups should receive PickupAnimator");
+
+            var go = new GameObject("RuntimeAnimatedPickup",
+                typeof(MeshFilter), typeof(MeshRenderer));
+            var billboard = go.AddComponent<SpriteBillboard>();
+            billboard.Init(null, "BON1", 0, 1f / 32f, 0f, false, 0f);
+            Assert.That(PickupAnimationTable.TryGet(2014, out var animation), Is.True);
+            var runtimeAnimator = go.AddComponent<PickupAnimator>();
+            runtimeAnimator.Init(billboard, animation);
+
+            runtimeAnimator.AdvanceTicsForTest(animation.Tics[0]);
+            Assert.That(runtimeAnimator.FrameForTest, Is.EqualTo(1));
+            Assert.That(billboard.CurrentFrame, Is.EqualTo(1));
+            Object.Destroy(go);
         }
 
         [UnityTest]

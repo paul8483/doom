@@ -8,6 +8,8 @@ namespace Doom.Game
         None = 0,
         Moving = 1,
         Waiting = 2,
+        Returning = 3,
+        Stopped = 4,
     }
 
     /// Which plane a sector mover animates.
@@ -15,6 +17,13 @@ namespace Doom.Game
     {
         Floor = 0,
         Ceiling = 1,
+    }
+
+    public enum MoverBehavior : byte
+    {
+        OneShot = 0,
+        Cycle = 1,
+        Crusher = 2,
     }
 
     public sealed class SectorSnapshot : IEquatable<SectorSnapshot>
@@ -35,6 +44,9 @@ namespace Doom.Game
         public float MoverSpeed { get; }
         /// Remaining wait tics when phase is Waiting.
         public int MoverWaitTics { get; }
+        public MoverBehavior MoverBehavior { get; }
+        public bool MoverCycle { get; }
+        public float MoverOrigin { get; }
 
         public SectorSnapshot(
             int index,
@@ -42,7 +54,10 @@ namespace Doom.Game
             bool hasMover,
             MoverPlane moverPlane, MoverPhase moverPhase,
             int moverDirection, float moverTarget, float moverSpeed, int moverWaitTics,
-            int lightCount = 0)
+            int lightCount = 0,
+            MoverBehavior moverBehavior = MoverBehavior.OneShot,
+            bool moverCycle = false,
+            float moverOrigin = 0f)
         {
             Index = index;
             FloorHeight = floorHeight;
@@ -56,6 +71,9 @@ namespace Doom.Game
             MoverTarget = moverTarget;
             MoverSpeed = moverSpeed;
             MoverWaitTics = moverWaitTics;
+            MoverBehavior = moverBehavior;
+            MoverCycle = moverCycle;
+            MoverOrigin = moverOrigin;
         }
 
         public bool Equals(SectorSnapshot other)
@@ -72,7 +90,10 @@ namespace Doom.Game
                    && MoverDirection == other.MoverDirection
                    && MoverTarget.Equals(other.MoverTarget)
                    && MoverSpeed.Equals(other.MoverSpeed)
-                   && MoverWaitTics == other.MoverWaitTics;
+                   && MoverWaitTics == other.MoverWaitTics
+                   && MoverBehavior == other.MoverBehavior
+                   && MoverCycle == other.MoverCycle
+                   && MoverOrigin.Equals(other.MoverOrigin);
         }
 
         public override bool Equals(object obj) => Equals(obj as SectorSnapshot);

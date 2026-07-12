@@ -87,6 +87,29 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Slot_requests_queue_until_action_end_and_last_valid_wins()
+        {
+            yield return LoadLevel();
+            var weapons = GameObject.Find("Player").GetComponent<PlayerWeapons>();
+            weapons.Loadout.Give(WeaponId.Shotgun);
+            weapons.Loadout.TrySelect(WeaponId.Pistol);
+
+            weapons.FireOnceForTest();
+            Assert.That(weapons.Scheduler.IsRunning, Is.True);
+            weapons.SelectSlotForTest(1); // fist
+            weapons.SelectSlotForTest(7); // unowned BFG: must not replace fist
+            Assert.That(weapons.Loadout.Current, Is.EqualTo(WeaponId.Pistol));
+            Assert.That(weapons.Loadout.Pending, Is.EqualTo(WeaponId.Fist));
+            weapons.SelectSlotForTest(3); // owned shotgun: last valid wins
+            Assert.That(weapons.Loadout.Pending, Is.EqualTo(WeaponId.Shotgun));
+
+            weapons.AdvanceTicsForTest(100);
+            Assert.That(weapons.Scheduler.IsRunning, Is.False);
+            Assert.That(weapons.Loadout.Current, Is.EqualTo(WeaponId.Shotgun));
+            Assert.That(weapons.Loadout.HasPending, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator Shotgun_pickup_gives_weapon_and_shells()
         {
             yield return LoadLevel();
