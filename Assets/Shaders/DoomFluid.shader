@@ -11,6 +11,8 @@ Shader "Doom/Fluid"
         _SectorAmbientWeight ("Sector Ambient Weight", Range(0,1)) = 0
         _ScrollSpeed ("Scroll Speed", Vector) = (0.03, 0.01, 0, 0)
         _DistortStrength ("Distort", Range(0,0.1)) = 0.02
+        _MainTexB ("Next Frame", 2D) = "white" {}
+        _FrameBlend ("Frame Blend", Range(0,1)) = 0
     }
 
     SubShader
@@ -46,6 +48,7 @@ Shader "Doom/Fluid"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
+            TEXTURE2D(_MainTexB); SAMPLER(sampler_MainTexB);
             TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
 
             CBUFFER_START(UnityPerMaterial)
@@ -58,6 +61,7 @@ Shader "Doom/Fluid"
                 half _SectorAmbientWeight;
                 float4 _ScrollSpeed;
                 half _DistortStrength;
+                half _FrameBlend;
             CBUFFER_END
 
             // Soft distance fog (SectorFogSystem).
@@ -146,7 +150,9 @@ Shader "Doom/Fluid"
                 half4 shift = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv + float2(0.07, 0.03));
                 uv += (shift.rg - 0.5h) * _DistortStrength;
 
-                half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+                half4 texA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+                half4 texB = SAMPLE_TEXTURE2D(_MainTexB, sampler_MainTexB, uv);
+                half4 tex = lerp(texA, texB, saturate(_FrameBlend));
                 half3 albedo = tex.rgb;
                 half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);
 

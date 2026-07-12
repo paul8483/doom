@@ -6,6 +6,7 @@ using Doom.Graphics;
 namespace Doom.MapBuild.Rendering
 {
     /// Cycles WAD flat/wall animation frames and mild fluid UV scroll in Enhanced.
+    /// Fluids cross-fade between frames; other animated textures hard-cut (vanilla).
     /// Uses MaterialPropertyBlock so shared materials are not instanced per frame.
     public sealed class AnimatedSurfaceSystem : MonoBehaviour
     {
@@ -16,6 +17,7 @@ namespace Doom.MapBuild.Rendering
             public Renderer Renderer;
             public Texture2D[] Frames;
             public Texture2D Original;
+            public Shader OriginalShader;
             public int TicDuration;
             public bool IsFluid;
             public MaterialPropertyBlock Block;
@@ -25,11 +27,12 @@ namespace Doom.MapBuild.Rendering
         TextureCache textures;
         readonly List<Tracked> tracked = new List<Tracked>(128);
         bool enabledForProfile;
-        float accum;
-        int frameIndex;
+        float ticClock;
 
         static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+        static readonly int MainTexBId = Shader.PropertyToID("_MainTexB");
         static readonly int MainTexStId = Shader.PropertyToID("_MainTex_ST");
+        static readonly int FrameBlendId = Shader.PropertyToID("_FrameBlend");
 
         public int TrackedCount => tracked.Count;
         public bool IsProfileEnabled => enabledForProfile;
@@ -41,8 +44,7 @@ namespace Doom.MapBuild.Rendering
             textures = textureCache;
             catalog = animationCatalog;
             tracked.Clear();
-            accum = 0f;
-            frameIndex = 0;
+            ticClock = 0f;
 
             if (textures == null || catalog == null) return;
 
@@ -74,6 +76,7 @@ namespace Doom.MapBuild.Rendering
                     Renderer = r,
                     Frames = frames,
                     Original = main,
+                    OriginalShader = r.sharedMaterial.shader,
                     TicDuration = Mathf.Max(1, seq.TicDuration),
                     IsFluid = fluid,
                     Block = new MaterialPropertyBlock(),
@@ -92,22 +95,34 @@ namespace Doom.MapBuild.Rendering
             if (!enabledForProfile)
                 RestoreOriginals();
             else
-                ApplyCurrentFrame(force: true);
+            {
+                PromoteFluidShaders();
+                ApplyCurrentFrame();
+            }
+        }
+
+        void PromoteFluidShaders()
+        {
+            var fluid = Shader.Find(DoomMaterialFactory.FluidName);
+            if (fluid == null) return;
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                var t = tracked[i];
+                if (!t.IsFluid || t.Renderer == null || t.Renderer.sharedMaterial == null)
+                    continue;
+                if (t.Renderer.sharedMaterial.shader != fluid)
+                    t.Renderer.sharedMaterial.shader = fluid;
+            }
         }
 
         void Update()
         {
             if (!enabledForProfile || tracked.Count == 0) return;
-
-            accum += Time.deltaTime * 35f; // DOOM tics
-            int step = tracked[0].TicDuration;
-            if (accum < step) return;
-            accum -= step;
-            frameIndex++;
-            ApplyCurrentFrame(force: false);
+            ticClock += Time.deltaTime * 35f;
+            ApplyCurrentFrame();
         }
 
-        void ApplyCurrentFrame(bool force)
+        void ApplyCurrentFrame()
         {
             for (int i = 0; i < tracked.Count; i++)
             {
@@ -115,17 +130,39 @@ namespace Doom.MapBuild.Rendering
                 if (t.Renderer == null || t.Frames == null || t.Frames.Length == 0)
                     continue;
 
-                int idx = frameIndex % t.Frames.Length;
+                float duration = t.TicDuration;
+                // Fluids linger a bit longer so the cross-fade reads as flow, not pop.
+                if (t.IsFluid) duration *= 1.35f;
+                duration = Mathf.Max(1f, duration);
+
+                float phase = ticClock / duration;
+                int idx = Mathf.FloorToInt(phase);
+                // Positive modulo for long-running clocks.
+                idx %= t.Frames.Length;
+                if (idx < 0) idx += t.Frames.Length;
+                float frac = phase - Mathf.Floor(phase);
+
                 var tex = t.Frames[idx];
                 if (tex == null) continue;
 
                 t.Renderer.GetPropertyBlock(t.Block);
                 t.Block.SetTexture(MainTexId, tex);
 
-                if (t.IsFluid)
+                if (t.IsFluid && t.Frames.Length > 1)
                 {
-                    float scroll = (Time.time * 0.03f) % 1f;
-                    t.Block.SetVector(MainTexStId, new Vector4(1f, 1f, scroll, scroll * 0.4f));
+                    int next = (idx + 1) % t.Frames.Length;
+                    var nextTex = t.Frames[next] != null ? t.Frames[next] : tex;
+                    t.Block.SetTexture(MainTexBId, nextTex);
+                    // Smoothstep removes the harsh mid-transition flicker of a linear cut.
+                    t.Block.SetFloat(FrameBlendId, frac * frac * (3f - 2f * frac));
+
+                    float scroll = (Time.time * 0.02f) % 1f;
+                    t.Block.SetVector(MainTexStId, new Vector4(1f, 1f, scroll, scroll * 0.35f));
+                }
+                else
+                {
+                    t.Block.SetFloat(FrameBlendId, 0f);
+                    t.Block.SetVector(MainTexStId, new Vector4(1f, 1f, 0f, 0f));
                 }
 
                 t.Renderer.SetPropertyBlock(t.Block);
@@ -139,12 +176,17 @@ namespace Doom.MapBuild.Rendering
             {
                 var t = tracked[i];
                 if (t.Renderer == null) continue;
+
+                if (t.Renderer.sharedMaterial != null && t.OriginalShader != null &&
+                    t.Renderer.sharedMaterial.shader != t.OriginalShader)
+                    t.Renderer.sharedMaterial.shader = t.OriginalShader;
+
                 if (t.Block == null) t.Block = new MaterialPropertyBlock();
                 t.Renderer.GetPropertyBlock(t.Block);
                 if (t.Original != null)
                     t.Block.SetTexture(MainTexId, t.Original);
+                t.Block.SetFloat(FrameBlendId, 0f);
                 t.Block.SetVector(MainTexStId, new Vector4(1f, 1f, 0f, 0f));
-                t.Renderer.SetPropertyBlock(t.Block);
                 // Clear block entirely so Classic shared materials show through cleanly.
                 t.Renderer.SetPropertyBlock(null);
                 tracked[i] = t;
