@@ -112,13 +112,14 @@ Shader "Doom/EnhancedCutout"
                 for (uint i = 0u; i < count; i++)
                 {
                     Light light = GetAdditionalLight(i, positionWS);
-                    half n = saturate(dot(normalWS, light.direction));
-                    dynamic += albedo * light.color * (light.distanceAttenuation * light.shadowAttenuation * n);
+                    half n = saturate(dot(normalWS, light.direction) * 0.5h + 0.5h);
+                    half atten = light.distanceAttenuation * light.shadowAttenuation;
+                    dynamic += albedo * light.color * (atten * lerp(0.35h, 1.0h, n));
                 }
                 #endif
 
                 half3 emission = albedo * emissionStrength;
-                return shaded + dynamic * 0.85h + emission;
+                return shaded + dynamic + emission;
             }
 
             float4 _DoomFogColor;

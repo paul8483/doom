@@ -123,8 +123,9 @@ Shader "Doom/Fluid"
                 for (uint i = 0u; i < count; i++)
                 {
                     Light l = GetAdditionalLight(i, positionWS);
-                    half n = saturate(dot(normalWS, l.direction));
-                    lit += albedo * l.color * (n * l.shadowAttenuation * l.distanceAttenuation);
+                    half n = saturate(dot(normalWS, l.direction) * 0.5h + 0.5h);
+                    half atten = l.distanceAttenuation * l.shadowAttenuation;
+                    lit += albedo * l.color * (atten * lerp(0.35h, 1.0h, n));
                 }
                 #endif
 

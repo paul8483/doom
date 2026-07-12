@@ -71,7 +71,7 @@ namespace Doom.MapBuild.Editor
             var addShadows = pipeSo.FindProperty("m_AdditionalLightShadowsSupported");
             if (addShadows != null) addShadows.boolValue = true;
             var perObject = pipeSo.FindProperty("m_AdditionalLightsPerObjectLimit");
-            if (perObject != null) perObject.intValue = 8;
+            if (perObject != null) perObject.intValue = 16;
             pipeSo.ApplyModifiedPropertiesWithoutUndo();
 
             EnsureSsaoFeature(renderer);

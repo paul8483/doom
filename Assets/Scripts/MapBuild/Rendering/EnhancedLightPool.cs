@@ -3,12 +3,12 @@ using UnityEngine;
 
 namespace Doom.MapBuild.Rendering
 {
-    /// Fixed-capacity Unity Light pool. Capacity matches Stage 8 Task 1 budgets:
-    /// ≤8 active lights, ≤4 shadow casters. Slot count never grows after ctor.
-    public sealed class EnhancedLightPool : IDisposable
-    {
-        public const int MaxLights = 8;
-        public const int MaxShadows = 4;
+        /// Fixed-capacity Unity Light pool. Capacity matches Stage 8 budgets
+        /// (raised from 8→16 so busy COLU rooms like E1M7 still light nearby lamps).
+        public sealed class EnhancedLightPool : IDisposable
+        {
+            public const int MaxLights = 16;
+            public const int MaxShadows = 4;
 
         readonly Transform root;
         readonly Light[] lights;

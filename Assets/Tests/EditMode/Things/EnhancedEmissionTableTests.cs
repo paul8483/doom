@@ -10,7 +10,7 @@ namespace Doom.Things.Tests
         {
             int[] known =
             {
-                2028, 35, 34, 29,
+                2028, 35, 34, 29, 85, 86, 48,
                 44, 45, 46, 55, 56, 57, 70,
             };
             foreach (int n in known)

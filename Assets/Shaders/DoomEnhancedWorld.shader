@@ -113,19 +113,22 @@ Shader "Doom/EnhancedWorld"
                 half3 shaded = ambient * lerp(1.0h, relief, reliefAmt);
 
                 // Optional Unity lights (Task 9 pool) add on top of sector ambient.
+                // Half-Lambert + fill so floor under a lamp reads even when the
+                // geometric N·L is grazing (alcoves / dark sectors).
                 half3 dynamic = 0;
                 #ifdef _ADDITIONAL_LIGHTS
                 uint count = GetAdditionalLightsCount();
                 for (uint i = 0u; i < count; i++)
                 {
                     Light light = GetAdditionalLight(i, positionWS);
-                    half n = saturate(dot(normalWS, light.direction));
-                    dynamic += albedo * light.color * (light.distanceAttenuation * light.shadowAttenuation * n);
+                    half n = saturate(dot(normalWS, light.direction) * 0.5h + 0.5h);
+                    half atten = light.distanceAttenuation * light.shadowAttenuation;
+                    dynamic += albedo * light.color * (atten * lerp(0.35h, 1.0h, n));
                 }
                 #endif
 
                 half3 emission = albedo * emissionStrength;
-                return shaded + dynamic * 0.85h + emission;
+                return shaded + dynamic + emission;
             }
 
             half3 ApplyDoomFog(half3 color, float3 positionWS)

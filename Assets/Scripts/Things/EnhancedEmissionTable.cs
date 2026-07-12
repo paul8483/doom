@@ -51,7 +51,7 @@ namespace Doom.Things
         {
             var d = new Dictionary<int, EnhancedEmissionDef>();
 
-            // Warm yellow lamps / candles.
+            // Warm yellow lamps / candles — strong enough to read a floor pool in dark sectors.
             void Lamp(int n, float intensity, float range, float importance, bool shadow = false)
                 => d[n] = new EnhancedEmissionDef(
                     intensity, range, 1f, 0.85f, 0.45f, importance, shadow);
@@ -60,18 +60,28 @@ namespace Doom.Things
             void Fire(int n, float r, float g, float b, float intensity, float range, float importance)
                 => d[n] = new EnhancedEmissionDef(intensity, range, r, g, b, importance, wantsShadow: true);
 
-            Lamp(2028, intensity: 1.4f, range: 128f, importance: 0.7f);          // COLU floor lamp
-            Lamp(35, intensity: 1.6f, range: 160f, importance: 0.8f);            // CBRA candelabra
-            Lamp(34, intensity: 0.7f, range: 64f, importance: 0.4f);             // CAND candle
-            Lamp(29, intensity: 0.9f, range: 96f, importance: 0.5f);             // POL3 skulls+candles
+            // Cool tech pillars / lamps (Freedoom ELEC often reads as a powered column).
+            void Tech(int n, float intensity, float range, float importance)
+                => d[n] = new EnhancedEmissionDef(
+                    intensity, range, 0.55f, 0.75f, 1f, importance, wantsShadow: false);
 
-            Fire(44, 0.35f, 0.45f, 1f, 1.5f, 144f, 0.85f);   // TBLU
-            Fire(45, 0.35f, 1f, 0.4f, 1.5f, 144f, 0.85f);    // TGRN
-            Fire(46, 1f, 0.35f, 0.25f, 1.5f, 144f, 0.85f);   // TRED
-            Fire(55, 0.35f, 0.45f, 1f, 1.1f, 112f, 0.7f);    // SMBT
-            Fire(56, 0.35f, 1f, 0.4f, 1.1f, 112f, 0.7f);     // SMGT
-            Fire(57, 1f, 0.35f, 0.25f, 1.1f, 112f, 0.7f);    // SMRT
-            Fire(70, 1f, 0.45f, 0.15f, 1.8f, 160f, 0.95f);   // FCAN burning barrel
+            Lamp(2028, intensity: 2.8f, range: 192f, importance: 1.0f);         // COLU floor lamp
+            Lamp(35, intensity: 3.0f, range: 208f, importance: 1.05f);           // CBRA candelabra
+            Lamp(34, intensity: 1.4f, range: 96f, importance: 0.55f);            // CAND candle
+            Lamp(29, intensity: 1.8f, range: 128f, importance: 0.7f);            // POL3 skulls+candles
+            // Doom II tech lamps (harmless if absent from the IWAD).
+            Lamp(85, intensity: 2.6f, range: 192f, importance: 0.95f);           // TLMP
+            Lamp(86, intensity: 2.2f, range: 160f, importance: 0.85f);           // TLP2
+
+            Tech(48, intensity: 2.0f, range: 160f, importance: 0.8f);            // ELEC techno pillar
+
+            Fire(44, 0.35f, 0.45f, 1f, 2.2f, 176f, 0.95f);   // TBLU
+            Fire(45, 0.35f, 1f, 0.4f, 2.2f, 176f, 0.95f);    // TGRN
+            Fire(46, 1f, 0.35f, 0.25f, 2.2f, 176f, 0.95f);   // TRED
+            Fire(55, 0.35f, 0.45f, 1f, 1.6f, 128f, 0.75f);   // SMBT
+            Fire(56, 0.35f, 1f, 0.4f, 1.6f, 128f, 0.75f);    // SMGT
+            Fire(57, 1f, 0.35f, 0.25f, 1.6f, 128f, 0.75f);   // SMRT
+            Fire(70, 1f, 0.45f, 0.15f, 2.6f, 192f, 1.05f);   // FCAN burning barrel
 
             return d;
         }
