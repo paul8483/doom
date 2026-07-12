@@ -23,6 +23,8 @@ namespace Doom.Map.Tests
             Assert.IsFalse(p.Particles);
             Assert.IsFalse(p.Decals);
             Assert.IsFalse(p.BilinearWorldFiltering);
+            Assert.IsFalse(p.UpscaleWorldTextures2X);
+            Assert.AreEqual(WorldTextureVariant.Native, p.WorldTextureVariant);
             Assert.IsTrue(p.Sky);
         }
 
@@ -43,6 +45,8 @@ namespace Doom.Map.Tests
             Assert.IsTrue(p.Particles);
             Assert.IsTrue(p.Decals);
             Assert.IsFalse(p.BilinearWorldFiltering);
+            Assert.IsTrue(p.UpscaleWorldTextures2X);
+            Assert.AreEqual(WorldTextureVariant.Enhanced2X, p.WorldTextureVariant);
         }
 
         [Test]
@@ -63,6 +67,7 @@ namespace Doom.Map.Tests
             Assert.IsFalse(effective.RenderScaleOrFsr);
             Assert.IsTrue(effective.UseLitMaterials);
             Assert.IsTrue(effective.PostProcessing);
+            Assert.IsTrue(effective.UpscaleWorldTextures2X);
         }
 
         [Test]

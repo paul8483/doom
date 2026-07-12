@@ -202,6 +202,22 @@ post-sign-off polish commits on `enhanced`).
 E1M1–E1M9; Classic сохраняет текущий вид, Enhanced использует современные
 возможности GPU без замены WAD-контента. Stage 8 закрыт.
 
+### Пост-Stage 8: Enhanced Texture Upscaling (Scale2x) ⚠️
+
+Ветка `upscale` (2026-07-12): runtime 2× Scale2x для Enhanced world
+textures/flats/`SKY1`, normals из 2× source, hot-switch без reload.
+Automation: **505 EditMode + 109 PlayMode**, Windows build OK.
+
+**Интерактивный вывод:** Scale2x **не даёт значимого улучшения** читаемости
+albedo на типичных Freedoom E1 текстурах (ортогональный pixel art почти не
+меняется). Pipeline оставляем; для заметного эффекта нужен более сильный
+алгоритм (xBRZ 2× / опционально 4×) — отдельного плана пока нет.
+
+**Дизайн/план:**
+`docs/superpowers/specs/2026-07-12-enhanced-texture-upscaling-design.md`,
+`docs/superpowers/plans/2026-07-12-enhanced-texture-upscaling.md`  
+**Notes:** `Logs/enhanced-texture-upscale-baseline-notes.md`
+
 ---
 
 ## Этап 9. E1 compatibility polish 🚧

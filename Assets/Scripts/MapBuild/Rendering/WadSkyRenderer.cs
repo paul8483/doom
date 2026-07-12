@@ -16,16 +16,19 @@ namespace Doom.MapBuild.Rendering
         MeshFilter meshFilter;
         MeshRenderer meshRenderer;
         Material skyMaterial;
+        TextureCache textures;
         Texture2D skyTexture;
         Transform follow;
         bool active;
 
         public bool IsActive => active && meshRenderer != null && meshRenderer.enabled;
         public Material SkyMaterial => skyMaterial;
+        public Texture2D SkyTexture => skyTexture;
 
-        public void Init(TextureCache textures, Transform cameraTransform, float worldScale)
+        public void Init(TextureCache textureCache, Transform cameraTransform, float worldScale)
         {
             follow = cameraTransform;
+            textures = textureCache;
             float radius = Mathf.Max(16f, 2048f * worldScale);
 
             meshFilter = gameObject.GetComponent<MeshFilter>();
@@ -37,7 +40,9 @@ namespace Doom.MapBuild.Rendering
 
             meshFilter.sharedMesh = BuildSphere(lonSegments: 48, latSegments: 24, radius);
 
-            skyTexture = textures != null ? textures.GetTexture(SkyTextureName) : null;
+            skyTexture = textures != null
+                ? textures.GetTexture(SkyTextureName, WorldTextureVariant.Native)
+                : null;
             var shader = Shader.Find(ShaderName);
             if (shader == null)
             {
@@ -52,14 +57,7 @@ namespace Doom.MapBuild.Rendering
             }
 
             skyMaterial = new Material(shader) { name = "DoomSky_Runtime" };
-            if (skyTexture != null)
-            {
-                skyTexture.wrapMode = TextureWrapMode.Repeat;
-                skyTexture.filterMode = FilterMode.Point;
-                skyMaterial.mainTexture = skyTexture;
-                if (skyMaterial.HasProperty("_MainTex"))
-                    skyMaterial.SetTexture("_MainTex", skyTexture);
-            }
+            ApplySkyTexture(skyTexture);
             skyMaterial.SetFloat("_YawOffset", 0f);
             skyMaterial.SetFloat("_PitchOffset", 0f);
             skyMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Background;
@@ -76,8 +74,24 @@ namespace Doom.MapBuild.Rendering
             // Sky is WAD content (SKY1), not an Enhanced-only effect — show whenever
             // the profile requests it so F_SKY1 openings are never a solid clear color.
             active = profile.Sky;
+            if (textures != null && skyMaterial != null)
+            {
+                var tex = textures.GetTexture(SkyTextureName, profile.WorldTextureVariant);
+                ApplySkyTexture(tex);
+            }
             if (meshRenderer != null)
                 meshRenderer.enabled = active && skyMaterial != null;
+        }
+
+        void ApplySkyTexture(Texture2D tex)
+        {
+            skyTexture = tex;
+            if (skyMaterial == null || tex == null) return;
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Point;
+            skyMaterial.mainTexture = tex;
+            if (skyMaterial.HasProperty("_MainTex"))
+                skyMaterial.SetTexture("_MainTex", tex);
         }
 
         void LateUpdate()

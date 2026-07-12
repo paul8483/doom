@@ -15,7 +15,12 @@ variant по `GraphicsProfile`; normal maps строятся из Enhanced 2× s
 Спека:
 `docs/superpowers/specs/2026-07-12-enhanced-texture-upscaling-design.md`.
 
-**Статус:** предложено; Tasks 1–7 не начаты.
+**Статус:** Tasks 1–7 automation green (**505 EditMode + 109 PlayMode**,
+Windows build ~128 MB). **Interactive: Scale2x 2× не даёт значимого
+визуального эффекта** на E1 wall/flat albedo — доработка не закрывается как
+visual success. Variant API оставляем; следующий шаг — спека/план на xBRZ
+2× (опционально 4×). Notes:
+`Logs/enhanced-texture-upscale-baseline-notes.md`.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 URP 17.4.0, существующие `Doom.Graphics`, `Doom.Game`, `Doom.MapBuild`,

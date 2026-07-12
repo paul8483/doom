@@ -11,13 +11,14 @@ namespace Doom.MapBuild.Rendering
     {
         readonly List<Renderer> renderers = new List<Renderer>(1024);
         readonly List<Texture2D> textures = new List<Texture2D>(512);
-        readonly List<(Material material, bool masked)> materials =
-            new List<(Material, bool)>(512);
+        readonly List<(Material material, bool masked, string textureName)> materials =
+            new List<(Material, bool, string)>(512);
         readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>(64);
 
         public Camera WorldCamera { get; private set; }
         public WorldCameraRenderer CameraRenderer { get; private set; }
         public DoomMaterialFactory Materials { get; private set; }
+        public TextureCache TextureCache { get; private set; }
         public WadSkyRenderer Sky { get; set; }
         public bool IsDisposed { get; private set; }
 
@@ -28,6 +29,9 @@ namespace Doom.MapBuild.Rendering
 
         public void BindFactory(DoomMaterialFactory factory) =>
             Materials = factory ?? throw new ArgumentNullException(nameof(factory));
+
+        public void BindTextureCache(TextureCache cache) =>
+            TextureCache = cache;
 
         public void SetWorldCamera(Camera camera, WorldCameraRenderer cameraRenderer)
         {
@@ -45,9 +49,10 @@ namespace Doom.MapBuild.Rendering
             if (texture != null) textures.Add(texture);
         }
 
-        public void RegisterMaterial(Material material, bool masked)
+        public void RegisterMaterial(Material material, bool masked, string textureName = null)
         {
-            if (material != null) materials.Add((material, masked));
+            if (material == null) return;
+            materials.Add((material, masked, textureName));
         }
 
         public void RegisterOwned(UnityEngine.Object obj)
@@ -62,11 +67,20 @@ namespace Doom.MapBuild.Rendering
             if (Materials == null) return;
 
             Materials.SetActiveProfile(profile);
+            var variant = profile.WorldTextureVariant;
 
             for (int i = 0; i < materials.Count; i++)
             {
-                var (mat, masked) = materials[i];
+                var (mat, masked, textureName) = materials[i];
                 if (mat == null) continue;
+
+                if (TextureCache != null && !string.IsNullOrEmpty(textureName))
+                {
+                    var tex = TextureCache.GetTexture(textureName, variant);
+                    if (tex != null)
+                        mat.mainTexture = tex;
+                }
+
                 Materials.RetargetMaterial(mat, masked);
             }
 
@@ -134,6 +148,7 @@ namespace Doom.MapBuild.Rendering
             WorldCamera = null;
             CameraRenderer = null;
             Materials = null;
+            TextureCache = null;
             Sky = null;
         }
     }

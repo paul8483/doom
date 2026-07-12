@@ -292,11 +292,20 @@ namespace Doom.MapBuild
                 return i >= 0 && wad.Directory[i].Size == 64 * 64;
             }
             var animCatalog = Doom.Graphics.TextureAnimationCatalog.Build(TextureExists);
-            // Pre-warm animated frame textures while WAD is open.
+            // Pre-warm animated frame textures while WAD is open (native decode).
+            // If the persisted mode is Enhanced, also build 2× variants now so the
+            // first ApplyProfile does not hitch on every animated frame.
+            var warmVariant = GraphicsProfile.ForMode(gfx.Current).WorldTextureVariant;
             foreach (var seq in animCatalog.Sequences)
                 foreach (string frameName in seq.Frames)
+                {
                     cache.GetTexture(frameName);
+                    if (warmVariant == WorldTextureVariant.Enhanced2X)
+                        cache.GetTexture(frameName, WorldTextureVariant.Enhanced2X);
+                }
             cache.GetTexture(WadSkyRenderer.SkyTextureName);
+            if (warmVariant == WorldTextureVariant.Enhanced2X)
+                cache.GetTexture(WadSkyRenderer.SkyTextureName, WorldTextureVariant.Enhanced2X);
 
             var fogSys = gameObject.GetComponent<SectorFogSystem>()
                 ?? gameObject.AddComponent<SectorFogSystem>();

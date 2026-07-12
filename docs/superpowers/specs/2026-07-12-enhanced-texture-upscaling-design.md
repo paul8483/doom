@@ -1,10 +1,18 @@
 # Enhanced Texture Upscaling — дизайн
 
 **Дата:** 2026-07-12  
-**Статус:** предложено  
+**Статус:** automated green; interactive reject Scale2x as insufficient  
 **Предыдущий этап:** Stage 8 Classic/Enhanced graphics завершён 2026-07-12  
 **Контекст:** пост-Stage 8 улучшение читаемости низкоразрешённых WAD wall
 textures и flats в Enhanced mode.
+
+**Eyeball (2026-07-12, Windows standalone):** runtime 2× Scale2x pipeline
+работает (variants, hot-switch, normals from 2×), но **не даёт значимого
+видимого улучшения** качества albedo на типичных Freedoom E1 wall/flat
+текстурах. Ортогональный pixel art почти не меняется; глаз видит в основном
+разницу Enhanced lighting/bloom/normals. Следующий кандидат — xBRZ 2×
+(опционально 4×); отдельного плана пока нет. Notes:
+`Logs/enhanced-texture-upscale-baseline-notes.md`.
 
 ## Цель
 
@@ -44,10 +52,11 @@ textures и flats в Enhanced mode.
   - placeholder использует clamp.
 
 Scale2x выбран для первой версии вместо полного xBRZ: он компактен,
-детерминирован, не требует новой third-party зависимости и имеет достаточный
-эффект на 64×64/64×128 palette art. Архитектура transform API не должна
-препятствовать последующей замене на xBRZ 2× после отдельного visual/performance
-сравнения.
+детерминирован и не требует новой third-party зависимости. **После
+интерактивной проверки (2026-07-12) эффект Scale2x на Freedoom E1 признан
+недостаточным** — pipeline оставляем, алгоритм заменяем. Архитектура
+transform API не должна препятствовать замене на xBRZ 2× (или 4×) после
+отдельного visual/performance сравнения.
 
 ### 2. Раздельные native и Enhanced варианты
 
@@ -296,8 +305,10 @@ Enhanced albedo и Enhanced normal даёт до `native × 9` GPU-side RGBA pay
 5. Hot-switch не reload'ит карту, не меняет gameplay и после warm-up не
    увеличивает resource counts.
 6. Ошибка отдельной texture деградирует её до native, не отключая Enhanced.
-7. EditMode, PlayMode, E1 smoke и Windows build проходят; interactive captures
-   подтверждают улучшение контуров без bilinear blur и alpha artifacts.
+7. EditMode, PlayMode, E1 smoke и Windows build проходят. Interactive
+   captures на Scale2x (2026-07-12) **не** подтвердили значимое улучшение
+   контуров — visual gate для Scale2x не закрыт; требуется более сильный
+   алгоритм (xBRZ).
 8. Измеренные memory/load/switch показатели записаны до объявления
    доработки завершённой.
 

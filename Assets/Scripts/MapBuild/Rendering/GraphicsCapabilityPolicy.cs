@@ -104,7 +104,8 @@ namespace Doom.MapBuild.Rendering
                 requested.SoftFloorIntersection,
                 requested.Particles,
                 decals,
-                requested.BilinearWorldFiltering);
+                requested.BilinearWorldFiltering,
+                requested.UpscaleWorldTextures2X);
         }
     }
 }

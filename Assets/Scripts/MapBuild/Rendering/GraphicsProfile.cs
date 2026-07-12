@@ -27,6 +27,11 @@ namespace Doom.MapBuild.Rendering
         public readonly bool Particles;
         public readonly bool Decals;
         public readonly bool BilinearWorldFiltering;
+        /// When true, world albedo/sky use deterministic runtime 2× Scale2x variants.
+        public readonly bool UpscaleWorldTextures2X;
+
+        public WorldTextureVariant WorldTextureVariant =>
+            UpscaleWorldTextures2X ? WorldTextureVariant.Enhanced2X : WorldTextureVariant.Native;
 
         public GraphicsProfile(
             GraphicsMode mode,
@@ -50,7 +55,8 @@ namespace Doom.MapBuild.Rendering
             bool softFloorIntersection,
             bool particles,
             bool decals,
-            bool bilinearWorldFiltering)
+            bool bilinearWorldFiltering,
+            bool upscaleWorldTextures2X = false)
         {
             Mode = mode;
             UseLitMaterials = useLitMaterials;
@@ -74,6 +80,7 @@ namespace Doom.MapBuild.Rendering
             Particles = particles;
             Decals = decals;
             BilinearWorldFiltering = bilinearWorldFiltering;
+            UpscaleWorldTextures2X = upscaleWorldTextures2X;
         }
 
         public static GraphicsProfile ForMode(GraphicsMode mode) =>
@@ -101,7 +108,8 @@ namespace Doom.MapBuild.Rendering
             softFloorIntersection: false,
             particles: false,
             decals: false,
-            bilinearWorldFiltering: false);
+            bilinearWorldFiltering: false,
+            upscaleWorldTextures2X: false);
 
         public static GraphicsProfile Enhanced { get; } = new GraphicsProfile(
             GraphicsMode.Enhanced,
@@ -127,6 +135,7 @@ namespace Doom.MapBuild.Rendering
             decals: true,
             // Point keeps WAD albedo crisp. Bilinear on 64×N patches reads as
             // soft mush, not "higher detail", once lighting/post are on.
-            bilinearWorldFiltering: false);
+            bilinearWorldFiltering: false,
+            upscaleWorldTextures2X: true);
     }
 }

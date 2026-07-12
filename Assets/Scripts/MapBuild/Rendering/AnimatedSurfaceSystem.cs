@@ -15,8 +15,10 @@ namespace Doom.MapBuild.Rendering
         struct Tracked
         {
             public Renderer Renderer;
+            public string[] FrameNames;
             public Texture2D[] Frames;
             public Texture2D Original;
+            public string OriginalName;
             public Shader OriginalShader;
             public int TicDuration;
             public bool IsFluid;
@@ -48,7 +50,7 @@ namespace Doom.MapBuild.Rendering
 
             if (textures == null || catalog == null) return;
 
-            // Pre-warm every frame texture while the WAD-backed cache is still valid.
+            // Pre-warm every frame texture (native decode) while the WAD-backed cache is valid.
             foreach (var seq in catalog.Sequences)
             {
                 for (int i = 0; i < seq.Frames.Length; i++)
@@ -64,9 +66,13 @@ namespace Doom.MapBuild.Rendering
                 if (main == null || string.IsNullOrEmpty(main.name)) continue;
                 if (!catalog.TryGet(main.name, out var seq) || !seq.IsValid) continue;
 
+                var frameNames = new string[seq.Frames.Length];
                 var frames = new Texture2D[seq.Frames.Length];
                 for (int f = 0; f < seq.Frames.Length; f++)
+                {
+                    frameNames[f] = seq.Frames[f];
                     frames[f] = textures.GetTexture(seq.Frames[f]);
+                }
 
                 bool fluid = MaterialSurfaceClassifier.Classify(seq.BaseName, !seq.IsWall)
                              == MaterialSurfaceCategory.Fluid;
@@ -74,8 +80,10 @@ namespace Doom.MapBuild.Rendering
                 tracked.Add(new Tracked
                 {
                     Renderer = r,
+                    FrameNames = frameNames,
                     Frames = frames,
                     Original = main,
+                    OriginalName = main.name,
                     OriginalShader = r.sharedMaterial.shader,
                     TicDuration = Mathf.Max(1, seq.TicDuration),
                     IsFluid = fluid,
@@ -92,12 +100,33 @@ namespace Doom.MapBuild.Rendering
         public void ApplyProfile(GraphicsProfile profile)
         {
             enabledForProfile = profile.Mode == GraphicsMode.Enhanced && profile.AnimatedFluids;
+            ResolveFrames(profile.WorldTextureVariant);
             if (!enabledForProfile)
                 RestoreOriginals();
             else
             {
                 PromoteFluidShaders();
                 ApplyCurrentFrame();
+            }
+        }
+
+        void ResolveFrames(WorldTextureVariant variant)
+        {
+            if (textures == null) return;
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                var t = tracked[i];
+                if (t.FrameNames == null || t.FrameNames.Length == 0) continue;
+                if (t.Frames == null || t.Frames.Length != t.FrameNames.Length)
+                    t.Frames = new Texture2D[t.FrameNames.Length];
+
+                for (int f = 0; f < t.FrameNames.Length; f++)
+                    t.Frames[f] = textures.GetTexture(t.FrameNames[f], variant);
+
+                if (!string.IsNullOrEmpty(t.OriginalName))
+                    t.Original = textures.GetTexture(t.OriginalName, WorldTextureVariant.Native);
+
+                tracked[i] = t;
             }
         }
 
@@ -131,13 +160,11 @@ namespace Doom.MapBuild.Rendering
                     continue;
 
                 float duration = t.TicDuration;
-                // Fluids linger a bit longer so the cross-fade reads as flow, not pop.
                 if (t.IsFluid) duration *= 1.35f;
                 duration = Mathf.Max(1f, duration);
 
                 float phase = ticClock / duration;
                 int idx = Mathf.FloorToInt(phase);
-                // Positive modulo for long-running clocks.
                 idx %= t.Frames.Length;
                 if (idx < 0) idx += t.Frames.Length;
                 float frac = phase - Mathf.Floor(phase);
@@ -153,7 +180,6 @@ namespace Doom.MapBuild.Rendering
                     int next = (idx + 1) % t.Frames.Length;
                     var nextTex = t.Frames[next] != null ? t.Frames[next] : tex;
                     t.Block.SetTexture(MainTexBId, nextTex);
-                    // Smoothstep removes the harsh mid-transition flicker of a linear cut.
                     t.Block.SetFloat(FrameBlendId, frac * frac * (3f - 2f * frac));
 
                     float scroll = (Time.time * 0.02f) % 1f;
@@ -187,7 +213,6 @@ namespace Doom.MapBuild.Rendering
                     t.Block.SetTexture(MainTexId, t.Original);
                 t.Block.SetFloat(FrameBlendId, 0f);
                 t.Block.SetVector(MainTexStId, new Vector4(1f, 1f, 0f, 0f));
-                // Clear block entirely so Classic shared materials show through cleanly.
                 t.Renderer.SetPropertyBlock(null);
                 tracked[i] = t;
             }
