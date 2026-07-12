@@ -52,6 +52,27 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Boot_with_enhanced_settings_enables_fog_without_mode_toggle()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+
+            // Simulate persisted Enhanced before map build (standalone New Game path).
+            var gfx = GraphicsModeController.Ensure();
+            gfx.Apply(GraphicsMode.Enhanced);
+
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            for (int i = 0; i < 90; i++) yield return null;
+
+            Assert.AreEqual(GraphicsMode.Enhanced, GraphicsModeController.Ensure().Current);
+            var fog = Object.FindFirstObjectByType<SectorFogSystem>();
+            Assert.IsNotNull(fog);
+            Assert.IsTrue(fog.IsProfileEnabled);
+            Assert.IsTrue(fog.FogGlobalsActive,
+                "Fog must activate on first Enhanced load without Classic↔Enhanced toggle");
+        }
+
+        [UnityTest]
         public IEnumerator Classic_keeps_wad_sky_but_disables_fluids_and_fog()
         {
             LogAssert.ignoreFailingMessages = true;

@@ -17,7 +17,6 @@ namespace Doom.MapBuild.Rendering
         static readonly int FogParamsId = Shader.PropertyToID("_DoomFogParams");
 
         bool enabledForProfile;
-        bool depthOk = true;
         Color fogColor = new Color(0.08f, 0.08f, 0.1f, 1f);
 
         public bool IsProfileEnabled => enabledForProfile;
@@ -34,20 +33,15 @@ namespace Doom.MapBuild.Rendering
 
         public void ApplyProfile(GraphicsProfile profile, GraphicsCapabilityReport caps)
         {
-            depthOk = caps.DepthTexture;
-            enabledForProfile = profile.Mode == GraphicsMode.Enhanced &&
-                                profile.Fog && depthOk;
+            _ = caps;
+            enabledForProfile = profile.Mode == GraphicsMode.Enhanced && profile.Fog;
             PushGlobals();
         }
 
         public void SetCapabilities(GraphicsCapabilityReport caps)
         {
-            depthOk = caps.DepthTexture;
-            if (enabledForProfile && !depthOk)
-            {
-                enabledForProfile = false;
-                PushGlobals();
-            }
+            // No-op for enablement — see ApplyProfile. Kept for call-site stability.
+            _ = caps;
         }
 
         void PushGlobals()

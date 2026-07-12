@@ -76,7 +76,8 @@ namespace Doom.MapBuild.Rendering
             bool ssao = requested.Ssao && caps.Ssao && caps.DepthTexture;
             bool bloom = requested.Bloom && hdr;
             bool grading = requested.ColorGrading && post;
-            bool fog = requested.Fog && caps.DepthTexture;
+            // Distance fog samples world position, not the camera depth texture.
+            bool fog = requested.Fog;
             bool msaa = requested.Msaa && caps.Msaa;
             bool scale = requested.RenderScaleOrFsr && (caps.RenderScale || caps.Fsr);
             bool decals = requested.Decals && caps.Decals;

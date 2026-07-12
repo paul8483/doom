@@ -281,10 +281,10 @@ namespace Doom.MapBuild
             SpawnPlayer(map, bounds, spriteCache, renderContext, gfx);
             InitMusic(wad, loadName);
 
-            // Register after camera exists so hot-switch can retarget the live context.
-            gfx.RegisterContext(renderContext);
-
             // Stage 8 Task 11: sky / animated fluids / fog (WAD still open for SKY1).
+            // Create these BEFORE RegisterContext so the first ApplyProfile reaches them.
+            // Previously RegisterContext ran first; with a persisted Enhanced mode the
+            // later ApplyLoadedSettings early-out left fog globals never pushed.
             bool TextureExists(string n)
             {
                 if (textures.Contains(n)) return true;
@@ -314,9 +314,12 @@ namespace Doom.MapBuild
             skyGo.transform.SetParent(root.transform, worldPositionStays: false);
             var sky = skyGo.AddComponent<WadSkyRenderer>();
             sky.Init(cache, skyCam != null ? skyCam.transform : null, worldScale);
-            sky.ApplyProfile(gfx.ActiveProfile);
             renderContext.Sky = sky;
             renderContext.RegisterRenderer(skyGo.GetComponent<MeshRenderer>());
+
+            // Register after camera + atmosphere systems exist so hot-switch and the
+            // initial Apply both retarget materials, fog, sky, and effect pools.
+            gfx.RegisterContext(renderContext);
 
             var registry = gameObject.GetComponent<WorldStateRegistry>()
                 ?? gameObject.AddComponent<WorldStateRegistry>();

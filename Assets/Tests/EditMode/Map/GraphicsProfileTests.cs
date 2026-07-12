@@ -57,7 +57,7 @@ namespace Doom.Map.Tests
             Assert.IsFalse(effective.Hdr);
             Assert.IsFalse(effective.Ssao);
             Assert.IsFalse(effective.Bloom);
-            Assert.IsFalse(effective.Fog);
+            Assert.IsTrue(effective.Fog);
             Assert.IsFalse(effective.Decals);
             Assert.IsFalse(effective.Msaa);
             Assert.IsFalse(effective.RenderScaleOrFsr);

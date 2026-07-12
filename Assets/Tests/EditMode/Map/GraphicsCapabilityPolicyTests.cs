@@ -19,13 +19,13 @@ namespace Doom.Map.Tests
         }
 
         [Test]
-        public void Unsupported_depth_clears_ssao_and_fog()
+        public void Unsupported_depth_clears_ssao_but_keeps_distance_fog()
         {
             var caps = new GraphicsCapabilityReport(depthTexture: false, ssao: false);
             var effective = GraphicsCapabilityPolicy.Apply(GraphicsProfile.Enhanced, caps);
             Assert.AreEqual(GraphicsMode.Enhanced, effective.Mode);
             Assert.IsFalse(effective.Ssao);
-            Assert.IsFalse(effective.Fog);
+            Assert.IsTrue(effective.Fog);
         }
 
         [Test]
