@@ -54,10 +54,42 @@ namespace Doom.Stage3.PlayTests
             yield return WaitForPlayer("E1M1");
             Assert.That(GameFlowController.Instance.State, Is.EqualTo(GameFlowState.Playing));
             Assert.That(GameFlowController.Instance.Menu.IsVisible, Is.False);
+            Assert.That(GameFlowController.Instance.Loading, Is.Not.Null);
+            Assert.That(GameFlowController.Instance.Loading.IsVisible, Is.False);
 
             var pc = GameObject.Find("Player").GetComponent<PlayerController>();
             Assert.That(pc.enabled, Is.True);
             Assert.That(Time.timeScale, Is.EqualTo(1f));
+        }
+
+        [UnityTest]
+        public IEnumerator NewGame_shows_loading_plate_before_playing()
+        {
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForFlow(GameFlowState.MainMenu);
+
+            var flow = GameFlowController.Instance;
+            flow.Menu.Activate(MenuAction.NewGame);
+
+            bool sawLoading = false;
+            for (int i = 0; i < 300; i++)
+            {
+                flow = GameFlowController.Instance;
+                if (flow != null && flow.Loading != null && flow.Loading.IsVisible)
+                {
+                    sawLoading = true;
+                    Assert.That(flow.State, Is.EqualTo(GameFlowState.Loading));
+                    break;
+                }
+
+                if (flow != null && flow.State == GameFlowState.Playing)
+                    break;
+                yield return null;
+            }
+
+            Assert.That(sawLoading, Is.True, "Expected LoadingView during New Game map build");
+            yield return WaitForPlayer("E1M1");
+            Assert.That(GameFlowController.Instance.Loading.IsVisible, Is.False);
         }
 
         [UnityTest]

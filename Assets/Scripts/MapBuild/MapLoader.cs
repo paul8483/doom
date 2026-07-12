@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -111,7 +112,16 @@ namespace Doom.MapBuild
         }
 
         // ── MonoBehaviour lifecycle ───────────────────────────────────────────
+        // Coroutine boot so LoadingView can paint for at least one frame before
+        // heavy Build work (otherwise the new scene's camera clear is all the
+        // player sees for several seconds). void Start + StartCoroutine (not
+        // IEnumerator Start) so PlayMode SetUp can destroy us cleanly mid-yield.
         void Start()
+        {
+            StartCoroutine(BootRoutine());
+        }
+
+        IEnumerator BootRoutine()
         {
             var flow = GameFlowController.Ensure();
             MapLog.WarningHandler += OnWarning;
@@ -120,7 +130,20 @@ namespace Doom.MapBuild
             {
                 if (GameFlowController.ShouldBuildMap())
                 {
-                    Build();
+                    string pendingMap = ResolveMapName();
+                    flow.EnsureLoadingShown(pendingMap);
+                    flow.ReportLoadProgress(0.02f, "LOADING");
+                    NeutralizeSceneCameras();
+
+                    // Let OnGUI draw the loading plate over the cleared cameras.
+                    yield return null;
+                    if (!StillValid(flow)) yield break;
+                    yield return null;
+                    if (!StillValid(flow)) yield break;
+
+                    yield return BuildRoutine(flow);
+                    if (!StillValid(flow)) yield break;
+
                     var settings = SettingsController.Ensure();
                     settings.ApplyLoadedSettings();
                     Music?.EnsurePlayback();
@@ -137,6 +160,19 @@ namespace Doom.MapBuild
             {
                 MapLog.WarningHandler -= OnWarning;
                 MapLog.ErrorHandler   -= OnError;
+            }
+        }
+
+        /// Solid black clear so holes / empty frames never flash Unity default blue.
+        static void NeutralizeSceneCameras()
+        {
+            var cams = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            for (int i = 0; i < cams.Length; i++)
+            {
+                var cam = cams[i];
+                if (cam == null) continue;
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = Color.black;
             }
         }
 
@@ -159,20 +195,28 @@ namespace Doom.MapBuild
         }
 
         // ── Build ─────────────────────────────────────────────────────────────
-        void Build()
+        bool StillValid(GameFlowController flow) =>
+            this && flow != null && flow == GameFlowController.Instance;
+
+        IEnumerator BuildRoutine(GameFlowController flow)
         {
             float t0 = Time.realtimeSinceStartup;
             string path = Path.Combine(Application.streamingAssetsPath, wadRelativePath);
             if (!File.Exists(path))
             {
                 Debug.LogError($"MapLoader: WAD not found at {path}");
-                return;
+                yield break;
             }
+
+            flow.ReportLoadProgress(0.05f, "OPENING WAD");
+            yield return null;
+            if (!StillValid(flow)) yield break;
 
             using var wad = WadFile.Open(path);
             string loadName = ResolveMapName();
             var map = MapData.Load(wad, loadName);
             LoadedMapName = map.Name;
+            flow.EnsureLoadingShown(map.Name);
             Debug.Log($"MapLoader: loaded {map.Name} — " +
                       $"{map.Vertexes.Length} verts, {map.LineDefs.Length} lines, " +
                       $"{map.Sectors.Length} sectors, {map.Things.Length} things");
@@ -186,6 +230,10 @@ namespace Doom.MapBuild
             materialFactory.SetActiveProfile(GraphicsProfile.ForMode(gfx.Current));
             renderContext.BindFactory(materialFactory);
 
+            flow.ReportLoadProgress(0.12f, "TEXTURES");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             var palette  = new Palette(wad.ReadLump("PLAYPAL"));
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette, materialFactory, renderContext);
@@ -195,7 +243,15 @@ namespace Doom.MapBuild
             var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
             HudTextures = new HudTextureCache(uiCatalog);
 
+            // Keep loading plate on the freshest UI cache (TITLEPIC / STCFN / WILV).
+            if (flow.Loading != null && flow.Loading.IsVisible)
+                flow.Loading.BindTextures(HudTextures, map.Name);
+
             // Stage 6f: decode DS* and copy music lumps while the WAD is open.
+            flow.ReportLoadProgress(0.2f, "SOUND");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             var soundCache = new SoundCache(wad);
             foreach (string sfx in CollectSfxNames())
                 soundCache.Get(sfx);
@@ -209,6 +265,10 @@ namespace Doom.MapBuild
             // later in-place rebuilds share ONE height source. RuntimeSectorHeights
             // initializes to the WAD heights and round-trips them exactly, so the
             // initial output is identical to the static-heights build.
+            flow.ReportLoadProgress(0.3f, "GEOMETRY");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             var runtimeHeights = new RuntimeSectorHeights(map);
             var polys = SectorPolygonBuilder.Build(map);
             var meshes = MapGeometryBuilder.Build(map, worldScale, textures, runtimeHeights);
@@ -248,6 +308,10 @@ namespace Doom.MapBuild
             // Created BEFORE SpawnPlayer so the player's weapon view can share the
             // same SpriteCache instance (viewmodel/effect sprites are pre-warmed
             // below while the WAD is still open).
+            flow.ReportLoadProgress(0.55f, "SPRITES");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             var spriteSet = SpriteSet.Load(wad);
             var spriteCache = new SpriteCache(wad, spriteSet, palette, materialFactory, renderContext);
 
@@ -278,6 +342,10 @@ namespace Doom.MapBuild
             })
                 foreach (int f in frames) spriteCache.Get(spr, f, 0);
 
+            flow.ReportLoadProgress(0.7f, "PLAYER");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             SpawnPlayer(map, bounds, spriteCache, renderContext, gfx);
             InitMusic(wad, loadName);
 
@@ -285,6 +353,10 @@ namespace Doom.MapBuild
             // Create these BEFORE RegisterContext so the first ApplyProfile reaches them.
             // Previously RegisterContext ran first; with a persisted Enhanced mode the
             // later ApplyLoadedSettings early-out left fog globals never pushed.
+            flow.ReportLoadProgress(0.8f, "ATMOSPHERE");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             bool TextureExists(string n)
             {
                 if (textures.Contains(n)) return true;
@@ -333,6 +405,10 @@ namespace Doom.MapBuild
             var registry = gameObject.GetComponent<WorldStateRegistry>()
                 ?? gameObject.AddComponent<WorldStateRegistry>();
 
+            flow.ReportLoadProgress(0.9f, "THINGS");
+            yield return null;
+            if (!StillValid(flow)) yield break;
+
             var thingsRoot = new GameObject("Things");
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
             float fallbackY = bounds?.min.y ?? 0f;
@@ -368,6 +444,10 @@ namespace Doom.MapBuild
             host.EnsureWadIdentity(path);
             if (host.TryConsumePendingRestore(LoadedMapName, out SaveGame pending))
             {
+                flow.ReportLoadProgress(0.95f, "RESTORE");
+                yield return null;
+                if (!StillValid(flow)) yield break;
+
                 if (!WorldSnapshotRestore.TryApply(
                         pending, registry, this, spriteCache, worldScale, playerGo, Sound,
                         out string restoreError))
@@ -385,6 +465,10 @@ namespace Doom.MapBuild
             // WAD closes when this method returns; further SoundCache misses must
             // not touch the disposed stream.
             soundCache.NotifyWadClosed();
+
+            flow.ReportLoadProgress(1f, "READY");
+            yield return null;
+            if (!StillValid(flow)) yield break;
 
             LastBuildSeconds = Time.realtimeSinceStartup - t0;
             LastMeshCount = Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None).Length;

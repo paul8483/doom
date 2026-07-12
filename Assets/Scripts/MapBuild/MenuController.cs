@@ -96,6 +96,8 @@ namespace Doom.MapBuild
 
         public void Hide()
         {
+            // Unity fake-null: component may already be destroyed during scene/test teardown.
+            if (!this) return;
             Kind = MenuKind.None;
             items = System.Array.Empty<Item>();
             statusMessage = null;

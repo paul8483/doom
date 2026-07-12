@@ -27,6 +27,7 @@ namespace Doom.MapBuild
 
         public GameFlowState State { get; private set; } = GameFlowState.Boot;
         public MenuController Menu { get; private set; }
+        public LoadingView Loading { get; private set; }
 
         float savedTimeScale = 1f;
         bool timeScaleSaved;
@@ -69,6 +70,7 @@ namespace Doom.MapBuild
             Instance = this;
             Menu = GetComponent<MenuController>() ?? gameObject.AddComponent<MenuController>();
             Menu.Init(this);
+            Loading = GetComponent<LoadingView>() ?? gameObject.AddComponent<LoadingView>();
         }
 
         void OnDestroy()
@@ -108,6 +110,7 @@ namespace Doom.MapBuild
             var host = GameSessionHost.Ensure();
             host.ClearPendingRestore();
             host.Session.Clear();
+            HideLoading();
             SetState(GameFlowState.MainMenu);
             FreezeGameplay();
             UnlockCursor();
@@ -117,15 +120,17 @@ namespace Doom.MapBuild
 
         public void EnterLoading()
         {
-            Menu.Hide();
+            if (Menu != null) Menu.Hide();
             SetState(GameFlowState.Loading);
             FreezeGameplay();
             UnlockCursor();
+            ShowLoading();
         }
 
         public void EnterPlaying()
         {
-            Menu.Hide();
+            if (Menu != null) Menu.Hide();
+            HideLoading();
             SetState(GameFlowState.Playing);
             RestoreTimeScaleIfNeeded();
             UnfreezeGameplay();
@@ -335,6 +340,49 @@ namespace Doom.MapBuild
         {
             var loader = UnityEngine.Object.FindAnyObjectByType<MapLoader>();
             loader?.Music?.Resume();
+        }
+
+        void ShowLoading()
+        {
+            if (Loading == null)
+                Loading = LoadingView.Ensure();
+
+            var host = GameSessionHost.Instance;
+            string map = host != null && host.Session != null && host.Session.IsActive
+                ? host.Session.CurrentMap
+                : "";
+            Loading.Show(ResolveHudTextures(), map);
+        }
+
+        void HideLoading()
+        {
+            if (Loading != null) Loading.Hide();
+            else
+            {
+                var view = GetComponent<LoadingView>();
+                view?.Hide();
+            }
+        }
+
+        /// MapLoader calls this so AutoStartPlaying / editor Play also get a plate.
+        public void EnsureLoadingShown(string mapName)
+        {
+            if (Loading == null)
+                Loading = LoadingView.Ensure();
+            if (!Loading.IsVisible)
+                Loading.Show(ResolveHudTextures(), mapName);
+            if (State == GameFlowState.Boot)
+            {
+                SetState(GameFlowState.Loading);
+                FreezeGameplay();
+            }
+        }
+
+        public void ReportLoadProgress(float progress01, string status = null)
+        {
+            if (Loading == null) Loading = GetComponent<LoadingView>();
+            if (Loading != null && Loading.IsVisible)
+                Loading.SetProgress(progress01, status);
         }
 
         static HudTextureCache ResolveHudTextures()
