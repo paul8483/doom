@@ -3,8 +3,11 @@ using Doom.Game;
 
 namespace Doom.MapBuild.Rendering
 {
-    /// Camera-centered cylindrical WAD SKY1. Visible through F_SKY1 openings
+    /// Camera-centered WAD SKY1 sphere. Visible through F_SKY1 openings
     /// (those ceilings are empty meshes). Presentation only.
+    ///
+    /// Uses a closed sphere (not an open cylinder): looking straight up must
+    /// still sample SKY1, otherwise the camera clear color shows through.
     public sealed class WadSkyRenderer : MonoBehaviour
     {
         public const string SkyTextureName = "SKY1";
@@ -16,8 +19,6 @@ namespace Doom.MapBuild.Rendering
         Texture2D skyTexture;
         Transform follow;
         bool active;
-        float cylinderRadius = 64f;
-        float cylinderHeight = 32f;
 
         public bool IsActive => active && meshRenderer != null && meshRenderer.enabled;
         public Material SkyMaterial => skyMaterial;
@@ -25,8 +26,7 @@ namespace Doom.MapBuild.Rendering
         public void Init(TextureCache textures, Transform cameraTransform, float worldScale)
         {
             follow = cameraTransform;
-            cylinderRadius = Mathf.Max(16f, 2048f * worldScale);
-            cylinderHeight = Mathf.Max(8f, 1024f * worldScale);
+            float radius = Mathf.Max(16f, 2048f * worldScale);
 
             meshFilter = gameObject.GetComponent<MeshFilter>();
             if (meshFilter == null)
@@ -35,7 +35,7 @@ namespace Doom.MapBuild.Rendering
             if (meshRenderer == null)
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
-            meshFilter.sharedMesh = BuildCylinder(segments: 32, cylinderRadius, cylinderHeight);
+            meshFilter.sharedMesh = BuildSphere(lonSegments: 48, latSegments: 24, radius);
 
             skyTexture = textures != null ? textures.GetTexture(SkyTextureName) : null;
             var shader = Shader.Find(ShaderName);
@@ -53,17 +53,29 @@ namespace Doom.MapBuild.Rendering
 
             skyMaterial = new Material(shader) { name = "DoomSky_Runtime" };
             if (skyTexture != null)
+            {
+                skyTexture.wrapMode = TextureWrapMode.Repeat;
+                skyTexture.filterMode = FilterMode.Point;
                 skyMaterial.mainTexture = skyTexture;
+                if (skyMaterial.HasProperty("_MainTex"))
+                    skyMaterial.SetTexture("_MainTex", skyTexture);
+            }
+            skyMaterial.SetFloat("_YawOffset", 0f);
+            skyMaterial.SetFloat("_PitchOffset", 0f);
+            skyMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Background;
             meshRenderer.sharedMaterial = skyMaterial;
             meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
+            // Outward sphere + Cull Front in shader = see interior.
             meshRenderer.enabled = false;
             active = false;
         }
 
         public void ApplyProfile(GraphicsProfile profile)
         {
-            active = profile.Mode == GraphicsMode.Enhanced && profile.Sky;
+            // Sky is WAD content (SKY1), not an Enhanced-only effect — show whenever
+            // the profile requests it so F_SKY1 openings are never a solid clear color.
+            active = profile.Sky;
             if (meshRenderer != null)
                 meshRenderer.enabled = active && skyMaterial != null;
         }
@@ -72,20 +84,10 @@ namespace Doom.MapBuild.Rendering
         {
             if (!active || follow == null) return;
 
-            // Translation follows camera; rotation locked so yaw/pitch come from view.
+            // Translation follows camera; rotation stays world-locked so yaw/pitch
+            // come from the view direction through the sphere.
             transform.position = follow.position;
             transform.rotation = Quaternion.identity;
-
-            if (skyMaterial == null) return;
-
-            // Map yaw/pitch to UV offsets (seamless cylinder U).
-            // Kept on the material (UnityPerMaterial) — MPB would not override
-            // SRP-Batcher cbuffer props; single sky draw is cheap.
-            float yaw = follow.eulerAngles.y;
-            float pitch = follow.eulerAngles.x;
-            if (pitch > 180f) pitch -= 360f;
-            skyMaterial.SetFloat("_YawOffset", yaw / 360f);
-            skyMaterial.SetFloat("_PitchOffset", Mathf.Clamp(pitch / 90f, -1f, 1f) * 0.15f);
         }
 
         void OnDestroy()
@@ -99,38 +101,51 @@ namespace Doom.MapBuild.Rendering
                 Destroy(meshFilter.sharedMesh);
         }
 
-        static Mesh BuildCylinder(int segments, float radius, float height)
+        /// Inward-facing UV sphere. U = longitude (panorama), V = latitude
+        /// (0 at -Y / bottom, 1 at +Y / top — matches SKY1 mountain→sky layout).
+        static Mesh BuildSphere(int lonSegments, int latSegments, float radius)
         {
-            var mesh = new Mesh { name = "DoomSkyCylinder" };
-            int vertCount = (segments + 1) * 2;
-            var verts = new Vector3[vertCount];
-            var uvs = new Vector2[vertCount];
-            var tris = new int[segments * 6];
+            var mesh = new Mesh { name = "DoomSkySphere" };
+            int vertsU = lonSegments + 1;
+            int vertsV = latSegments + 1;
+            var verts = new Vector3[vertsU * vertsV];
+            var uvs = new Vector2[verts.Length];
+            var tris = new int[lonSegments * latSegments * 6];
 
-            float halfH = height * 0.5f;
-            for (int i = 0; i <= segments; i++)
+            for (int v = 0; v < vertsV; v++)
             {
-                float t = (float)i / segments;
-                float ang = t * Mathf.PI * 2f;
-                float x = Mathf.Cos(ang) * radius;
-                float z = Mathf.Sin(ang) * radius;
-                verts[i] = new Vector3(x, -halfH, z);
-                verts[i + segments + 1] = new Vector3(x, halfH, z);
-                // Invert U so interior faces of the cylinder map left→right with yaw.
-                uvs[i] = new Vector2(1f - t, 0f);
-                uvs[i + segments + 1] = new Vector2(1f - t, 1f);
+                float v01 = (float)v / latSegments;
+                // phi: 0 at +Y (top), PI at -Y (bottom)
+                float phi = v01 * Mathf.PI;
+                float y = Mathf.Cos(phi);
+                float ringR = Mathf.Sin(phi);
+                for (int u = 0; u < vertsU; u++)
+                {
+                    float u01 = (float)u / lonSegments;
+                    float theta = u01 * Mathf.PI * 2f;
+                    float x = ringR * Mathf.Cos(theta);
+                    float z = ringR * Mathf.Sin(theta);
+                    int idx = v * vertsU + u;
+                    verts[idx] = new Vector3(x, y, z) * radius;
+                    // Invert U for interior view; invert V so texture top (sky) is at +Y.
+                    uvs[idx] = new Vector2(1f - u01, 1f - v01);
+                }
             }
 
             int ti = 0;
-            for (int i = 0; i < segments; i++)
+            for (int v = 0; v < latSegments; v++)
             {
-                int b0 = i;
-                int b1 = i + 1;
-                int t0 = i + segments + 1;
-                int t1 = i + 1 + segments + 1;
-                // Inward-facing (camera inside).
-                tris[ti++] = b0; tris[ti++] = t0; tris[ti++] = b1;
-                tris[ti++] = b1; tris[ti++] = t0; tris[ti++] = t1;
+                for (int u = 0; u < lonSegments; u++)
+                {
+                    int i0 = v * vertsU + u;
+                    int i1 = i0 + 1;
+                    int i2 = i0 + vertsU;
+                    int i3 = i2 + 1;
+                    // Outward-facing: Doom/Sky uses Cull Front so the camera
+                    // inside sees the backfaces (standard skybox sphere).
+                    tris[ti++] = i0; tris[ti++] = i1; tris[ti++] = i2;
+                    tris[ti++] = i1; tris[ti++] = i3; tris[ti++] = i2;
+                }
             }
 
             mesh.vertices = verts;

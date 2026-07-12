@@ -34,6 +34,10 @@ namespace Doom.MapBuild.Rendering
             cameraData.renderPostProcessing = false;
             camera.allowHDR = false;
             camera.allowMSAA = false;
+            // F_SKY1 openings clear to this color if sky is off/misses a pixel.
+            // Avoid Unity's default blue "sky" so holes never read as a solid slab.
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
 
             EnsureVolume();
             post.Bind(enhancedProfile);

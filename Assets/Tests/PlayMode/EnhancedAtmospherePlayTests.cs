@@ -52,7 +52,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Classic_disables_sky_fluids_and_fog()
+        public IEnumerator Classic_keeps_wad_sky_but_disables_fluids_and_fog()
         {
             LogAssert.ignoreFailingMessages = true;
             Time.captureDeltaTime = 1f / 60f;
@@ -68,7 +68,7 @@ namespace Doom.Stage3.PlayTests
 
             var sky = Object.FindFirstObjectByType<WadSkyRenderer>();
             Assert.IsNotNull(sky);
-            Assert.IsFalse(sky.IsActive);
+            Assert.IsTrue(sky.IsActive, "F_SKY1 openings use WAD SKY1 in Classic too");
 
             var anim = Object.FindFirstObjectByType<AnimatedSurfaceSystem>();
             Assert.IsNotNull(anim);

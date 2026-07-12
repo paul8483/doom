@@ -94,7 +94,7 @@ namespace Doom.MapBuild.Rendering
             fog: false,
             msaa: false,
             renderScaleOrFsr: false,
-            sky: false,
+            sky: true,
             animatedFluids: false,
             litSprites: false,
             spectreMaterial: false,

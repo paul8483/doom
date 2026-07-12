@@ -15,11 +15,13 @@ Shader "Doom/Sky"
             "Queue" = "Background"
             "RenderPipeline" = "UniversalPipeline"
             "UniversalMaterialType" = "Unlit"
+            "IgnoreProjector" = "True"
         }
 
-        Cull Off
+        Cull Front
         ZWrite Off
         ZTest LEqual
+        Blend Off
 
         Pass
         {
@@ -43,40 +45,54 @@ Shader "Doom/Sky"
                 float _PitchOffset;
             CBUFFER_END
 
+            // 1 / (2 * PI)
+            static const float kInvTwoPi = 0.15915494309189535;
+
             struct Attributes
             {
                 float4 positionOS : POSITION;
-                float2 uv : TEXCOORD0;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
+                float3 viewDirWS : TEXCOORD0;
             };
 
             Varyings Vert(Attributes input)
             {
                 Varyings output;
-                // Keep sky infinitely far so depth tests open through F_SKY1 holes.
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
-                float3 viewPos = TransformWorldToView(posWS);
-                // Push far but stay inside the far plane.
-                viewPos.z = min(viewPos.z, -_ProjectionParams.z * 0.95);
-                output.positionCS = TransformWViewToHClip(viewPos);
-                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
-                output.uv.x += _YawOffset;
-                output.uv.y += _PitchOffset;
+                float4 clipPos = TransformWorldToHClip(posWS);
+
+                // Standard skybox far-plane depth (works with reversed Z in URP).
+                // Previous view-space z rewrite left the sphere unshaded on GPU.
+#if UNITY_REVERSED_Z
+                clipPos.z = clipPos.w * 1.0e-7;
+#else
+                clipPos.z = clipPos.w * 0.999999;
+#endif
+                output.positionCS = clipPos;
+
+                // Direction from camera through this sky vertex (camera-centered mesh).
+                output.viewDirWS = posWS - GetCameraPositionWS();
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
-                half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                float3 dir = normalize(input.viewDirWS);
+
+                // Cylindrical panorama: U = yaw, V = altitude (SKY1 mountains→sky).
+                float u = atan2(dir.x, dir.z) * kInvTwoPi + 0.5 + _YawOffset;
+                float v = saturate(dir.y * 0.5 + 0.5 + _PitchOffset);
+                float2 uv = TRANSFORM_TEX(float2(u, v), _MainTex);
+
+                half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
 #if !UNITY_COLORSPACE_GAMMA
-                return half4(SRGBToLinear(tex.rgb), 1.0h);
+                return half4(SRGBToLinear(tex.rgb), 1.0);
 #else
-                return half4(tex.rgb, 1.0h);
+                return half4(tex.rgb, 1.0);
 #endif
             }
             ENDHLSL

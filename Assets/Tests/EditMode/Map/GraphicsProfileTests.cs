@@ -23,6 +23,7 @@ namespace Doom.Map.Tests
             Assert.IsFalse(p.Particles);
             Assert.IsFalse(p.Decals);
             Assert.IsFalse(p.BilinearWorldFiltering);
+            Assert.IsTrue(p.Sky);
         }
 
         [Test]
