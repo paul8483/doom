@@ -89,6 +89,15 @@ namespace Doom.MapBuild.Editor
             EnsureVolumeOverrides();
 
             GraphicsSettings.defaultRenderPipeline = pipeline;
+            // Assign URP on every quality tier so Standalone never falls back to
+            // Built-in if a non-Ultra level is selected.
+            int previous = QualitySettings.GetQualityLevel();
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, applyExpensiveChanges: false);
+                QualitySettings.renderPipeline = pipeline;
+            }
+            QualitySettings.SetQualityLevel(previous, applyExpensiveChanges: false);
             QualitySettings.renderPipeline = pipeline;
             PlayerSettings.colorSpace = ColorSpace.Linear;
             GraphicsSettings.lightsUseLinearIntensity = true;

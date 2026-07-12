@@ -16,7 +16,7 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 14 ✅**. Next: Task 15 Windows build / interactive sign-off.
+**Статус:** утверждён; **Task 1 ✅ … Task 14 ✅**; **Task 15** build/settings/profiler ✅ — interactive eyeball checklist still open (see Step 4–5).
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -831,43 +831,67 @@ baseline notes; любой skipped/failed test перечислить как blo
 - Modify: `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
 - Modify: `Logs/stage8-graphics-baseline-notes.md`
 
-- [ ] **Step 1: Build inclusion audit.**
+- [x] **Step 1: Build inclusion audit.**
 
 URP pipeline/renderer/Volume assets, renderer features и все Classic/Enhanced
 shader variants включены. Standalone стартует в main menu; StreamingAssets WAD
 присутствует. Build output не коммитить.
 
-- [ ] **Step 2: Собрать Windows standalone.**
+All quality tiers wired to Doom URP; `Stage7BuildMenu.PreflightBuildInclusion`
+gates URP/WAD/shaders. Volume profile: editor asset + runtime Bind fallback.
+
+- [x] **Step 2: Собрать Windows standalone.**
 
 Записать точную команду/menu item, Unity version, build result и warnings.
 Shader stripping warning или pink material является blocker, не cosmetic issue.
 
-- [ ] **Step 3: Проверить settings lifecycle.**
+2026-07-12: Unity 6000.4.8f1; menu `Tools > Doom > Build Windows Standalone` /
+CLI `Stage7BuildMenu.BuildWindowsStandaloneCli`; **Success** (~128 MB);
+`Logs/stage8-t15-build.log`. All Doom shaders compiled into player. Smoke:
+main-menu UI-only boot, no pink/shader errors in Player.log.
+
+- [x] **Step 3: Проверить settings lifecycle.**
 
 Fresh install default Classic; Apply Enhanced переживает restart; Cancel
 возвращает active profile; save/load не меняет graphics mode.
+
+`SettingsPlayTests` + new `Save_load_does_not_change_graphics_mode` → **6/6**
+(`Logs/stage8-t15-settings-play.xml`). Persist = SettingsStore round-trip
+(PlayerPrefs in production).
 
 - [ ] **Step 4: Интерактивно пройти graphics checklist на E1M1–E1M9.**
 
 На каждой карте проверить Classic → Enhanced → Classic без изменения gameplay.
 Отдельно: masked walls, sky, dark sectors, movers, fluids, enemies, pickups.
 
+Automated proxy: Task 14 dual-profile `E1MapSmokePlayTests`. Human eyeball
+on standalone still open.
+
 - [ ] **Step 5: Проверить Enhanced effects.**
 
 Muzzle/projectile/barrel lights и shadows; SSAO/bloom/grading/fog; FSR/fallback;
 Spectre/Baron; particles/decals; resize/fullscreen; 4:3 и 16:9 HUD.
 
-- [ ] **Step 6: Финальный profiler pass.**
+Automated proxy: Enhanced* PlayMode suites (Task 9–13). Human eyeball open.
+
+- [x] **Step 6: Финальный profiler pass.**
 
 Сравнить target machine metrics с Task 1 budgets. Regression исправить или
 явно зафиксировать как незакрытый blocker; не объявлять Stage 8 завершённым.
 
-- [ ] **Step 7: Обновить документацию после факта.**
+Task 14 Classic post-URP metrics within Task 1 budgets; pool caps held.
+No Task 15 regression. Stage 8 not closed until Steps 4–5 signed.
+
+- [x] **Step 7: Обновить документацию после факта.**
 
 Отметить завершённые задачи, реальные test totals/package version/budgets,
 известные ограничения и interactive sign-off в roadmap/CLAUDE/spec/plan.
 
+Docs updated for build/settings/profiler; interactive sign-off still pending
+before Stage 8 close commit.
+
 **Commit checkpoint:** `Stage 8: complete classic and enhanced graphics`
+_(after interactive Steps 4–5; awaiting explicit user commit request)_
 
 ---
 
@@ -925,7 +949,7 @@ Tasks 3–7 и с единым `GraphicsProfile` contract. Tasks 11–13 доп�
 - [x] Particles/decals WAD-derived, pooled и не входят в save.
 - [x] E1M1–E1M9 smoke проходит в обоих режимах.
 - [x] Полные EditMode/PlayMode suites зелёные с обновлёнными totals.
-- [ ] Windows standalone не содержит pink/missing shaders и стартует в menu.
-- [ ] Интерактивный Classic/Enhanced checklist и profiler budgets подписаны.
-- [ ] Roadmap, `CLAUDE.md`, spec, plan и baseline notes обновлены по факту
-      Stage 8 close (Task 15).
+- [x] Windows standalone не содержит pink/missing shaders и стартует в menu.
+- [x] Profiler budgets подтверждены (Task 14 metrics; Task 15 без регрессии).
+- [ ] Интерактивный Classic/Enhanced checklist подписан (human eyeball).
+- [ ] Roadmap / `CLAUDE.md` / spec закрывают Stage 8 только после Steps 4–5.

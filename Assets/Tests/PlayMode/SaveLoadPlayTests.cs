@@ -9,6 +9,7 @@ using UnityEngine.TestTools;
 using Doom.Game;
 using Doom.Map;
 using Doom.MapBuild;
+using Doom.MapBuild.Rendering;
 using Doom.Specials;
 using Doom.Wad;
 
@@ -237,6 +238,43 @@ namespace Doom.Stage3.PlayTests
             var after = Object.FindAnyObjectByType<MapLoader>();
             Assert.That(after.SectorLights.GetLight(sector), Is.EqualTo(35),
                 "SectorSnapshot.LightLevel must restore into RuntimeSectorLights");
+        }
+
+        [UnityTest]
+        public IEnumerator Save_load_does_not_change_graphics_mode()
+        {
+            yield return LoadLevel();
+            WireTestStore();
+
+            var memory = new MemorySettingsStorage();
+            new SettingsStore(memory).Save(GameSettingsData.Defaults);
+
+            var settings = SettingsController.Ensure();
+            var gfx = GraphicsModeController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), new FakeDisplayAdapter(), gfx);
+
+            settings.OpenOptions();
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.ApplyAndSave();
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
+
+            var flow = GameFlowController.Ensure();
+            flow.RequestPause();
+            yield return null;
+
+            var saves = SaveGameController.Ensure();
+            Assert.That(saves.TrySave(5), Is.True, saves.LastError);
+            Assert.That(saves.TryLoad(5), Is.True, saves.LastError);
+            yield return WaitForPlayer("E1M1");
+
+            settings = SettingsController.Ensure();
+            gfx = GraphicsModeController.Ensure();
+            Assert.That(new SettingsStore(memory).Load().GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced),
+                "Save/load must not rewrite SettingsStore GraphicsMode");
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced),
+                "Runtime graphics profile must survive save/load");
         }
 
         [UnityTest]

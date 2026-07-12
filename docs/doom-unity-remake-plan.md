@@ -191,7 +191,9 @@ replacement assets не добавляются. Classic остаётся реж�
 **Статус:** в работе на ветке `enhanced`. **Tasks 1–14 ✅** (2026-07-12):
 8a–8d (baseline → sky/sprites/particles); **Task 14** — E1 dual-profile smoke,
 resource lifetime, SRP leaks/shader Color.hlsl fix, full suites
-**459 EditMode + 95 PlayMode**. Next: **Task 15** Windows build + interactive sign-off.
+**459 EditMode + 95 PlayMode**. **Task 15** build/settings/profiler ✅
+(Windows standalone ~128 MB, main-menu smoke, GraphicsMode save/load isolation);
+**interactive eyeball checklist still open** before Stage 8 close.
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
