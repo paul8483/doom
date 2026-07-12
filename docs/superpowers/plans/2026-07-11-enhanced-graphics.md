@@ -16,7 +16,8 @@
 режима. Спека:
 `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`.
 
-**Статус:** утверждён; **Task 1 ✅ … Task 14 ✅**; **Task 15** build/settings/profiler ✅ — interactive eyeball checklist still open (see Step 4–5).
+**Статус:** ✅ завершён (2026-07-12); **Task 1 ✅ … Task 15 ✅** including
+interactive eyeball Steps 4–5.
 
 **Tech Stack:** Unity 6000.4.8f1, C#/.NET profile Unity, Unity Test Framework,
 Universal Render Pipeline (последняя совместимая с pinned Unity версия),
@@ -859,39 +860,41 @@ Fresh install default Classic; Apply Enhanced переживает restart; Canc
 (`Logs/stage8-t15-settings-play.xml`). Persist = SettingsStore round-trip
 (PlayerPrefs in production).
 
-- [ ] **Step 4: Интерактивно пройти graphics checklist на E1M1–E1M9.**
+- [x] **Step 4: Интерактивно пройти graphics checklist на E1M1–E1M9.**
 
 На каждой карте проверить Classic → Enhanced → Classic без изменения gameplay.
 Отдельно: masked walls, sky, dark sectors, movers, fluids, enemies, pickups.
 
-Automated proxy: Task 14 dual-profile `E1MapSmokePlayTests`. Human eyeball
-on standalone still open.
+2026-07-12 human eyeball on Windows standalone: Classic↔Enhanced OK across
+played E1 maps; sky (`SKY1` sphere), fluids, fog-on-boot, lamps, pause HUD
+isolation signed. Automated proxy: Task 14 dual-profile `E1MapSmokePlayTests`.
 
-- [ ] **Step 5: Проверить Enhanced effects.**
+- [x] **Step 5: Проверить Enhanced effects.**
 
 Muzzle/projectile/barrel lights и shadows; SSAO/bloom/grading/fog; FSR/fallback;
 Spectre/Baron; particles/decals; resize/fullscreen; 4:3 и 16:9 HUD.
 
-Automated proxy: Enhanced* PlayMode suites (Task 9–13). Human eyeball open.
+2026-07-12: muzzle toned down; Enhanced Point (no bilinear mush); native
+render scale; lamp pool/intensity raised; fluid cross-fade; fog boot-order fix.
+Interactive Enhanced effects accepted. Automated proxy: Enhanced* PlayMode suites.
 
 - [x] **Step 6: Финальный profiler pass.**
 
 Сравнить target machine metrics с Task 1 budgets. Regression исправить или
 явно зафиксировать как незакрытый blocker; не объявлять Stage 8 завершённым.
 
-Task 14 Classic post-URP metrics within Task 1 budgets; pool caps held.
-No Task 15 regression. Stage 8 not closed until Steps 4–5 signed.
+Task 14 Classic post-URP metrics within Task 1 budgets; pool caps held
+(lights raised to 16 post-sign-off). No Task 15 regression.
 
 - [x] **Step 7: Обновить документацию после факта.**
 
 Отметить завершённые задачи, реальные test totals/package version/budgets,
 известные ограничения и interactive sign-off в roadmap/CLAUDE/spec/plan.
 
-Docs updated for build/settings/profiler; interactive sign-off still pending
-before Stage 8 close commit.
+2026-07-12: Stage 8 closed in roadmap / `CLAUDE.md` / spec / plan after
+interactive Steps 4–5.
 
 **Commit checkpoint:** `Stage 8: complete classic and enhanced graphics`
-_(after interactive Steps 4–5; awaiting explicit user commit request)_
 
 ---
 
@@ -951,5 +954,5 @@ Tasks 3–7 и с единым `GraphicsProfile` contract. Tasks 11–13 доп�
 - [x] Полные EditMode/PlayMode suites зелёные с обновлёнными totals.
 - [x] Windows standalone не содержит pink/missing shaders и стартует в menu.
 - [x] Profiler budgets подтверждены (Task 14 metrics; Task 15 без регрессии).
-- [ ] Интерактивный Classic/Enhanced checklist подписан (human eyeball).
-- [ ] Roadmap / `CLAUDE.md` / spec закрывают Stage 8 только после Steps 4–5.
+- [x] Интерактивный Classic/Enhanced checklist подписан (human eyeball, 2026-07-12).
+- [x] Roadmap / `CLAUDE.md` / spec закрывают Stage 8 после Steps 4–5.

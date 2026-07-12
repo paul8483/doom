@@ -1,8 +1,8 @@
 # Этап 8. Classic и Enhanced графика — дизайн
 
 **Дата:** 2026-07-11  
-**Статус:** в реализации — Tasks 1–14 ✅; Task 15 build/settings/profiler ✅;
-interactive Classic/Enhanced eyeball checklist still open before Stage 8 close  
+**Статус:** ✅ завершён (2026-07-12) — Tasks 1–15 including interactive
+Classic/Enhanced eyeball sign-off  
 **Предыдущие этапы:** Stages 0–7 завершены (Stage 7e Task 15 closed 2026-07-12)  
 **Контекст:** пост-релизная графическая веха после закрытия Stage 7. Продолжает
 Stage 4 и закрывает отложенные небо, анимацию поверхностей и расширенный рендер.

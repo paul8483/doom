@@ -188,19 +188,19 @@ effect textures существуют только в runtime memory; authored и
 replacement assets не добавляются. Classic остаётся режимом по умолчанию и
 эталоном визуальной регрессии.
 
-**Статус:** в работе на ветке `enhanced`. **Tasks 1–14 ✅** (2026-07-12):
-8a–8d (baseline → sky/sprites/particles); **Task 14** — E1 dual-profile smoke,
-resource lifetime, SRP leaks/shader Color.hlsl fix, full suites
-**459 EditMode + 95 PlayMode**. **Task 15** build/settings/profiler ✅
-(Windows standalone ~128 MB, main-menu smoke, GraphicsMode save/load isolation);
-**interactive eyeball checklist still open** before Stage 8 close.
+**Статус:** ✅ завершён на ветке `enhanced` (2026-07-12). **Tasks 1–15 ✅**:
+8a–8e (baseline → URP Classic/Enhanced → sky/sprites/particles → perf →
+Windows build + interactive eyeball). Full suites at Task 14:
+**459 EditMode + 95 PlayMode**. Standalone ~128 MB. Interactive sign-off
+closed the same day (Classic↔Enhanced, sky/fluids/fog/lamps/HUD/muzzle QA;
+post-sign-off polish commits on `enhanced`).
 
 **Дизайн:** `docs/superpowers/specs/2026-07-11-enhanced-graphics-design.md`  
 **План реализации:** `docs/superpowers/plans/2026-07-11-enhanced-graphics.md`
 
 **Результат этапа:** пользователь может сравнить Classic и Enhanced на
 E1M1–E1M9; Classic сохраняет текущий вид, Enhanced использует современные
-возможности GPU без замены WAD-контента.
+возможности GPU без замены WAD-контента. Stage 8 закрыт.
 
 ---
 
