@@ -29,6 +29,8 @@ namespace Doom.MapBuild.Rendering
         public readonly bool BilinearWorldFiltering;
         /// When true, world albedo/sky use deterministic runtime 2× Scale2x variants.
         public readonly bool UpscaleWorldTextures2X;
+        /// Keeps LOD0 point-sharp while enabling controlled mip/aniso minification.
+        public readonly bool ControlledWorldMipmaps;
 
         public WorldTextureVariant WorldTextureVariant =>
             UpscaleWorldTextures2X ? WorldTextureVariant.Enhanced2X : WorldTextureVariant.Native;
@@ -56,7 +58,8 @@ namespace Doom.MapBuild.Rendering
             bool particles,
             bool decals,
             bool bilinearWorldFiltering,
-            bool upscaleWorldTextures2X = false)
+            bool upscaleWorldTextures2X = false,
+            bool controlledWorldMipmaps = false)
         {
             Mode = mode;
             UseLitMaterials = useLitMaterials;
@@ -81,6 +84,7 @@ namespace Doom.MapBuild.Rendering
             Decals = decals;
             BilinearWorldFiltering = bilinearWorldFiltering;
             UpscaleWorldTextures2X = upscaleWorldTextures2X;
+            ControlledWorldMipmaps = controlledWorldMipmaps;
         }
 
         public static GraphicsProfile ForMode(GraphicsMode mode) =>
@@ -109,7 +113,8 @@ namespace Doom.MapBuild.Rendering
             particles: false,
             decals: false,
             bilinearWorldFiltering: false,
-            upscaleWorldTextures2X: false);
+            upscaleWorldTextures2X: false,
+            controlledWorldMipmaps: false);
 
         public static GraphicsProfile Enhanced { get; } = new GraphicsProfile(
             GraphicsMode.Enhanced,
@@ -136,6 +141,7 @@ namespace Doom.MapBuild.Rendering
             // Point keeps WAD albedo crisp. Bilinear on 64×N patches reads as
             // soft mush, not "higher detail", once lighting/post are on.
             bilinearWorldFiltering: false,
-            upscaleWorldTextures2X: true);
+            upscaleWorldTextures2X: true,
+            controlledWorldMipmaps: true);
     }
 }

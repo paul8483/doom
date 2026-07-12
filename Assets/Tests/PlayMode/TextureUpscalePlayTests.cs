@@ -20,7 +20,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Enhanced_world_textures_are_2x_point_and_hot_switch_restores_native()
+        public IEnumerator Enhanced_world_textures_are_2x_mipped_and_hot_switch_restores_native()
         {
             LogAssert.ignoreFailingMessages = true;
             Time.captureDeltaTime = 1f / 60f;
@@ -58,6 +58,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(sampleName, "expected a Classic world material texture");
             Assert.IsNotNull(nativeTex);
             Assert.AreEqual(FilterMode.Point, nativeTex.filterMode);
+            Assert.AreEqual(1, nativeTex.mipmapCount);
 
             int nativeW = nativeTex.width;
             int nativeH = nativeTex.height;
@@ -73,7 +74,9 @@ namespace Doom.Stage3.PlayTests
             Assert.AreNotSame(nativeTex, enhanced);
             Assert.AreEqual(nativeW * 2, enhanced.width);
             Assert.AreEqual(nativeH * 2, enhanced.height);
-            Assert.AreEqual(FilterMode.Point, enhanced.filterMode);
+            Assert.AreEqual(FilterMode.Trilinear, enhanced.filterMode);
+            Assert.That(enhanced.mipmapCount, Is.GreaterThan(1));
+            Assert.That(enhanced.anisoLevel, Is.GreaterThan(1));
             Assert.AreSame(enhanced,
                 loader.WorldTextures.GetTexture(sampleName, WorldTextureVariant.Enhanced2X));
 
@@ -94,6 +97,7 @@ namespace Doom.Stage3.PlayTests
                     {
                         Assert.AreEqual(enhanced.width, bump.width);
                         Assert.AreEqual(enhanced.height, bump.height);
+                        Assert.AreEqual(enhanced.mipmapCount, bump.mipmapCount);
                     }
                     break;
                 }
@@ -149,6 +153,8 @@ namespace Doom.Stage3.PlayTests
                 WadSkyRenderer.SkyTextureName, WorldTextureVariant.Enhanced2X);
             Assert.AreEqual(nativeSky.width * 2, enhancedSky.width);
             Assert.AreEqual(nativeSky.height * 2, enhancedSky.height);
+            Assert.That(enhancedSky.mipmapCount, Is.GreaterThan(1));
+            Assert.AreEqual(FilterMode.Trilinear, enhancedSky.filterMode);
 
             var sky = Object.FindFirstObjectByType<WadSkyRenderer>();
             Assert.IsNotNull(sky);

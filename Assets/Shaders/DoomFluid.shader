@@ -35,7 +35,7 @@ Shader "Doom/Fluid"
             Tags { "LightMode" = "UniversalForward" }
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.5
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_instancing
@@ -46,10 +46,14 @@ Shader "Doom/Fluid"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/Shaders/Includes/DoomControlledSampling.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             TEXTURE2D(_MainTexB); SAMPLER(sampler_MainTexB);
             TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
+            float4 _MainTex_TexelSize;
+            float4 _MainTexB_TexelSize;
+            float4 _BumpMap_TexelSize;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -148,17 +152,23 @@ Shader "Doom/Fluid"
             {
                 float2 uv = input.uv;
                 // Mild UV ripple from luminance of a shifted sample.
-                half4 shift = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv + float2(0.07, 0.03));
+                half4 shift = DoomSampleControlled(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
+                    uv + float2(0.07, 0.03), _MainTex_TexelSize);
                 uv += (shift.rg - 0.5h) * _DistortStrength;
 
-                half4 texA = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
-                half4 texB = SAMPLE_TEXTURE2D(_MainTexB, sampler_MainTexB, uv);
+                half4 texA = DoomSampleControlled(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), uv, _MainTex_TexelSize);
+                half4 texB = DoomSampleControlled(
+                    TEXTURE2D_ARGS(_MainTexB, sampler_MainTexB), uv, _MainTexB_TexelSize);
                 half4 tex = lerp(texA, texB, saturate(_FrameBlend));
                 half3 albedo = tex.rgb;
                 half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);
 
                 float3 nTS = UnpackNormalScale(
-                    SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, uv), _BumpScale);
+                    DoomSampleControlled(
+                        TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
+                        uv, _BumpMap_TexelSize), _BumpScale);
                 float3 T = normalize(input.tangentWS.xyz);
                 float3 N = normalize(input.normalWS);
                 float3 B = cross(N, T) * input.tangentWS.w;

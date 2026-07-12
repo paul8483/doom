@@ -29,7 +29,7 @@ Shader "Doom/Sky"
             Tags { "LightMode" = "UniversalForwardOnly" }
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.5
             #pragma vertex Vert
             #pragma fragment Frag
 
@@ -37,7 +37,8 @@ Shader "Doom/Sky"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
             TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
+            // Independent sampler keeps the panorama at nearest LOD0 without
+            // mutating the shared SKY1 texture used by world materials.
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -88,7 +89,7 @@ Shader "Doom/Sky"
                 float v = saturate(dir.y * 0.5 + 0.5 + _PitchOffset);
                 float2 uv = TRANSFORM_TEX(float2(u, v), _MainTex);
 
-                half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
+                half4 tex = SAMPLE_TEXTURE2D_LOD(_MainTex, sampler_PointRepeat, uv, 0.0);
 #if !UNITY_COLORSPACE_GAMMA
                 return half4(SRGBToLinear(tex.rgb), 1.0);
 #else

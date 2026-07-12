@@ -60,7 +60,10 @@ namespace Doom.Stage3.PlayTests
                     withNormal++;
                     Assert.That(bump.name, Does.EndWith("/Normal"));
                     if (bump is Texture2D bumpTex)
-                        Assert.AreEqual(FilterMode.Bilinear, bumpTex.filterMode);
+                    {
+                        Assert.AreEqual(FilterMode.Trilinear, bumpTex.filterMode);
+                        Assert.That(bumpTex.mipmapCount, Is.GreaterThan(1));
+                    }
                 }
 
                 float roughness = mat.GetFloat(DoomMaterialFactory.RoughnessProperty);

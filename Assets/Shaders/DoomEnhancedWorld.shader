@@ -31,7 +31,7 @@ Shader "Doom/EnhancedWorld"
             Tags { "LightMode" = "UniversalForward" }
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.5
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_instancing
@@ -42,9 +42,12 @@ Shader "Doom/EnhancedWorld"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/Shaders/Includes/DoomControlledSampling.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
+            float4 _MainTex_TexelSize;
+            float4 _BumpMap_TexelSize;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -144,11 +147,14 @@ Shader "Doom/EnhancedWorld"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                half4 albedoSample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                half4 albedoSample = DoomSampleControlled(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
                 half3 albedo = albedoSample.rgb;
 
                 half3 normalTS = UnpackNormalScale(
-                    SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, input.uv), _BumpScale);
+                    DoomSampleControlled(
+                        TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
+                        input.uv, _BumpMap_TexelSize), _BumpScale);
                 float3 bitangent = input.tangentWS.w * cross(input.normalWS, input.tangentWS.xyz);
                 float3x3 tbn = float3x3(input.tangentWS.xyz, bitangent, input.normalWS);
                 float3 normalWS = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tbn));

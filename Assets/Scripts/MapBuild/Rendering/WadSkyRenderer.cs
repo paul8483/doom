@@ -87,8 +87,6 @@ namespace Doom.MapBuild.Rendering
         {
             skyTexture = tex;
             if (skyMaterial == null || tex == null) return;
-            tex.wrapMode = TextureWrapMode.Repeat;
-            tex.filterMode = FilterMode.Point;
             skyMaterial.mainTexture = tex;
             if (skyMaterial.HasProperty("_MainTex"))
                 skyMaterial.SetTexture("_MainTex", tex);

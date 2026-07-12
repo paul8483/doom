@@ -15,6 +15,7 @@ namespace Doom.MapBuild
         {
             public DecodedImage Native;
             public DecodedImage Enhanced;
+            public PaletteMipChain EnhancedMips;
             public bool IsFlat;
             public bool IsPlaceholder;
             public bool EnhancedFailed;
@@ -59,6 +60,7 @@ namespace Doom.MapBuild
 
             this.materials.SetNormalLookup(GetNormalForAlbedo);
             this.materials.SetSurfaceLookup(GetSurfaceForAlbedo);
+            this.materials.SetWorldAnisoLevel(anisoLevel);
             context?.BindTextureCache(this);
         }
 
@@ -103,23 +105,25 @@ namespace Doom.MapBuild
 
             EnsureSource(name);
             var entry = sourceCache[name];
-            var enhancedImg = GetEnhancedDecoded(name, entry);
-            if (enhancedImg == null)
+            var enhancedMips = GetEnhancedMipChain(name, entry);
+            if (enhancedMips == null)
                 return null;
 
             if (!categoryByName.TryGetValue(name, out var category))
                 category = MaterialSurfaceCategory.Unknown;
 
             var profile = MaterialSurfaceProfile.For(category);
-            var normalImg = NormalMapGenerator.Generate(enhancedImg, profile.Strength, profile.Wrap);
-            var tex = ToNormalTexture2D(normalImg, name);
+            var tex = ToNormalTexture2D(enhancedMips, profile, name, entry);
             normalCache[key] = tex;
             RegisterTextureOnce(tex);
             context?.RegisterOwned(tex);
 
             // CPU 2× buffer is no longer needed once albedo + normal are uploaded.
             if (texCache.ContainsKey((name, WorldTextureVariant.Enhanced2X)))
+            {
                 entry.Enhanced = null;
+                entry.EnhancedMips = null;
+            }
 
             return tex;
         }
@@ -131,7 +135,7 @@ namespace Doom.MapBuild
                 return existing;
 
             var entry = sourceCache[name];
-            var tex = ToAlbedoTexture2D(entry.Native, name);
+            var tex = ToAlbedoTexture2D(entry.Native, name, entry);
             texCache[key] = tex;
             albedoToName[tex] = (name, WorldTextureVariant.Native);
             RegisterTextureOnce(tex);
@@ -150,19 +154,20 @@ namespace Doom.MapBuild
 
             try
             {
-                var enhancedImg = GetEnhancedDecoded(name, entry);
-                var tex = ToAlbedoTexture2D(enhancedImg, name);
+                var enhancedMips = GetEnhancedMipChain(name, entry);
+                var tex = ToAlbedoTexture2D(enhancedMips, name, entry);
                 texCache[key] = tex;
                 albedoToName[tex] = (name, WorldTextureVariant.Enhanced2X);
                 RegisterTextureOnce(tex);
                 enhancedVariantCount++;
-                enhancedTextureBytes += (long)tex.width * tex.height * 4L;
+                enhancedTextureBytes += TextureBytes(tex);
                 return tex;
             }
             catch (System.Exception e)
             {
                 entry.EnhancedFailed = true;
                 entry.Enhanced = null;
+                entry.EnhancedMips = null;
                 GraphicsLog.Warning(
                     $"TextureCache: Enhanced 2× failed for '{name}': {e.Message} — using native");
                 return GetOrCreateNative(name);
@@ -179,6 +184,19 @@ namespace Doom.MapBuild
             var wrap = WrapFor(entry);
             entry.Enhanced = PixelArtUpscaler.Scale2X(entry.Native, wrap);
             return entry.Enhanced;
+        }
+
+        PaletteMipChain GetEnhancedMipChain(string name, SourceEntry entry)
+        {
+            if (entry.EnhancedFailed)
+                return null;
+            if (entry.EnhancedMips != null)
+                return entry.EnhancedMips;
+
+            var enhanced = GetEnhancedDecoded(name, entry);
+            entry.EnhancedMips = PaletteMipGenerator.Generate(
+                enhanced, palette, WrapFor(entry), preserveAlphaCoverage: true);
+            return entry.EnhancedMips;
         }
 
         static PixelWrapMode WrapFor(SourceEntry entry)
@@ -254,7 +272,8 @@ namespace Doom.MapBuild
             return (Placeholder.Magenta(64, 64), isFlat: false, isPlaceholder: true);
         }
 
-        private Texture2D ToAlbedoTexture2D(DecodedImage img, string name)
+        private Texture2D ToAlbedoTexture2D(
+            DecodedImage img, string name, SourceEntry entry)
         {
             if (img.Width <= 0 || img.Height <= 0)
                 img = Placeholder.Magenta(64, 64);
@@ -262,25 +281,77 @@ namespace Doom.MapBuild
             int w = img.Width, h = img.Height;
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: false);
             tex.name = name;
-            tex.wrapMode = TextureWrapMode.Repeat;
-            tex.filterMode = materials.WorldFilterMode;
-            tex.anisoLevel = anisoLevel;
+            ConfigureWrap(tex, entry);
+            tex.filterMode = FilterMode.Point;
+            tex.anisoLevel = 1;
 
-            UploadFlipped(tex, img);
+            UploadFlipped(tex, img, 0);
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             return tex;
         }
 
-        private Texture2D ToNormalTexture2D(DecodedImage img, string name)
+        private Texture2D ToAlbedoTexture2D(
+            PaletteMipChain chain, string name, SourceEntry entry)
         {
-            int w = img.Width, h = img.Height;
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: true);
-            tex.name = name + "/Normal";
-            tex.wrapMode = TextureWrapMode.Repeat;
-            tex.filterMode = FilterMode.Bilinear;
-            tex.anisoLevel = anisoLevel;
+            var levelZero = chain[0];
+            bool hasMips = chain.Count > 1;
+            var tex = new Texture2D(
+                levelZero.Width, levelZero.Height, TextureFormat.RGBA32,
+                mipChain: hasMips, linear: false);
+            tex.name = name;
+            ConfigureWrap(tex, entry);
+            tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Point;
+            tex.anisoLevel = hasMips ? anisoLevel : 1;
 
-            UploadFlipped(tex, img);
+            for (int level = 0; level < chain.Count; level++)
+                UploadFlipped(tex, chain[level], level);
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             return tex;
+        }
+
+        private Texture2D ToNormalTexture2D(
+            PaletteMipChain albedoChain,
+            MaterialSurfaceProfile profile,
+            string name,
+            SourceEntry entry)
+        {
+            var levelZero = albedoChain[0];
+            bool hasMips = albedoChain.Count > 1;
+            var tex = new Texture2D(
+                levelZero.Width, levelZero.Height, TextureFormat.RGBA32,
+                mipChain: hasMips, linear: true);
+            tex.name = name + "/Normal";
+            ConfigureWrap(tex, entry);
+            tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Bilinear;
+            tex.anisoLevel = hasMips ? anisoLevel : 1;
+
+            for (int level = 0; level < albedoChain.Count; level++)
+            {
+                var normal = NormalMapGenerator.Generate(
+                    albedoChain[level], profile.Strength, profile.Wrap);
+                UploadFlipped(tex, normal, level);
+            }
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            return tex;
+        }
+
+        static void ConfigureWrap(Texture2D tex, SourceEntry entry)
+        {
+            if (entry.IsPlaceholder)
+            {
+                tex.wrapModeU = TextureWrapMode.Clamp;
+                tex.wrapModeV = TextureWrapMode.Clamp;
+            }
+            else if (entry.IsFlat)
+            {
+                tex.wrapModeU = TextureWrapMode.Repeat;
+                tex.wrapModeV = TextureWrapMode.Repeat;
+            }
+            else
+            {
+                tex.wrapModeU = TextureWrapMode.Repeat;
+                tex.wrapModeV = TextureWrapMode.Clamp;
+            }
         }
 
         void RegisterTextureOnce(Texture2D tex)
@@ -289,7 +360,7 @@ namespace Doom.MapBuild
             context?.RegisterTexture(tex);
         }
 
-        static void UploadFlipped(Texture2D tex, DecodedImage img)
+        static void UploadFlipped(Texture2D tex, DecodedImage img, int mipLevel)
         {
             int w = img.Width, h = img.Height;
             var flipped = new byte[img.Rgba.Length];
@@ -297,8 +368,21 @@ namespace Doom.MapBuild
             for (int y = 0; y < h; y++)
                 System.Array.Copy(img.Rgba, y * stride, flipped, (h - 1 - y) * stride, stride);
 
-            tex.LoadRawTextureData(flipped);
-            tex.Apply(updateMipmaps: true, makeNoLongerReadable: true);
+            tex.SetPixelData(flipped, mipLevel);
+        }
+
+        static long TextureBytes(Texture2D tex)
+        {
+            long bytes = 0;
+            int width = tex.width;
+            int height = tex.height;
+            for (int level = 0; level < tex.mipmapCount; level++)
+            {
+                bytes += (long)width * height * 4L;
+                width = System.Math.Max(1, width >> 1);
+                height = System.Math.Max(1, height >> 1);
+            }
+            return bytes;
         }
     }
 }

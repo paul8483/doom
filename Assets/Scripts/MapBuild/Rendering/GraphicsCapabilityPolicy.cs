@@ -105,7 +105,8 @@ namespace Doom.MapBuild.Rendering
                 requested.Particles,
                 decals,
                 requested.BilinearWorldFiltering,
-                requested.UpscaleWorldTextures2X);
+                requested.UpscaleWorldTextures2X,
+                requested.ControlledWorldMipmaps);
         }
     }
 }

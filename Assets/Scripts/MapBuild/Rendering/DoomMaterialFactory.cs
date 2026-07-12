@@ -36,6 +36,7 @@ namespace Doom.MapBuild.Rendering
         bool resolved;
 
         GraphicsProfile active = GraphicsProfile.Classic;
+        int worldAnisoLevel = 9;
         Func<Texture2D, Texture2D> normalLookup;
         Func<Texture2D, MaterialSurfaceProfile> surfaceLookup;
 
@@ -53,6 +54,9 @@ namespace Doom.MapBuild.Rendering
 
         public void SetSurfaceLookup(Func<Texture2D, MaterialSurfaceProfile> lookup) =>
             surfaceLookup = lookup;
+
+        public void SetWorldAnisoLevel(int level) =>
+            worldAnisoLevel = Mathf.Clamp(level, 1, 16);
 
         void EnsureShaders()
         {
@@ -207,13 +211,18 @@ namespace Doom.MapBuild.Rendering
             // Normal maps always stay Bilinear; albedo follows profile.
             if (texture.name != null && texture.name.EndsWith("/Normal", StringComparison.Ordinal))
             {
-                texture.filterMode = FilterMode.Bilinear;
+                texture.filterMode = texture.mipmapCount > 1
+                    ? FilterMode.Trilinear
+                    : FilterMode.Bilinear;
+                texture.anisoLevel = texture.mipmapCount > 1 ? worldAnisoLevel : 1;
                 return;
             }
 
-            texture.filterMode = active.BilinearWorldFiltering
-                ? FilterMode.Bilinear
-                : FilterMode.Point;
+            bool controlledMips = active.ControlledWorldMipmaps && texture.mipmapCount > 1;
+            texture.filterMode = controlledMips
+                ? FilterMode.Trilinear
+                : active.BilinearWorldFiltering ? FilterMode.Bilinear : FilterMode.Point;
+            texture.anisoLevel = controlledMips ? worldAnisoLevel : 1;
         }
 
         public FilterMode WorldFilterMode =>
