@@ -125,6 +125,8 @@ namespace Doom.MapBuild.Rendering
             softFloorIntersection: true,
             particles: true,
             decals: true,
-            bilinearWorldFiltering: true);
+            // Point keeps WAD albedo crisp. Bilinear on 64×N patches reads as
+            // soft mush, not "higher detail", once lighting/post are on.
+            bilinearWorldFiltering: false);
     }
 }

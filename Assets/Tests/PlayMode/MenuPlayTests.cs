@@ -78,6 +78,8 @@ namespace Doom.Stage3.PlayTests
             Assert.That(Time.timeScale, Is.EqualTo(0f));
             Assert.That(flow.Menu.Kind, Is.EqualTo(MenuKind.Pause));
             Assert.That(GameObject.Find("Player").GetComponent<PlayerController>().enabled, Is.False);
+            Assert.That(GameFlowController.ShouldDrawStatusHud(), Is.False);
+            Assert.That(GameFlowController.ShouldDrawWeaponView(), Is.False);
 
             // Idempotent: pause again does nothing harmful.
             flow.RequestPause();
@@ -91,6 +93,8 @@ namespace Doom.Stage3.PlayTests
             Assert.That(Time.timeScale, Is.EqualTo(1f));
             Assert.That(flow.Menu.IsVisible, Is.False);
             Assert.That(GameObject.Find("Player").GetComponent<PlayerController>().enabled, Is.True);
+            Assert.That(GameFlowController.ShouldDrawStatusHud(), Is.True);
+            Assert.That(GameFlowController.ShouldDrawWeaponView(), Is.True);
         }
 
         [UnityTest]

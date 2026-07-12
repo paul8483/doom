@@ -41,7 +41,7 @@ namespace Doom.Map.Tests
             Assert.IsTrue(p.Fog);
             Assert.IsTrue(p.Particles);
             Assert.IsTrue(p.Decals);
-            Assert.IsTrue(p.BilinearWorldFiltering);
+            Assert.IsFalse(p.BilinearWorldFiltering);
         }
 
         [Test]

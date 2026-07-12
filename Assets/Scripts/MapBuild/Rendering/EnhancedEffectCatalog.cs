@@ -20,7 +20,7 @@ namespace Doom.MapBuild.Rendering
             switch (kind)
             {
                 case EffectKind.Muzzle:
-                    return new Color(1.00f, 0.85f, 0.45f, 1f);
+                    return new Color(1.00f, 0.80f, 0.40f, 0.55f);
                 case EffectKind.Puff:
                     return new Color(0.72f, 0.72f, 0.72f, 1f);
                 case EffectKind.Blood:
@@ -49,7 +49,7 @@ namespace Doom.MapBuild.Rendering
         {
             switch (kind)
             {
-                case EffectKind.Muzzle: return 0.12f;
+                case EffectKind.Muzzle: return 0.07f;
                 case EffectKind.Puff: return 0.35f;
                 case EffectKind.Blood: return 0.40f;
                 case EffectKind.Explosion: return 0.55f;

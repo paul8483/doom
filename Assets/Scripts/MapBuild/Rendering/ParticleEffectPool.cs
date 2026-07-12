@@ -168,15 +168,22 @@ namespace Doom.MapBuild.Rendering
             float life = EnhancedEffectCatalog.Lifetime(kind);
             Color color = EnhancedEffectCatalog.ColorFor(kind);
             float size = Mathf.Max(0.04f, 0.12f * Mathf.Max(worldScale, 1f / 32f) * 32f);
+            if (kind == EffectKind.Muzzle) size *= 0.45f;
+            else if (kind == EffectKind.Explosion) size *= 1.8f;
 
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = ps.main;
             main.startLifetime = life;
             main.startColor = color;
-            main.startSize = size * (kind == EffectKind.Explosion ? 1.8f : 1f);
-            main.startSpeed = kind == EffectKind.Explosion ? 1.4f : 0.7f;
+            main.startSize = size;
+            main.startSpeed = kind == EffectKind.Explosion ? 1.4f
+                : kind == EffectKind.Muzzle ? 0.35f
+                : 0.7f;
 
-            ps.Emit(kind == EffectKind.Explosion ? 18 : 10);
+            int count = kind == EffectKind.Explosion ? 18
+                : kind == EffectKind.Muzzle ? 4
+                : 10;
+            ps.Emit(count);
 
             slot.Alive = true;
             slot.ExpiresAt = Time.time + life + 0.05f;

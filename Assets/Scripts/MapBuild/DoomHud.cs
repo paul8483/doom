@@ -143,6 +143,8 @@ namespace Doom.MapBuild
         {
             if (!wired || textures == null || Event.current.type != EventType.Repaint)
                 return;
+            if (!GameFlowController.ShouldDrawStatusHud())
+                return;
 
             var t = VirtualScreenRenderer.ComputeForScreen();
             DrawPatch(t, "STBAR", 0, BarY);

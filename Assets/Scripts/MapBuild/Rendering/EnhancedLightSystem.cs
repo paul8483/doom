@@ -167,14 +167,16 @@ namespace Doom.MapBuild.Rendering
 
         public void PulseMuzzle(Vector3 position, float worldScale, float durationTics)
         {
+            // Keep the cue readable in dark sectors without washing the near camera
+            // (spawn is ~camera-forward) or overdriving HDR bloom.
             float duration = Mathf.Max(1f, durationTics) / 35f;
             Pulse(
                 position,
-                new Color(1f, 0.85f, 0.55f),
-                intensity: 2.2f,
-                range: 96f * worldScale,
+                new Color(1f, 0.82f, 0.55f),
+                intensity: 0.9f,
+                range: 48f * worldScale,
                 durationSeconds: duration,
-                importance: 1.2f,
+                importance: 1.0f,
                 wantsShadow: false);
         }
 

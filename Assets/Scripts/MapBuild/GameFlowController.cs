@@ -250,6 +250,22 @@ namespace Doom.MapBuild
 
         void SetState(GameFlowState next) => State = next;
 
+        /// STBAR / face: only while playing or dead (death overlay still shows status).
+        public static bool ShouldDrawStatusHud()
+        {
+            var flow = Instance;
+            if (flow == null) return true;
+            return flow.State == GameFlowState.Playing || flow.State == GameFlowState.Dead;
+        }
+
+        /// Viewmodel weapon: only while actively playing — hide under pause/menus.
+        public static bool ShouldDrawWeaponView()
+        {
+            var flow = Instance;
+            if (flow == null) return true;
+            return flow.State == GameFlowState.Playing;
+        }
+
         void FreezeGameplay()
         {
             SetPlayerGameplayEnabled(false);

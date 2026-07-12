@@ -52,7 +52,7 @@ namespace Doom.Stage3.PlayTests
 
             gfx.Apply(GraphicsMode.Enhanced);
             Assert.AreEqual(GraphicsMode.Enhanced, gfx.Current);
-            Assert.AreEqual(FilterMode.Bilinear, sampleTex.filterMode);
+            Assert.AreEqual(FilterMode.Point, sampleTex.filterMode);
             Assert.IsTrue(gfx.Context.CameraRenderer.PostProcessingEnabled);
 
             Assert.AreEqual(hpBefore, health.Health);

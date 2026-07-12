@@ -106,6 +106,7 @@ namespace Doom.MapBuild
         void OnGUI()
         {
             if (weapons == null || Event.current.type != EventType.Repaint) return;
+            if (!GameFlowController.ShouldDrawWeaponView()) return;
             var def = WeaponTable.Get(weapons.Loadout.Current);
 
             // Bob (A_WeaponReady): angle advances 128 units/tic out of 8192 per circle.

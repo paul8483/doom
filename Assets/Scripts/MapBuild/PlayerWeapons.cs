@@ -126,13 +126,16 @@ namespace Doom.MapBuild
                     for (int i = 0; i < def.FlashTics.Length; i++)
                         tics += def.FlashTics[i];
                 }
+                // Slightly ahead of the lens so the light fills the room edge,
+                // not a full-screen bloom wash from camera-near intensity.
+                var muzzlePos = cam.position + cam.forward * (22f * worldScale);
                 Rendering.EnhancedLightSystem.Instance?.PulseMuzzle(
-                    cam.position + cam.forward * (12f * worldScale),
+                    muzzlePos,
                     worldScale,
                     tics);
                 Rendering.ParticleEffectPool.Instance?.Pulse(
                     Rendering.EffectKind.Muzzle,
-                    cam.position + cam.forward * (12f * worldScale),
+                    muzzlePos,
                     worldScale);
             }
 

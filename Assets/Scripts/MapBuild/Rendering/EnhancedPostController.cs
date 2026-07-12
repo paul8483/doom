@@ -8,7 +8,9 @@ namespace Doom.MapBuild.Rendering
     /// and world Volume. Classic restores baseline camera/pipeline state.
     public sealed class EnhancedPostController
     {
-        public const float EnhancedRenderScale = 0.85f;
+        // Native resolution: 0.85+FSR was softening WAD albedo into mush.
+        // MSAA handles geometric edges; texture sharpness stays Point/native.
+        public const float EnhancedRenderScale = 1f;
         public const int EnhancedMsaaSamples = 4;
         public const float BloomThreshold = 1.05f;
         public const float BloomIntensity = 0.28f;
@@ -133,9 +135,11 @@ namespace Doom.MapBuild.Rendering
             if (scale)
             {
                 pipeline.renderScale = EnhancedRenderScale;
-                if (caps.Fsr)
+                // FSR only helps when we actually render below native. At 1.0 it
+                // just adds an unnecessary soft reconstruct pass.
+                if (EnhancedRenderScale < 0.999f && caps.Fsr)
                     pipeline.upscalingFilter = UpscalingFilterSelection.FSR;
-                else if (caps.RenderScale)
+                else
                     pipeline.upscalingFilter = UpscalingFilterSelection.Auto;
             }
             else
