@@ -372,12 +372,12 @@ namespace Doom.MapBuild
                 foreach (string frameName in seq.Frames)
                 {
                     cache.GetTexture(frameName);
-                    if (warmVariant == WorldTextureVariant.Enhanced2X)
-                        cache.GetTexture(frameName, WorldTextureVariant.Enhanced2X);
+                    if (warmVariant != WorldTextureVariant.Native)
+                        cache.GetTexture(frameName, warmVariant);
                 }
             cache.GetTexture(WadSkyRenderer.SkyTextureName);
-            if (warmVariant == WorldTextureVariant.Enhanced2X)
-                cache.GetTexture(WadSkyRenderer.SkyTextureName, WorldTextureVariant.Enhanced2X);
+            if (warmVariant != WorldTextureVariant.Native)
+                cache.GetTexture(WadSkyRenderer.SkyTextureName, warmVariant);
 
             var fogSys = gameObject.GetComponent<SectorFogSystem>()
                 ?? gameObject.AddComponent<SectorFogSystem>();

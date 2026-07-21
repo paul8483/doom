@@ -84,14 +84,23 @@ namespace Doom.MapBuild
 
         public Texture2D GetTexture(string name, WorldTextureVariant variant)
         {
+            // Temporary: Enhanced4X maps to the existing Scale2x path until Task 4
+            // replaces it with Super-xBR 4×. Keeps hot-switch/playtests green.
+#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
+            if (variant == WorldTextureVariant.Enhanced4X)
+                variant = WorldTextureVariant.Enhanced2X;
+#pragma warning restore CS0618
+
             var key = (name, variant);
             if (texCache.TryGetValue(key, out var existing))
                 return existing;
 
             EnsureSource(name);
 
+#pragma warning disable CS0618
             if (variant == WorldTextureVariant.Enhanced2X)
                 return GetOrCreateEnhanced(name);
+#pragma warning restore CS0618
 
             return GetOrCreateNative(name);
         }
@@ -99,7 +108,9 @@ namespace Doom.MapBuild
         /// Lazy normal for Enhanced materials. Built from the Enhanced 2× source.
         public Texture2D GetOrCreateNormal(string name)
         {
+#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
             var key = (name, WorldTextureVariant.Enhanced2X);
+#pragma warning restore CS0618
             if (normalCache.TryGetValue(key, out var existing))
                 return existing;
 
@@ -119,7 +130,9 @@ namespace Doom.MapBuild
             context?.RegisterOwned(tex);
 
             // CPU 2× buffer is no longer needed once albedo + normal are uploaded.
+#pragma warning disable CS0618
             if (texCache.ContainsKey((name, WorldTextureVariant.Enhanced2X)))
+#pragma warning restore CS0618
             {
                 entry.Enhanced = null;
                 entry.EnhancedMips = null;
@@ -144,7 +157,9 @@ namespace Doom.MapBuild
 
         Texture2D GetOrCreateEnhanced(string name)
         {
+#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
             var key = (name, WorldTextureVariant.Enhanced2X);
+#pragma warning restore CS0618
             if (texCache.TryGetValue(key, out var existing))
                 return existing;
 
@@ -157,7 +172,9 @@ namespace Doom.MapBuild
                 var enhancedMips = GetEnhancedMipChain(name, entry);
                 var tex = ToAlbedoTexture2D(enhancedMips, name, entry);
                 texCache[key] = tex;
+#pragma warning disable CS0618
                 albedoToName[tex] = (name, WorldTextureVariant.Enhanced2X);
+#pragma warning restore CS0618
                 RegisterTextureOnce(tex);
                 enhancedVariantCount++;
                 enhancedTextureBytes += TextureBytes(tex);
@@ -242,7 +259,9 @@ namespace Doom.MapBuild
             if (albedo == null) return null;
             if (!albedoToName.TryGetValue(albedo, out var info)) return null;
             // Normals match Enhanced 2× albedo only. Native fallback keeps flat normals.
+#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
             if (info.variant != WorldTextureVariant.Enhanced2X)
+#pragma warning restore CS0618
                 return null;
             return GetOrCreateNormal(info.name);
         }

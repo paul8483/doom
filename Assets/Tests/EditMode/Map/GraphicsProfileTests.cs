@@ -23,7 +23,10 @@ namespace Doom.Map.Tests
             Assert.IsFalse(p.Particles);
             Assert.IsFalse(p.Decals);
             Assert.IsFalse(p.BilinearWorldFiltering);
-            Assert.IsFalse(p.UpscaleWorldTextures2X);
+            Assert.IsFalse(p.WorldDedither);
+            Assert.IsFalse(p.WorldUpscale4X);
+            Assert.IsFalse(p.WorldTexelAA);
+            Assert.IsFalse(p.WorldParallax);
             Assert.IsFalse(p.ControlledWorldMipmaps);
             Assert.AreEqual(WorldTextureVariant.Native, p.WorldTextureVariant);
             Assert.IsTrue(p.Sky);
@@ -46,9 +49,38 @@ namespace Doom.Map.Tests
             Assert.IsTrue(p.Particles);
             Assert.IsTrue(p.Decals);
             Assert.IsFalse(p.BilinearWorldFiltering);
-            Assert.IsTrue(p.UpscaleWorldTextures2X);
+            Assert.IsTrue(p.WorldDedither);
+            Assert.IsTrue(p.WorldUpscale4X);
+            Assert.IsTrue(p.WorldTexelAA);
+            Assert.IsTrue(p.WorldParallax);
             Assert.IsTrue(p.ControlledWorldMipmaps);
-            Assert.AreEqual(WorldTextureVariant.Enhanced2X, p.WorldTextureVariant);
+            Assert.AreEqual(WorldTextureVariant.Enhanced4X, p.WorldTextureVariant);
+        }
+
+        [Test]
+        public void EnhancedWithLayers_builds_intermediate_profiles_for_captures()
+        {
+            var deditherOnly = GraphicsProfile.EnhancedWithLayers(
+                worldDedither: true,
+                worldUpscale4X: false,
+                worldTexelAA: false,
+                worldParallax: false);
+
+            Assert.AreEqual(GraphicsMode.Enhanced, deditherOnly.Mode);
+            Assert.IsTrue(deditherOnly.WorldDedither);
+            Assert.IsFalse(deditherOnly.WorldUpscale4X);
+            Assert.IsFalse(deditherOnly.WorldTexelAA);
+            Assert.IsFalse(deditherOnly.WorldParallax);
+            Assert.AreEqual(WorldTextureVariant.Native, deditherOnly.WorldTextureVariant);
+            Assert.IsTrue(deditherOnly.UseLitMaterials);
+            Assert.IsTrue(deditherOnly.ControlledWorldMipmaps);
+
+            var full = GraphicsProfile.EnhancedWithLayers();
+            Assert.AreEqual(WorldTextureVariant.Enhanced4X, full.WorldTextureVariant);
+            Assert.IsTrue(full.WorldDedither);
+            Assert.IsTrue(full.WorldUpscale4X);
+            Assert.IsTrue(full.WorldTexelAA);
+            Assert.IsTrue(full.WorldParallax);
         }
 
         [Test]
@@ -69,7 +101,10 @@ namespace Doom.Map.Tests
             Assert.IsFalse(effective.RenderScaleOrFsr);
             Assert.IsTrue(effective.UseLitMaterials);
             Assert.IsTrue(effective.PostProcessing);
-            Assert.IsTrue(effective.UpscaleWorldTextures2X);
+            Assert.IsTrue(effective.WorldDedither);
+            Assert.IsTrue(effective.WorldUpscale4X);
+            Assert.IsTrue(effective.WorldTexelAA);
+            Assert.IsTrue(effective.WorldParallax);
             Assert.IsTrue(effective.ControlledWorldMipmaps);
         }
 

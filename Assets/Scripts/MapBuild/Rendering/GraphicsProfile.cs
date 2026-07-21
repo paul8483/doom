@@ -27,13 +27,19 @@ namespace Doom.MapBuild.Rendering
         public readonly bool Particles;
         public readonly bool Decals;
         public readonly bool BilinearWorldFiltering;
-        /// When true, world albedo/sky use deterministic runtime 2× Scale2x variants.
-        public readonly bool UpscaleWorldTextures2X;
+        /// Palette-aware dedither/deband before upscale (Enhanced texture quality).
+        public readonly bool WorldDedither;
+        /// Runtime Super-xBR 4× world albedo/sky variants.
+        public readonly bool WorldUpscale4X;
+        /// Fat-pixel texel-AA sampling in Enhanced world shaders.
+        public readonly bool WorldTexelAA;
+        /// Multi-scale normals + parallax occlusion on solid world surfaces.
+        public readonly bool WorldParallax;
         /// Keeps LOD0 point-sharp while enabling controlled mip/aniso minification.
         public readonly bool ControlledWorldMipmaps;
 
         public WorldTextureVariant WorldTextureVariant =>
-            UpscaleWorldTextures2X ? WorldTextureVariant.Enhanced2X : WorldTextureVariant.Native;
+            WorldUpscale4X ? WorldTextureVariant.Enhanced4X : WorldTextureVariant.Native;
 
         public GraphicsProfile(
             GraphicsMode mode,
@@ -58,7 +64,10 @@ namespace Doom.MapBuild.Rendering
             bool particles,
             bool decals,
             bool bilinearWorldFiltering,
-            bool upscaleWorldTextures2X = false,
+            bool worldDedither = false,
+            bool worldUpscale4X = false,
+            bool worldTexelAA = false,
+            bool worldParallax = false,
             bool controlledWorldMipmaps = false)
         {
             Mode = mode;
@@ -83,12 +92,54 @@ namespace Doom.MapBuild.Rendering
             Particles = particles;
             Decals = decals;
             BilinearWorldFiltering = bilinearWorldFiltering;
-            UpscaleWorldTextures2X = upscaleWorldTextures2X;
+            WorldDedither = worldDedither;
+            WorldUpscale4X = worldUpscale4X;
+            WorldTexelAA = worldTexelAA;
+            WorldParallax = worldParallax;
             ControlledWorldMipmaps = controlledWorldMipmaps;
         }
 
         public static GraphicsProfile ForMode(GraphicsMode mode) =>
             mode == GraphicsMode.Enhanced ? Enhanced : Classic;
+
+        /// Enhanced base with selective texture-quality layers for editor/test
+        /// layered captures. Not exposed in Options UI.
+        public static GraphicsProfile EnhancedWithLayers(
+            bool worldDedither = true,
+            bool worldUpscale4X = true,
+            bool worldTexelAA = true,
+            bool worldParallax = true)
+        {
+            var e = Enhanced;
+            return new GraphicsProfile(
+                e.Mode,
+                e.UseLitMaterials,
+                e.ProceduralNormals,
+                e.SectorAmbientBinding,
+                e.DynamicLights,
+                e.Shadows,
+                e.PostProcessing,
+                e.Hdr,
+                e.Ssao,
+                e.Bloom,
+                e.ColorGrading,
+                e.Fog,
+                e.Msaa,
+                e.RenderScaleOrFsr,
+                e.Sky,
+                e.AnimatedFluids,
+                e.LitSprites,
+                e.SpectreMaterial,
+                e.SoftFloorIntersection,
+                e.Particles,
+                e.Decals,
+                e.BilinearWorldFiltering,
+                worldDedither,
+                worldUpscale4X,
+                worldTexelAA,
+                worldParallax,
+                e.ControlledWorldMipmaps);
+        }
 
         public static GraphicsProfile Classic { get; } = new GraphicsProfile(
             GraphicsMode.Classic,
@@ -113,7 +164,10 @@ namespace Doom.MapBuild.Rendering
             particles: false,
             decals: false,
             bilinearWorldFiltering: false,
-            upscaleWorldTextures2X: false,
+            worldDedither: false,
+            worldUpscale4X: false,
+            worldTexelAA: false,
+            worldParallax: false,
             controlledWorldMipmaps: false);
 
         public static GraphicsProfile Enhanced { get; } = new GraphicsProfile(
@@ -138,10 +192,12 @@ namespace Doom.MapBuild.Rendering
             softFloorIntersection: true,
             particles: true,
             decals: true,
-            // Point keeps WAD albedo crisp. Bilinear on 64×N patches reads as
-            // soft mush, not "higher detail", once lighting/post are on.
+            // Point keeps WAD albedo crisp until texel-AA lands (Task 5).
             bilinearWorldFiltering: false,
-            upscaleWorldTextures2X: true,
+            worldDedither: true,
+            worldUpscale4X: true,
+            worldTexelAA: true,
+            worldParallax: true,
             controlledWorldMipmaps: true);
     }
 }

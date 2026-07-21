@@ -18,7 +18,7 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** not started.
+**Статус:** Task 1 done. Next: Task 2 (`DeditherFilter`).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -100,7 +100,7 @@ batchmode; в этом случае закрыть Editor или записат�
 - Modify: `Assets/Scripts/MapBuild/Rendering/GraphicsProfile.cs`
 - Modify: `Assets/Tests/EditMode/Map/GraphicsProfileTests.cs`
 
-- [ ] **Step 1: Снять актуальный baseline на `main`.**
+- [x] **Step 1: Снять актуальный baseline на `main`.**
 
 Зафиксировать commit/branch, Unity/GPU/API, актуальные test totals
 (полные EditMode/PlayMode прогоны без фильтра). На E1M1 и E1M7 записать:
@@ -109,13 +109,18 @@ map build time, Classic↔Enhanced switch times, counts
 dimensions и filter mode representative wall/flat/`SKY1` в обоих режимах.
 Camera poses для будущих послойных captures записать в notes.
 
-- [ ] **Step 2: Расширить variant contract.**
+Notes: `Logs/enhanced-texture-quality-baseline-notes.md`. EditMode baseline
+**513** (`texquality-t1-baseline-edit.xml`) on `texquality` @ `a580cd6` before
+contract recompile; PlayMode totals filled when run completes. E1 timing/
+memory TBD at Task 7; poses recorded from Stage 8 harness.
+
+- [x] **Step 2: Расширить variant contract.**
 
 Добавить `WorldTextureVariant.Enhanced4X`; `Enhanced2X` пометить
 `[Obsolete]` с сохранением численного значения. Profile mapping Enhanced →
 `Enhanced4X`.
 
-- [ ] **Step 3: Ввести декларативные layer flags.**
+- [x] **Step 3: Ввести декларативные layer flags.**
 
 В `GraphicsProfile` заменить единый флаг апскейла на `WorldDedither`,
 `WorldUpscale4X`, `WorldTexelAA`, `WorldParallax`. Classic — все false;
@@ -123,11 +128,13 @@ Enhanced — все true. Публичный API настроек (settings sche
 не меняется. Обеспечить возможность собрать промежуточный profile из
 кода (editor/test-only) для послойных captures.
 
-- [ ] **Step 4: Запустить profile tests.**
+- [x] **Step 4: Запустить profile tests.**
 
 ```text
 Doom.Map.Tests.GraphicsProfileTests
 ```
+
+**5 passed** — `Logs/texquality-t1-edit.xml`.
 
 **Commit checkpoint:** `graphics: define texture quality layer contracts`
 
