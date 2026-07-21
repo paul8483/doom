@@ -190,6 +190,29 @@ Doom.Graphics.Tests
 
 **Commit checkpoint:** `graphics: add palette-aware dedither filter`
 
+- [x] **Step 5 (ревизия 2026-07-22): паттерн-гейтинг вместо порогового
+  сглаживания.**
+
+Интерактивный просмотр превью («мыло») + свип T=20/30/40 показали, что
+пороговое сглаживание попадает в stop condition 2: зерно Freedoom живёт в
+тех же дистанциях, что и дизеринг, рабочего T нет. Дизайн пересогласован
+(см. ревизию в спеке): `DeditherFilter` переписан на шахматный
+паттерн-гейтинг (`GroupTolerance = 10`, `CrossDistanceThreshold = 40`,
+midpoint collapse, диагностическая маска). Тесты переписаны: синтетика
+(шахматки/шум/паз/ребро/прозрачность/wrap/маска) + Freedoom-интеграция
+(`STARTAN2`+`BROWN1`: гейт < 10% пикселей, сила ребра ≥ 95%).
+
+**17/17 DeditherFilter** (`Logs/texquality-t2b-dedither-edit.xml`);
+**81/81 Graphics** (`Logs/texquality-t2b-graphics-edit.xml`).
+
+Замер превью-инструментом (`Tools > Doom > Dump Dedither Preview`,
+`Logs/dedither-preview/`): на 9 представительных текстурах E1 гейт
+срабатывает на 0.00–0.02% пикселей — Freedoom реального шахматного
+дизеринга почти не содержит; слой для Freedoom ≈ no-op (корректно), польза
+ожидается на retail DOOM.WAD. Ставка визуального улучшения — Tasks 3/5/6.
+
+**Commit checkpoint:** `graphics: gate dedither on true checkerboard patterns`
+
 ---
 
 ## Task 3: Pure `SuperXbrUpscaler` + `AlphaBleedGuard`

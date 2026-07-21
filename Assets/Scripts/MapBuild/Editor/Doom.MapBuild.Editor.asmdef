@@ -3,6 +3,8 @@
     "rootNamespace": "Doom.MapBuild.Editor",
     "references": [
         "Doom.MapBuild",
+        "Doom.Wad",
+        "Doom.Graphics",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Editor"

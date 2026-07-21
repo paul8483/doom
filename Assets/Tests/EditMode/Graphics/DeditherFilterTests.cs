@@ -8,16 +8,17 @@ namespace Doom.Graphics.Tests
 {
     public class DeditherFilterTests
     {
-        // Close pair: weighted RGB distance ≈ 12.6 (< T).
+        // Close pair: weighted RGB distance = 12 (inside (GroupTolerance, Cross)).
         static readonly (byte r, byte g, byte b) CloseA = (80, 80, 80);
         static readonly (byte r, byte g, byte b) CloseB = (92, 92, 92);
+        const byte CloseMid = 86;
 
-        // Contrasting pair: weighted RGB distance = 255 (> T).
+        // Contrasting pair: weighted RGB distance = 255 (≥ CrossDistanceThreshold).
         static readonly (byte r, byte g, byte b) FarA = (0, 0, 0);
         static readonly (byte r, byte g, byte b) FarB = (255, 255, 255);
 
         [Test]
-        public void Close_color_checkerboard_becomes_homogeneous_midtone()
+        public void Close_checkerboard_interior_collapses_to_exact_midtone()
         {
             var src = Checkerboard(8, 8, CloseA, CloseB, 255);
             var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
@@ -25,19 +26,30 @@ namespace Doom.Graphics.Tests
             Assert.AreEqual(src.Width, outImg.Width);
             Assert.AreEqual(src.Height, outImg.Height);
 
-            // Interior should collapse toward the mean of the two close colors.
-            byte expectR = (byte)((CloseA.r + CloseB.r) / 2);
-            byte expectG = (byte)((CloseA.g + CloseB.g) / 2);
-            byte expectB = (byte)((CloseA.b + CloseB.b) / 2);
-
+            // Full 3×3 pattern exists only away from clamped borders.
             for (int y = 1; y < 7; y++)
             for (int x = 1; x < 7; x++)
             {
                 var p = outImg.GetPixel(x, y);
-                Assert.That(p.r, Is.EqualTo(expectR).Within(1), $"r at ({x},{y})");
-                Assert.That(p.g, Is.EqualTo(expectG).Within(1), $"g at ({x},{y})");
-                Assert.That(p.b, Is.EqualTo(expectB).Within(1), $"b at ({x},{y})");
+                Assert.AreEqual(CloseMid, p.r, $"r at ({x},{y})");
+                Assert.AreEqual(CloseMid, p.g, $"g at ({x},{y})");
+                Assert.AreEqual(CloseMid, p.b, $"b at ({x},{y})");
                 Assert.AreEqual(255, p.a);
+            }
+        }
+
+        [Test]
+        public void Close_checkerboard_clamped_border_is_untouched()
+        {
+            var src = Checkerboard(8, 8, CloseA, CloseB, 255);
+            var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
+
+            for (int i = 0; i < 8; i++)
+            {
+                Assert.AreEqual(src.GetPixel(i, 0), outImg.GetPixel(i, 0), $"top {i}");
+                Assert.AreEqual(src.GetPixel(i, 7), outImg.GetPixel(i, 7), $"bottom {i}");
+                Assert.AreEqual(src.GetPixel(0, i), outImg.GetPixel(0, i), $"left {i}");
+                Assert.AreEqual(src.GetPixel(7, i), outImg.GetPixel(7, i), $"right {i}");
             }
         }
 
@@ -47,16 +59,53 @@ namespace Doom.Graphics.Tests
             var src = Checkerboard(8, 8, FarA, FarB, 255);
             var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
 
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-                Assert.AreEqual(src.GetPixel(x, y), outImg.GetPixel(x, y),
-                    $"pixel ({x},{y}) must stay put");
+            AssertImagesEqual(src, outImg);
         }
 
         [Test]
-        public void Soft_edge_between_close_regions_softens_at_most_one_pixel()
+        public void Near_uniform_blob_is_unchanged()
         {
-            // Left half CloseA, right half CloseB — close colors across a vertical edge.
+            // All pixels within GroupTolerance of each other but not alternating:
+            // phase contrast stays ≤ GroupTolerance → gate must not fire.
+            var src = Checkerboard(8, 8, (84, 84, 84), (88, 88, 88), 255);
+            var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatXY);
+
+            AssertImagesEqual(src, outImg);
+        }
+
+        [Test]
+        public void Organic_noise_is_unchanged()
+        {
+            // Deterministic non-alternating grain of close colors: no pixel has
+            // checkerboard structure, so nothing may change.
+            byte[] values =
+            {
+                80, 85, 91, 83, 88, 80,
+                87, 80, 84, 90, 82, 86,
+                91, 88, 80, 85, 89, 83,
+                82, 84, 89, 80, 87, 91,
+                88, 91, 83, 86, 80, 84,
+                85, 82, 87, 91, 84, 89,
+            };
+            var rgba = new byte[6 * 6 * 4];
+            for (int i = 0; i < 36; i++)
+            {
+                rgba[i * 4] = values[i];
+                rgba[i * 4 + 1] = values[i];
+                rgba[i * 4 + 2] = values[i];
+                rgba[i * 4 + 3] = 255;
+            }
+
+            var src = new DecodedImage(6, 6, rgba);
+            var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatXY);
+
+            AssertImagesEqual(src, outImg);
+        }
+
+        [Test]
+        public void Region_edge_between_close_halves_is_unchanged()
+        {
+            // Two flat halves of close colors: an edge, not a dither pattern.
             var rgba = new byte[16 * 8 * 4];
             for (int y = 0; y < 8; y++)
             for (int x = 0; x < 16; x++)
@@ -68,48 +117,33 @@ namespace Doom.Graphics.Tests
             var src = new DecodedImage(16, 8, rgba);
             var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
 
-            // Far from the seam: exact source colors.
-            for (int y = 0; y < 8; y++)
-            {
-                Assert.AreEqual(CloseA, Rgb(outImg.GetPixel(2, y)));
-                Assert.AreEqual(CloseB, Rgb(outImg.GetPixel(13, y)));
-            }
-
-            // Softening may touch only the two columns at the seam (7 and 8).
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 16; x++)
-            {
-                if (x == 7 || x == 8) continue;
-                Assert.AreEqual(src.GetPixel(x, y), outImg.GetPixel(x, y),
-                    $"column {x} must be untouched");
-            }
+            AssertImagesEqual(src, outImg);
         }
 
         [Test]
-        public void Contrasting_edge_is_not_softened()
+        public void One_pixel_groove_is_preserved()
         {
-            var rgba = new byte[16 * 8 * 4];
+            // A 1px vertical dark groove in a light wall: orthogonal neighbors
+            // mix groove and wall colors → phase cohesion fails → untouched.
+            var rgba = new byte[8 * 8 * 4];
             for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 16; x++)
+            for (int x = 0; x < 8; x++)
             {
-                var c = x < 8 ? FarA : FarB;
-                Write(rgba, x, y, 16, c.r, c.g, c.b, 255);
+                var c = x == 4 ? (r: (byte)60, g: (byte)60, b: (byte)60) : (r: (byte)90, g: (byte)90, b: (byte)90);
+                Write(rgba, x, y, 8, c.r, c.g, c.b, 255);
             }
 
-            var src = new DecodedImage(16, 8, rgba);
-            var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
+            var src = new DecodedImage(8, 8, rgba);
+            var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatXY);
 
-            for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 16; x++)
-                Assert.AreEqual(src.GetPixel(x, y), outImg.GetPixel(x, y));
+            AssertImagesEqual(src, outImg);
         }
 
         [Test]
-        public void Fully_transparent_pixels_are_unchanged_and_do_not_bleed()
+        public void Fully_transparent_pixels_disable_the_gate_and_stay_unchanged()
         {
-            // Opaque checker of close colors on the left; fully transparent (with
-            // junk RGB) on the right. Transparent column must stay identical, and
-            // the opaque column next to it must not pull transparent RGB in.
+            // Close-color checker on the left, transparent junk RGB on the right.
+            // Any 3×3 touching transparency is skipped → whole image unchanged.
             var rgba = new byte[4 * 4 * 4];
             for (int y = 0; y < 4; y++)
             for (int x = 0; x < 4; x++)
@@ -129,86 +163,63 @@ namespace Doom.Graphics.Tests
             var copy = (byte[])src.Rgba.Clone();
             var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
 
-            for (int y = 0; y < 4; y++)
-            for (int x = 2; x < 4; x++)
-                Assert.AreEqual(src.GetPixel(x, y), outImg.GetPixel(x, y),
-                    $"transparent ({x},{y})");
-
-            // Opaque pixels adjacent to transparency must remain opaque and must
-            // not pick up the transparent neighbor's red channel as a component
-            // that pulls them toward (255,0,0).
-            for (int y = 1; y < 3; y++)
-            {
-                var p = outImg.GetPixel(1, y);
-                Assert.AreEqual(255, p.a);
-                Assert.That(p.r, Is.LessThan(120),
-                    "opaque pixel must not bleed transparent red");
-            }
-
+            AssertImagesEqual(src, outImg);
             CollectionAssert.AreEqual(copy, src.Rgba);
         }
 
         [Test]
-        public void RepeatXY_smooths_across_tile_seam()
+        public void RepeatXY_collapses_checkerboard_including_tile_seams()
         {
-            // 4×4 checkerboard of close colors. With RepeatXY, every pixel
-            // (including corners) sees a balanced 3×3 of both colors → midtone.
+            // Even-sized checker wraps seamlessly: every pixel is in-pattern.
             var src = Checkerboard(4, 4, CloseA, CloseB, 255);
             var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatXY);
 
-            byte expect = (byte)((CloseA.r + CloseB.r) / 2);
             for (int y = 0; y < 4; y++)
             for (int x = 0; x < 4; x++)
-                Assert.That(outImg.GetPixel(x, y).r, Is.EqualTo(expect).Within(1),
-                    $"({x},{y})");
+                Assert.AreEqual(CloseMid, outImg.GetPixel(x, y).r, $"({x},{y})");
         }
 
         [Test]
-        public void RepeatX_smooths_horizontal_seam_but_clamps_vertical()
+        public void RepeatX_wraps_horizontally_but_clamps_vertically()
         {
-            // Top-left checker cell vs wrapped right neighbor: with RepeatX the
-            // left border samples the right column. Build a 4×4 where column 0
-            // is CloseA and column 3 is CloseB (close), rest CloseA — so only
-            // RepeatX lets column 0 see CloseB via wrap.
-            var rgba = new byte[4 * 4 * 4];
-            for (int y = 0; y < 4; y++)
+            var src = Checkerboard(4, 4, CloseA, CloseB, 255);
+            var repeatX = DeditherFilter.Apply(src, PixelWrapMode.RepeatX);
+            var clamp = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
+
+            // RepeatX: interior rows are in-pattern across the X seam.
+            for (int y = 1; y < 3; y++)
+            for (int x = 0; x < 4; x++)
+                Assert.AreEqual(CloseMid, repeatX.GetPixel(x, y).r, $"repeatX ({x},{y})");
+
+            // RepeatX: clamped top/bottom rows break the pattern.
             for (int x = 0; x < 4; x++)
             {
-                var c = x == 3 ? CloseB : CloseA;
-                Write(rgba, x, y, 4, c.r, c.g, c.b, 255);
+                Assert.AreEqual(src.GetPixel(x, 0), repeatX.GetPixel(x, 0));
+                Assert.AreEqual(src.GetPixel(x, 3), repeatX.GetPixel(x, 3));
             }
 
-            var src = new DecodedImage(4, 4, rgba);
-            var clamp = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
-            var repeatX = DeditherFilter.Apply(src, PixelWrapMode.RepeatX);
-
-            // Clamp: left column only sees CloseA → stays CloseA.
-            Assert.AreEqual(CloseA.r, clamp.GetPixel(0, 1).r);
-
-            // RepeatX: left column also sees CloseB from the right → midtone pull.
-            Assert.That(repeatX.GetPixel(0, 1).r, Is.GreaterThan(CloseA.r));
-            Assert.That(repeatX.GetPixel(0, 1).r, Is.LessThan(CloseB.r));
+            // Clamp: X border columns additionally break the pattern.
+            for (int y = 0; y < 4; y++)
+            {
+                Assert.AreEqual(src.GetPixel(0, y), clamp.GetPixel(0, y));
+                Assert.AreEqual(src.GetPixel(3, y), clamp.GetPixel(3, y));
+            }
         }
 
         [Test]
-        public void Clamp_edge_samples_with_clamp()
+        public void Matched_mask_reports_gated_pixels_only()
         {
-            // Solid CloseA with a single CloseB at (0,0). Clamp keeps the
-            // out-of-bounds samples as the corner itself; interior far from
-            // corner stays CloseA.
-            var rgba = new byte[4 * 4 * 4];
-            for (int y = 0; y < 4; y++)
-            for (int x = 0; x < 4; x++)
-                Write(rgba, x, y, 4, CloseA.r, CloseA.g, CloseA.b, 255);
-            Write(rgba, 0, 0, 4, CloseB.r, CloseB.g, CloseB.b, 255);
+            var checker = Checkerboard(4, 4, CloseA, CloseB, 255);
+            DeditherFilter.Apply(checker, PixelWrapMode.RepeatXY,
+                DeditherFilter.CrossDistanceThreshold, out var checkerMask);
+            for (int i = 0; i < checkerMask.Length; i++)
+                Assert.IsTrue(checkerMask[i], $"checker mask {i}");
 
-            var src = new DecodedImage(4, 4, rgba);
-            var outImg = DeditherFilter.Apply(src, PixelWrapMode.Clamp);
-
-            Assert.AreEqual(CloseA, Rgb(outImg.GetPixel(3, 3)));
-            // Corner mixes with clamped neighbors (mostly CloseA) → between A and B.
-            var corner = outImg.GetPixel(0, 0);
-            Assert.That(corner.r, Is.InRange(CloseA.r, CloseB.r));
+            var flat = Checkerboard(4, 4, CloseA, CloseA, 255);
+            DeditherFilter.Apply(flat, PixelWrapMode.RepeatXY,
+                DeditherFilter.CrossDistanceThreshold, out var flatMask);
+            for (int i = 0; i < flatMask.Length; i++)
+                Assert.IsFalse(flatMask[i], $"flat mask {i}");
         }
 
         [Test]
@@ -216,7 +227,7 @@ namespace Doom.Graphics.Tests
         {
             var src = Checkerboard(4, 4, CloseA, CloseB, 255);
             var copy = (byte[])src.Rgba.Clone();
-            DeditherFilter.Apply(src, PixelWrapMode.Clamp);
+            DeditherFilter.Apply(src, PixelWrapMode.RepeatXY);
             CollectionAssert.AreEqual(copy, src.Rgba);
         }
 
@@ -251,10 +262,11 @@ namespace Doom.Graphics.Tests
                     PixelWrapMode.Clamp));
         }
 
-        /// Freedoom STARTAN2: dithered panel variance drops; high-edge groove
-        /// keeps most of its horizontal luma contrast (T=40 calibrated here).
+        /// Freedoom art is dominated by organic grain, not checkerboard dither:
+        /// the pattern gate must preserve nearly all of it and never soften
+        /// high-contrast seams.
         [Test]
-        public void Freedoom_STARTAN2_dither_region_variance_drops_seam_stable()
+        public void Freedoom_walls_keep_grain_and_edges()
         {
             string wadPath = Path.Combine(
                 Application.dataPath, "StreamingAssets", "wads", "freedoom1.wad");
@@ -264,42 +276,40 @@ namespace Doom.Graphics.Tests
             using var wad = WadFile.Open(wadPath);
             var palette = new Palette(wad.ReadLump("PLAYPAL"));
             var textures = TextureSet.Load(wad);
-            Assert.IsTrue(textures.Contains("STARTAN2"));
 
-            var src = textures.Build("STARTAN2", palette);
-            var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatX);
+            foreach (string name in new[] { "STARTAN2", "BROWN1" })
+            {
+                Assert.IsTrue(textures.Contains(name), name);
+                var src = textures.Build(name, palette);
+                var outImg = DeditherFilter.Apply(src, PixelWrapMode.RepeatX,
+                    DeditherFilter.CrossDistanceThreshold, out var mask);
 
-            // Dithered panel patch on Freedoom 0.13 STARTAN2 (128×128).
-            const int ditherX = 72, ditherY = 88, win = 16;
-            double varBefore = LocalLumaVariance(src, ditherX, ditherY, win, win);
-            double varAfter = LocalLumaVariance(outImg, ditherX, ditherY, win, win);
-            Assert.That(varAfter, Is.LessThan(varBefore * 0.75),
-                $"dither variance {varBefore:F2} → {varAfter:F2}; T={DeditherFilter.ColorDistanceThreshold}");
+                int matched = 0;
+                foreach (bool m in mask)
+                    if (m) matched++;
+                double fraction = (double)matched / mask.Length;
+                Assert.That(fraction, Is.LessThan(0.10),
+                    $"{name}: gate fired on {fraction:P1} of pixels — grain must survive");
 
-            // High-contrast groove / panel edge: edge strength must stay ≥ 85%.
-            const int edgeX = 0, edgeY = 56;
-            double edgeBefore = MeanAbsHorizontalLumaGradient(src, edgeX, edgeY, win, win);
-            double edgeAfter = MeanAbsHorizontalLumaGradient(outImg, edgeX, edgeY, win, win);
-            Assert.That(edgeAfter, Is.GreaterThanOrEqualTo(edgeBefore * 0.85),
-                $"edge strength {edgeBefore:F2} → {edgeAfter:F2}; T={DeditherFilter.ColorDistanceThreshold}");
+                // High-contrast groove on STARTAN2 must keep its strength.
+                if (name == "STARTAN2")
+                {
+                    double edgeBefore = MeanAbsHorizontalLumaGradient(src, 0, 56, 16, 16);
+                    double edgeAfter = MeanAbsHorizontalLumaGradient(outImg, 0, 56, 16, 16);
+                    Assert.That(edgeAfter, Is.GreaterThanOrEqualTo(edgeBefore * 0.95),
+                        $"edge strength {edgeBefore:F2} → {edgeAfter:F2}");
+                }
+            }
         }
 
-        static double LocalLumaVariance(DecodedImage img, int x0, int y0, int w, int h)
+        static void AssertImagesEqual(DecodedImage expected, DecodedImage actual)
         {
-            double sum = 0, sumSq = 0;
-            int n = 0;
-            for (int y = y0; y < y0 + h; y++)
-            for (int x = x0; x < x0 + w; x++)
-            {
-                var p = img.GetPixel(x, y);
-                double yL = 0.30 * p.r + 0.59 * p.g + 0.11 * p.b;
-                sum += yL;
-                sumSq += yL * yL;
-                n++;
-            }
-
-            double mean = sum / n;
-            return sumSq / n - mean * mean;
+            Assert.AreEqual(expected.Width, actual.Width);
+            Assert.AreEqual(expected.Height, actual.Height);
+            for (int y = 0; y < expected.Height; y++)
+            for (int x = 0; x < expected.Width; x++)
+                Assert.AreEqual(expected.GetPixel(x, y), actual.GetPixel(x, y),
+                    $"pixel ({x},{y})");
         }
 
         static double MeanAbsHorizontalLumaGradient(
@@ -346,8 +356,5 @@ namespace Doom.Graphics.Tests
             rgba[i + 2] = b;
             rgba[i + 3] = a;
         }
-
-        static (byte r, byte g, byte b) Rgb((byte r, byte g, byte b, byte a) p) =>
-            (p.r, p.g, p.b);
     }
 }
