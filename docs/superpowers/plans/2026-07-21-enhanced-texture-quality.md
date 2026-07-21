@@ -18,7 +18,7 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 1 done. Next: Task 2 (`DeditherFilter`).
+**Статус:** Task 2 done. Next: Task 3 (`SuperXbrUpscaler` + `AlphaBleedGuard`).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -146,7 +146,7 @@ Doom.Map.Tests.GraphicsProfileTests
 - Create: `Assets/Scripts/Graphics/DeditherFilter.cs`
 - Create: `Assets/Tests/EditMode/Graphics/DeditherFilterTests.cs`
 
-- [ ] **Step 1: Написать failing fixtures.**
+- [x] **Step 1: Написать failing fixtures.**
 
 - шахматка 2 близких цветов (дистанция < T) → однородный средний тон;
 - шахматка 2 контрастных цветов (> T) → без изменений;
@@ -158,7 +158,7 @@ Doom.Map.Tests.GraphicsProfileTests
   Clamp: край сэмплится с clamp;
 - вход не мутирует; invalid dimensions/RGBA отклоняются.
 
-- [ ] **Step 2: Реализовать фильтр.**
+- [x] **Step 2: Реализовать фильтр.**
 
 3×3 селективное усреднение: сосед входит с весом 1 при
 `dist(c, center) < T`, иначе 0; дистанция — взвешенный RGB
@@ -166,7 +166,7 @@ Doom.Map.Tests.GraphicsProfileTests
 подобранная на Freedoom fixtures (Step 3). Без per-pixel allocations во
 внутреннем цикле.
 
-- [ ] **Step 3: Откалибровать порог на Freedoom.**
+- [x] **Step 3: Откалибровать порог на Freedoom.**
 
 Integration test: representative дизеренная область реального Freedoom
 wall (найти конкретный lump на этапе реализации, зафиксировать имя в
@@ -174,12 +174,19 @@ wall (найти конкретный lump на этапе реализации,
 контрастная область (швы/контуры) — неизменную. Порог записать константой
 с комментарием, чем откалиброван.
 
-- [ ] **Step 4: Запустить Graphics suite.**
+`ColorDistanceThreshold = 40` на Freedoom 0.13 `STARTAN2`: dither patch
+`(72,88)` 16×16 variance ~58→18; high-edge `(0,56)` strength retained ≥85%.
+Test: `Freedoom_STARTAN2_dither_region_variance_drops_seam_stable`.
+
+- [x] **Step 4: Запустить Graphics suite.**
 
 ```text
 Doom.Graphics.Tests.DeditherFilterTests
 Doom.Graphics.Tests
 ```
+
+**14/14 DeditherFilter** (`Logs/texquality-t2-dedither-edit.xml`);
+**78/78 Graphics** (`Logs/texquality-t2-graphics-edit.xml`).
 
 **Commit checkpoint:** `graphics: add palette-aware dedither filter`
 
