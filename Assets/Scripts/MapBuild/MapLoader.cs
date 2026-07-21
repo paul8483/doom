@@ -365,7 +365,7 @@ namespace Doom.MapBuild
             }
             var animCatalog = Doom.Graphics.TextureAnimationCatalog.Build(TextureExists);
             // Pre-warm animated frame textures while WAD is open (native decode).
-            // If the persisted mode is Enhanced, also build 2× variants now so the
+            // If the persisted mode is Enhanced, also build 4× variants now so the
             // first ApplyProfile does not hitch on every animated frame.
             var warmVariant = GraphicsProfile.ForMode(gfx.Current).WorldTextureVariant;
             foreach (var seq in animCatalog.Sequences)

@@ -55,11 +55,8 @@ namespace Doom.MapBuild.Editor
         static void WriteCompare(DecodedImage native, PixelWrapMode wrap, string name, string outDir)
         {
             bool masked = HasTransparent(native);
-            var processed = DeditherFilter.Apply(native, wrap);
-            if (masked)
-                processed = AlphaBleedGuard.Dilate(processed);
-            var x2 = SuperXbrUpscaler.Scale2X(processed, wrap);
-            var x4 = SuperXbrUpscaler.Scale2X(x2, wrap);
+            var x4 = TextureCache.BuildEnhanced4XDecoded(
+                native, wrap, applyDedither: true, applyAlphaBleed: masked);
 
             // Left: native at nearest ×4 (what Classic texels look like up close).
             // Right: Super-xBR 4× at 1:1 — same on-screen size.

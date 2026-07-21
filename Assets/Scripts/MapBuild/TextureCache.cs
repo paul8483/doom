@@ -8,7 +8,7 @@ namespace Doom.MapBuild
 {
     /// Turns decoded WAD images into Unity Texture2D/Material, cached by name.
     /// Resolution order: composite wall texture (TextureSet) -> flat lump -> magenta.
-    /// Native and Enhanced 2× albedo variants share one decoded source per name.
+    /// Native and Enhanced 4× albedo variants share one decoded source per name.
     public sealed class TextureCache
     {
         sealed class SourceEntry
@@ -38,6 +38,9 @@ namespace Doom.MapBuild
 
         int enhancedVariantCount;
         long enhancedTextureBytes;
+
+        /// Test seam: when true, Enhanced4X transform throws so fallback can be asserted.
+        public static bool ForceEnhancedFailureForTests;
 
         public int NormalMapCount => normalCache.Count;
         public int EnhancedVariantCount => enhancedVariantCount;
@@ -84,11 +87,10 @@ namespace Doom.MapBuild
 
         public Texture2D GetTexture(string name, WorldTextureVariant variant)
         {
-            // Temporary: Enhanced4X maps to the existing Scale2x path until Task 4
-            // replaces it with Super-xBR 4×. Keeps hot-switch/playtests green.
-#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
-            if (variant == WorldTextureVariant.Enhanced4X)
-                variant = WorldTextureVariant.Enhanced2X;
+            // Obsolete Enhanced2X is no longer a runtime creation path.
+#pragma warning disable CS0618
+            if (variant == WorldTextureVariant.Enhanced2X)
+                variant = WorldTextureVariant.Enhanced4X;
 #pragma warning restore CS0618
 
             var key = (name, variant);
@@ -97,20 +99,16 @@ namespace Doom.MapBuild
 
             EnsureSource(name);
 
-#pragma warning disable CS0618
-            if (variant == WorldTextureVariant.Enhanced2X)
+            if (variant == WorldTextureVariant.Enhanced4X)
                 return GetOrCreateEnhanced(name);
-#pragma warning restore CS0618
 
             return GetOrCreateNative(name);
         }
 
-        /// Lazy normal for Enhanced materials. Built from the Enhanced 2× source.
+        /// Lazy normal for Enhanced materials. Built from the Enhanced 4× source.
         public Texture2D GetOrCreateNormal(string name)
         {
-#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
-            var key = (name, WorldTextureVariant.Enhanced2X);
-#pragma warning restore CS0618
+            var key = (name, WorldTextureVariant.Enhanced4X);
             if (normalCache.TryGetValue(key, out var existing))
                 return existing;
 
@@ -129,16 +127,36 @@ namespace Doom.MapBuild
             RegisterTextureOnce(tex);
             context?.RegisterOwned(tex);
 
-            // CPU 2× buffer is no longer needed once albedo + normal are uploaded.
-#pragma warning disable CS0618
-            if (texCache.ContainsKey((name, WorldTextureVariant.Enhanced2X)))
-#pragma warning restore CS0618
+            // CPU 4× buffer is no longer needed once albedo + normal are uploaded.
+            if (texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X)))
             {
                 entry.Enhanced = null;
                 entry.EnhancedMips = null;
             }
 
             return tex;
+        }
+
+        /// CPU-side Enhanced4X pipeline (dedither → [bleed] → Super-xBR ×2 ×2).
+        /// Exposed for diagnostics and PlayMode assertions before GPU upload.
+        public static DecodedImage BuildEnhanced4XDecoded(
+            DecodedImage native,
+            PixelWrapMode wrap,
+            bool applyDedither,
+            bool applyAlphaBleed)
+        {
+            if (native == null)
+                throw new System.ArgumentNullException(nameof(native));
+
+            var processed = applyDedither
+                ? DeditherFilter.Apply(native, wrap)
+                : native;
+
+            if (applyAlphaBleed)
+                processed = AlphaBleedGuard.Dilate(processed);
+
+            var x2 = SuperXbrUpscaler.Scale2X(processed, wrap);
+            return SuperXbrUpscaler.Scale2X(x2, wrap);
         }
 
         Texture2D GetOrCreateNative(string name)
@@ -157,9 +175,7 @@ namespace Doom.MapBuild
 
         Texture2D GetOrCreateEnhanced(string name)
         {
-#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
-            var key = (name, WorldTextureVariant.Enhanced2X);
-#pragma warning restore CS0618
+            var key = (name, WorldTextureVariant.Enhanced4X);
             if (texCache.TryGetValue(key, out var existing))
                 return existing;
 
@@ -172,9 +188,7 @@ namespace Doom.MapBuild
                 var enhancedMips = GetEnhancedMipChain(name, entry);
                 var tex = ToAlbedoTexture2D(enhancedMips, name, entry);
                 texCache[key] = tex;
-#pragma warning disable CS0618
-                albedoToName[tex] = (name, WorldTextureVariant.Enhanced2X);
-#pragma warning restore CS0618
+                albedoToName[tex] = (name, WorldTextureVariant.Enhanced4X);
                 RegisterTextureOnce(tex);
                 enhancedVariantCount++;
                 enhancedTextureBytes += TextureBytes(tex);
@@ -186,7 +200,7 @@ namespace Doom.MapBuild
                 entry.Enhanced = null;
                 entry.EnhancedMips = null;
                 GraphicsLog.Warning(
-                    $"TextureCache: Enhanced 2× failed for '{name}': {e.Message} — using native");
+                    $"TextureCache: Enhanced 4× failed for '{name}': {e.Message} — using native");
                 return GetOrCreateNative(name);
             }
         }
@@ -198,8 +212,18 @@ namespace Doom.MapBuild
             if (entry.Enhanced != null)
                 return entry.Enhanced;
 
+            if (ForceEnhancedFailureForTests)
+                throw new System.InvalidOperationException(
+                    "Forced Enhanced4X failure (test seam).");
+
             var wrap = WrapFor(entry);
-            entry.Enhanced = PixelArtUpscaler.Scale2X(entry.Native, wrap);
+            var profile = materials.ActiveProfile;
+            bool masked = HasTransparent(entry.Native);
+            entry.Enhanced = BuildEnhanced4XDecoded(
+                entry.Native,
+                wrap,
+                applyDedither: profile.WorldDedither,
+                applyAlphaBleed: masked);
             return entry.Enhanced;
         }
 
@@ -223,6 +247,14 @@ namespace Doom.MapBuild
             if (entry.IsFlat)
                 return PixelWrapMode.RepeatXY;
             return PixelWrapMode.RepeatX;
+        }
+
+        static bool HasTransparent(DecodedImage img)
+        {
+            var rgba = img.Rgba;
+            for (int i = 3; i < rgba.Length; i += 4)
+                if (rgba[i] == 0) return true;
+            return false;
         }
 
         void EnsureSource(string name)
@@ -258,10 +290,8 @@ namespace Doom.MapBuild
         {
             if (albedo == null) return null;
             if (!albedoToName.TryGetValue(albedo, out var info)) return null;
-            // Normals match Enhanced 2× albedo only. Native fallback keeps flat normals.
-#pragma warning disable CS0618 // Enhanced2X retained until Task 4 pipeline swap
-            if (info.variant != WorldTextureVariant.Enhanced2X)
-#pragma warning restore CS0618
+            // Normals match Enhanced 4× albedo only. Native fallback keeps flat normals.
+            if (info.variant != WorldTextureVariant.Enhanced4X)
                 return null;
             return GetOrCreateNormal(info.name);
         }
@@ -319,6 +349,7 @@ namespace Doom.MapBuild
                 mipChain: hasMips, linear: false);
             tex.name = name;
             ConfigureWrap(tex, entry);
+            // Controlled mips: Trilinear minification (LOD0 stays sharp via mip content).
             tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Point;
             tex.anisoLevel = hasMips ? anisoLevel : 1;
 

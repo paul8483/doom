@@ -18,7 +18,7 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 3 done. Next: Task 4 (`TextureCache` Enhanced4X pipeline).
+**Статус:** Task 4 done. Next: Task 5 (texel-AA) or Task 6 (height/normals/POM).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -281,37 +281,38 @@ Doom.Graphics.Tests
 - Modify: `Assets/Scripts/MapBuild/TextureCache.cs`
 - Modify: `Assets/Tests/PlayMode/TextureUpscalePlayTests.cs`
 
-- [ ] **Step 1: Написать failing cache tests.**
+- [x] **Step 1: Написать failing cache tests.**
 
-- `Enhanced4X` variant имеет ровно 4× dimensions, Bilinear, mips;
+- `Enhanced4X` variant имеет ровно 4× dimensions, controlled-mips Trilinear, mips;
 - native variant не изменился (Point, native dimensions);
 - повторный запрос → тот же object; counts стабильны;
-- flat → RepeatXY, wall/`SKY1` → RepeatX, placeholder → Clamp;
-- masked texture проходит через bleed guard (проверить отсутствие чёрного
-  RGB у видимых texels);
-- ошибка transform (test seam) → native fallback, failed state кэшируется.
+- flat → RepeatXY, wall → RepeatX, placeholder → Clamp;
+- masked synthetic grate через bleed guard (нет тёмных fringe на visible);
+- ошибка transform (test seam `ForceEnhancedFailureForTests`) → native
+  fallback, failed state кэшируется.
 
-- [ ] **Step 2: Собрать пайплайн.**
+- [x] **Step 2: Собрать пайплайн.**
 
-`Enhanced4X` entry: cached native `DecodedImage` → `DeditherFilter` →
-`AlphaBleedGuard` (только masked) → `SuperXbrUpscaler` ×2 → ×2 →
-существующий controlled-mips upload (Bilinear, aniso, sRGB). Слои
-включаются по флагам profile (для editor/test промежуточных профилей —
-частичный пайплайн). Промежуточные буферы не кэшировать; после upload и
-(позже) height/normal generation освободить CPU 4× буфер;
-`makeNoLongerReadable` для albedo.
+`Enhanced4X` entry: cached native `DecodedImage` → `DeditherFilter` (если
+`WorldDedither`) → `AlphaBleedGuard` (только masked) → `SuperXbrUpscaler`
+×2 → ×2 → существующий controlled-mips upload (Trilinear+aniso while
+controlled mips on). `BuildEnhanced4XDecoded` — общий CPU helper.
+Промежуточные буферы не кэшируются; CPU 4× освобождается после albedo+normal
+upload; `makeNoLongerReadable` для albedo.
 
-- [ ] **Step 3: Удалить Scale2x из mapping.**
+- [x] **Step 3: Удалить Scale2x из mapping.**
 
-`Enhanced2X` больше не создаётся ни одним runtime path; `PixelArtUpscaler`
-и его тесты остаются. Проверить, что ни один consumer не запрашивает
-устаревший variant.
+`Enhanced2X` больше не создаётся: obsolete request aliases to `Enhanced4X`.
+`PixelArtUpscaler` и его тесты остаются. Profile mapping уже был на
+`Enhanced4X` (Task 1).
 
-- [ ] **Step 4: Запустить cache tests.**
+- [x] **Step 4: Запустить cache tests.**
 
 ```text
 Doom.Stage3.PlayTests.TextureUpscalePlayTests
 ```
+
+**5/5 passed** (`Logs/texquality-t4-play.xml`).
 
 **Commit checkpoint:** `mapbuild: build enhanced 4x texture variant pipeline`
 

@@ -1,7 +1,7 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 3 done (`SuperXbrUpscaler` + `AlphaBleedGuard`); next Task 4 Enhanced4X `TextureCache` pipeline
+**Статус:** in progress — Task 4 done (`TextureCache` Enhanced4X: dedither → [bleed] → Super-xBR ×2 ×2); next Task 5 texel-AA or Task 6 height/normals/POM
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.
