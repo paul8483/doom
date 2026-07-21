@@ -18,7 +18,7 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 2 done. Next: Task 3 (`SuperXbrUpscaler` + `AlphaBleedGuard`).
+**Статус:** Task 3 done. Next: Task 4 (`TextureCache` Enhanced4X pipeline).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -223,7 +223,7 @@ midpoint collapse, диагностическая маска). Тесты пер
 - Create: `Assets/Tests/EditMode/Graphics/SuperXbrUpscalerTests.cs`
 - Create: `Assets/Tests/EditMode/Graphics/AlphaBleedGuardTests.cs`
 
-- [ ] **Step 1: Написать failing core fixtures.**
+- [x] **Step 1: Написать failing core fixtures.**
 
 - 1×1 и uniform image → uniform 2× exact;
 - output dimensions/byte length; 2× дважды → 4×;
@@ -232,39 +232,44 @@ midpoint collapse, диагностическая маска). Тесты пер
 - диагональная fixture: снять golden-массив с реализации после ревью
   правильности и закрепить как snapshot-регрессию.
 
-- [ ] **Step 2: Портировать Super-xBR (MIT).**
+- [x] **Step 2: Портировать Super-xBR (MIT).**
 
 Порт reference-реализации Hyllian (3 внутренних прохода на один 2× шаг).
-MIT-заголовок + атрибуция в файле; third-party notice. Веса/константы
-reference-версии не менять. Wrap policy (Clamp/RepeatX/RepeatXY) применять
-при выборке соседей на обоих проходах. Без per-pixel allocations.
+MIT-заголовок + атрибуция в файле; third-party notice
+(`Assets/ThirdParty/SuperXbr/`). Веса/константы reference-версии не
+менять. Wrap policy (Clamp/RepeatX/RepeatXY) применять при выборке
+соседей на обоих проходах. Без per-pixel allocations.
 
-- [ ] **Step 3: Реализовать `AlphaBleedGuard`.**
+- [x] **Step 3: Реализовать `AlphaBleedGuard`.**
 
 Дилатация RGB непрозрачных пикселей в полностью прозрачные соседние
-texels (1–2 итерации); alpha не меняется. Тесты: RGB прозрачного соседа
-после dilate равен ближайшему непрозрачному; непрозрачные пиксели
-неизменны; полностью непрозрачное изображение — no-op.
+texels (1–2 итерации, маска `valid` для распространения через уже
+bled texels); alpha не меняется. Тесты: RGB прозрачного соседа после
+dilate равен ближайшему непрозрачному; непрозрачные пиксели неизменны;
+полностью непрозрачное изображение — no-op.
 
-- [ ] **Step 4: Alpha/wrap fixtures.**
+- [x] **Step 4: Alpha/wrap fixtures.**
 
 Masked fixture (решётка): после bleed + 2×2 апскейла нет тёмных RGB у
-пикселей с alpha над порогом cutout; RepeatX шов слева/справа бесшовный;
-RepeatXY углы flat корректны.
+пикселей с alpha над порогом cutout; RepeatX отличается от Clamp на
+горизонтальном шве (wrap активен); RepeatXY отличается от Clamp на углу.
 
-- [ ] **Step 5: Freedoom integration.**
+- [x] **Step 5: Freedoom integration.**
 
-Representative wall, flat, masked texture, `SKY1`: полный проход
-dedither → [bleed] → superxbr ×2 ×2 без исключений; dimensions 4×;
-alpha сохраняет маску.
+Representative wall (`STARTAN2`), flat (`FLOOR4_8`), first masked
+texture in `TextureSet`, `SKY1`: полный проход dedither → [bleed] →
+superxbr ×2 ×2 без исключений; dimensions 4×; alpha сохраняет маску.
 
-- [ ] **Step 6: Запустить Graphics suite целиком.**
+- [x] **Step 6: Запустить Graphics suite целиком.**
 
 ```text
 Doom.Graphics.Tests.SuperXbrUpscalerTests
 Doom.Graphics.Tests.AlphaBleedGuardTests
 Doom.Graphics.Tests
 ```
+
+**14 SuperXbr + 7 AlphaBleed = 21/21** (`Logs/texquality-t3-core-edit.xml`);
+**102/102 Graphics** (`Logs/texquality-t3-graphics-edit.xml`).
 
 **Commit checkpoint:** `graphics: add superxbr 4x upscale with alpha bleed guard`
 
