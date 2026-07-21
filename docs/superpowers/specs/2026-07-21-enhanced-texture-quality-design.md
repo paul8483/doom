@@ -1,7 +1,7 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** draft
+**Статус:** in progress — Task 1 done (`5315e8a`); next Task 2 `DeditherFilter`
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.
