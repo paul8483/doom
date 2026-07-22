@@ -40,7 +40,11 @@ half4 DoomSampleTexelAA(
 
     float2 boxSize = clamp(fwidth(texelPosition), 1e-5, 1.0);
     float2 tx = texelPosition - 0.5 * boxSize;
-    float2 txOffset = smoothstep(float2(0.0, 0.0), boxSize, frac(tx));
+    // Offset must ramp only in the LAST boxSize fraction of each texel
+    // (reference fat-pixel filtering). Ramping from 0 instead keeps the
+    // offset at 1 across the whole texel interior, which samples the next
+    // texel's center — a constant one-texel shift of every world texture.
+    float2 txOffset = smoothstep(1.0 - boxSize, float2(1.0, 1.0), frac(tx));
     float2 aaUv = (floor(tx) + 0.5 + txOffset) * texelSize.xy;
 
     half4 closeSample = SAMPLE_TEXTURE2D_LOD(
