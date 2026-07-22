@@ -44,6 +44,7 @@ namespace Doom.MapBuild
         /// Test seam: when true, Enhanced4X transform throws so fallback can be asserted.
         public static bool ForceEnhancedFailureForTests;
 
+        public DoomMaterialFactory Materials => materials;
         public int NormalMapCount => normalCache.Count;
         public int EnhancedVariantCount => enhancedVariantCount;
         public long NativeTextureBytes => nativeTextureBytes;
@@ -134,6 +135,12 @@ namespace Doom.MapBuild
             // Albedo mips must exist before a normal job can be created.
             GetOrCreateEnhanced(name);
 
+            if (TryIntegrateNormalFromStore(name))
+            {
+                normalCache.TryGetValue(key, out existing);
+                return existing;
+            }
+
             var job = TryCreateNormalJob(name);
             if (job == null)
             {
@@ -141,7 +148,9 @@ namespace Doom.MapBuild
                 return existing;
             }
 
-            Integrate(name, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(name, result);
+            PublishToStore(EnhancedJobKind.WorldNormal, name, result);
             normalCache.TryGetValue(key, out existing);
             return existing;
         }
@@ -290,6 +299,9 @@ namespace Doom.MapBuild
                 return texCache[key];
             }
 
+            if (TryIntegrateAlbedoFromStore(name))
+                return texCache[key];
+
             var job = TryCreateAlbedoJob(name);
             if (job == null)
             {
@@ -300,8 +312,40 @@ namespace Doom.MapBuild
                 return native;
             }
 
-            Integrate(name, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(name, result);
+            PublishToStore(EnhancedJobKind.WorldAlbedo, name, result);
             return texCache[key];
+        }
+
+        static EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+
+        bool TryIntegrateAlbedoFromStore(string name)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
+            if (!store.TryGet(EnhancedJobKind.WorldAlbedo, name, StoreLayers, out var stored))
+                return false;
+            Integrate(name, stored);
+            return texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
+        }
+
+        bool TryIntegrateNormalFromStore(string name)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
+            if (!store.TryGet(EnhancedJobKind.WorldNormal, name, StoreLayers, out var stored))
+                return false;
+            Integrate(name, stored);
+            return normalCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
+        }
+
+        void PublishToStore(EnhancedJobKind kind, string name, EnhancedJobResult result)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
+            store.Publish(kind, name, StoreLayers, result);
         }
 
         void IntegrateAlbedo(string name, EnhancedJobResult result)

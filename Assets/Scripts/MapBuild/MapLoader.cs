@@ -392,6 +392,7 @@ namespace Doom.MapBuild
 
                 // Normals match Enhanced albedo; build now so RegisterContext
                 // ApplyProfile does not hitch on first lit material retarget.
+                EnhancedWarmScheduler.ResetCompletedStats();
                 warmScheduler = new EnhancedWarmScheduler();
                 yield return warmScheduler.Warm(
                     cache, sprites: null, hud: null, warmNames,

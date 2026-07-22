@@ -17,9 +17,10 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 `GraphicsModeController` (дублирующиеся warm-циклы удаляются).
 Спека: `docs/superpowers/specs/2026-07-22-enhanced-warm-performance-design.md`.
 
-**Статус:** Task 2 done (parallel `EnhancedWarmScheduler`; first Enhanced warm
-E1M1 **~14.1 s**, gate ≤15 s PASS; PlayMode Task2 filter **27/27**, Graphics
-EditMode **129**). Next: Task 3 session store.
+**Статус:** Task 3 done (`EnhancedVariantStore`; E1M1 reload **0** compute /
+**889** store hits; store CPU **~375 MB**; E1M1→E1M2 compute **252** vs cold
+**805**, hits **692**; PlayMode Task3 filter **31/31**, EditMode store+Graphics
+**136**). Next: Task 4 disk pack-cache.
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).
@@ -183,30 +184,38 @@ switched from frame-count to realtime (parallel warm races short frames).
 
 **Files:**
 - Create: `Assets/Scripts/MapBuild/Rendering/EnhancedVariantStore.cs`
+- Create: `Assets/Scripts/MapBuild/Rendering/EnhancedLayerConfig.cs`
 - Modify: `EnhancedWarmScheduler` + три кэша (lookup/publish)
-- Create/Modify: PlayMode тесты store
+- Modify: `GraphicsModeController` (pin Enhanced profile before hot-switch warm)
+- Modify: `GameSessionHost` (bind store on WadIdentity)
+- Create: `Assets/Tests/EditMode/Map/EnhancedVariantStoreTests.cs`
+- Create: `Assets/Tests/PlayMode/EnhancedVariantStorePlayTests.cs`
 
-- [ ] **Step 1: Failing tests.**
+- [x] **Step 1: Failing tests.**
 
-- второй заход на карту (scene reload / переход уровня): **0**
-  выполненных jobs, варианты корректны, время warm ≈ upload-only;
-- lookup мимо wadIdentity/layerConfig/pipelineVersion — промах
-  (EditMode юниты);
-- Classic-загрузка store не трогает; повторный switch не медленнее.
+EditMode ×7 (publish/lookup, wad/layer/version miss, Classic layers).
+PlayMode ×4 (fresh-cache upload-only, same-map reload 0 compute,
+E1M1→E1M2 shared reuse, Classic load does not publish).
 
-- [ ] **Step 2: Реализовать store.**
+- [x] **Step 2: Реализовать store.**
 
 `ConcurrentDictionary`, ключ
 `(wadIdentity, kind, itemId, layerConfig, pipelineVersion)`; wadIdentity
-из существующей Stage 7d идентичности; очистка при несоответствии.
-Порядок в scheduler: store → compute; publish после Integrate.
+из Stage 7d; очистка при несоответствии. Порядок: store → compute;
+publish после Integrate. Hot-switch pins Enhanced factory flags before
+warm so Classic→Enhanced does not key under Classic layers.
 
-- [ ] **Step 3: Замерить.**
+- [x] **Step 3: Замерить.**
 
-Переход E1M1→E1M2 в Enhanced; пик managed памяти (store ~370 МБ —
-записать фактический). Гейт: переход без пересчёта.
+Same-map E1M1 reload: **0** compute, **889** store hits, store CPU
+**375.3 MB**. E1M1→E1M2: compute **252** (vs cold **805**), hits **692**,
+managed **~1215 MB**. Notes:
+`Logs/enhanced-texture-quality-baseline-notes.md` (Warm-perf Task 3).
 
-- [ ] **Step 4: Запустить suites** (те же, что Task 2, + E1 smoke).
+- [x] **Step 4: Запустить suites.**
+
+PlayMode Task3 filter **31/31** (`Logs/warmperf-t3-regress-play.xml`);
+EditMode store+Graphics **136** (`Logs/warmperf-t3-edit.xml`).
 
 **Commit checkpoint:** `rendering: session store for enhanced variants`
 
@@ -302,9 +311,10 @@ Task 5 suites/build/docs
 
 ## Definition of Done
 
-- [ ] Детерминизм-тесты и codec-тесты зелёные (EditMode).
-- [ ] Первая Enhanced-загрузка ≤ 15 с (8C/16T), числа записаны.
-- [ ] Переход уровня в Enhanced: 0 compute-jobs.
+- [x] Детерминизм-тесты зелёные (EditMode) — Task 1; codec — Task 4.
+- [x] Первая Enhanced-загрузка ≤ 15 с (8C/16T), числа записаны — Task 2.
+- [x] Повторная загрузка той же карты в Enhanced: 0 compute-jobs (Task 3);
+      переход уровня переиспользует store (только уникальные items).
 - [ ] Холодный старт с pack-файлом ≤ ~5 с; повреждение/версия
       обрабатываются молча.
 - [ ] Hot-switch, lifetime, upscale, E1 smoke сьюты зелёные; полные

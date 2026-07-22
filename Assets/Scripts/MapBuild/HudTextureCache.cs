@@ -61,6 +61,7 @@ namespace Doom.MapBuild
 
         public int EnhancedVariantCount => enhancedVariantCount;
         public long EnhancedTextureBytes => enhancedTextureBytes;
+        public GraphicsProfile ActiveProfile => ResolveActiveProfile();
 
         /// Status-bar patch names eligible for Enhanced4X (menus stay native).
         public IEnumerable<string> HudPatchNames
@@ -144,11 +145,16 @@ namespace Doom.MapBuild
                 return false;
             }
 
+            if (TryIntegrateFromStore(name))
+                return true;
+
             var job = TryCreateJob(name);
             if (job == null)
                 return slot.EnhancedTex != null && !slot.EnhancedFailed;
 
-            Integrate(name, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(name, result);
+            PublishToStore(name, result);
             return slot.EnhancedTex != null && !slot.EnhancedFailed;
         }
 
@@ -275,12 +281,37 @@ namespace Doom.MapBuild
                 return slot.NativeTex;
             }
 
+            if (TryIntegrateFromStore(name))
+                return slot.EnhancedTex ?? slot.NativeTex;
+
             var job = TryCreateJob(name);
             if (job == null)
                 return slot.EnhancedTex ?? slot.NativeTex;
 
-            Integrate(name, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(name, result);
+            PublishToStore(name, result);
             return slot.EnhancedTex ?? slot.NativeTex;
+        }
+
+        static EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+
+        bool TryIntegrateFromStore(string name)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
+            if (!store.TryGet(EnhancedJobKind.Hud, name, StoreLayers, out var stored))
+                return false;
+            Integrate(name, stored);
+            return HasEnhanced(name);
+        }
+
+        void PublishToStore(string name, EnhancedJobResult result)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
+            store.Publish(EnhancedJobKind.Hud, name, StoreLayers, result);
         }
 
         /// Paint over Freedoom Phase 1 TITLEPIC bottom-left copyright

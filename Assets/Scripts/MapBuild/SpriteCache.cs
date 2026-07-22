@@ -171,11 +171,16 @@ namespace Doom.MapBuild
                 return false;
             }
 
+            if (TryIntegrateFromStore(lumpIndex))
+                return true;
+
             var job = TryCreateJob(lumpIndex);
             if (job == null)
                 return texByLumpVariant.ContainsKey(key);
 
-            Integrate(lumpIndex, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(lumpIndex, result);
+            PublishToStore(lumpIndex, result);
             return texByLumpVariant.TryGetValue(key, out var enhanced) &&
                    enhanced != null &&
                    !failedEnhancedLumps.Contains(lumpIndex);
@@ -296,6 +301,13 @@ namespace Doom.MapBuild
                 return nativeTex;
             }
 
+            if (TryIntegrateFromStore(lumpIndex))
+            {
+                if (texByLumpVariant.TryGetValue(key, out existing))
+                    return existing;
+                return nativeTex;
+            }
+
             var job = TryCreateJob(lumpIndex);
             if (job == null)
             {
@@ -304,10 +316,33 @@ namespace Doom.MapBuild
                 return nativeTex;
             }
 
-            Integrate(lumpIndex, EnhancedJobRunner.Run(job));
+            var result = EnhancedJobRunner.Run(job);
+            Integrate(lumpIndex, result);
+            PublishToStore(lumpIndex, result);
             if (texByLumpVariant.TryGetValue(key, out existing))
                 return existing;
             return nativeTex;
+        }
+
+        static EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+
+        bool TryIntegrateFromStore(int lumpIndex)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
+            if (!store.TryGet(
+                    EnhancedJobKind.Sprite, lumpIndex.ToString(), StoreLayers, out var stored))
+                return false;
+            Integrate(lumpIndex, stored);
+            return HasEnhanced(lumpIndex);
+        }
+
+        void PublishToStore(int lumpIndex, EnhancedJobResult result)
+        {
+            var store = EnhancedVariantStore.Instance;
+            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
+            store.Publish(EnhancedJobKind.Sprite, lumpIndex.ToString(), StoreLayers, result);
         }
 
         DecodedImage DecodeLump(int lumpIndex)

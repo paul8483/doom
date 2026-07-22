@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using Doom.Game;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
@@ -67,11 +68,19 @@ namespace Doom.MapBuild
         /// Computes and stores WAD identity if missing. Safe to call every Build.
         public void EnsureWadIdentity(string wadPath)
         {
-            if (!string.IsNullOrEmpty(WadIdentity)) return;
-            WadIdentity = ComputeWadIdentity(wadPath);
+            if (string.IsNullOrEmpty(WadIdentity))
+                WadIdentity = ComputeWadIdentity(wadPath);
+            // Re-bind every Build so a test Reset of the store still resolves.
+            if (!string.IsNullOrEmpty(WadIdentity))
+                EnhancedVariantStore.Instance.BindWadIdentity(WadIdentity);
         }
 
-        public void SetWadIdentityForTests(string identity) => WadIdentity = identity;
+        public void SetWadIdentityForTests(string identity)
+        {
+            WadIdentity = identity;
+            if (!string.IsNullOrEmpty(identity))
+                EnhancedVariantStore.Instance.BindWadIdentity(identity);
+        }
 
         /// Length + FNV-1a over the first/last sample of the WAD file.
         public static string ComputeWadIdentity(string wadPath)
@@ -121,6 +130,8 @@ namespace Doom.MapBuild
             GameFlowController.AutoStartPlaying = true;
             GameFlowController.ForceMainMenuOnNextLoad = false;
             Time.timeScale = 1f;
+            EnhancedWarmScheduler.ResetCompletedStats();
+            EnhancedVariantStore.ResetForTests();
             if (Instance != null)
             {
                 var go = Instance.gameObject;

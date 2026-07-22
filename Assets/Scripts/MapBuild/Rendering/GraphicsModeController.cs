@@ -186,6 +186,10 @@ namespace Doom.MapBuild.Rendering
 
             try
             {
+                // Job creation reads factory layer flags (dedither/upscale). Pin
+                // Enhanced before warm — ApplyInternal runs after uploads.
+                PinEnhancedProfileForWarm(mode);
+
                 yield return WarmEnhancedAssets(loading);
 
                 ApplyInternal(mode, force: true);
@@ -199,6 +203,24 @@ namespace Doom.MapBuild.Rendering
                 isApplying = false;
                 applyRoutine = null;
             }
+        }
+
+        void PinEnhancedProfileForWarm(GraphicsMode mode)
+        {
+            var requested = GraphicsProfile.ForMode(mode);
+            var effective = GraphicsCapabilityPolicy.Apply(requested, capabilities);
+            if (factory == null) factory = new DoomMaterialFactory();
+            factory.SetActiveProfile(effective);
+
+            var loader = Object.FindFirstObjectByType<MapLoader>();
+            if (loader != null)
+            {
+                loader.WorldTextures?.Materials.SetActiveProfile(effective);
+                loader.Sprites?.Materials.SetActiveProfile(effective);
+                loader.HudTextures?.SetActiveProfile(effective);
+            }
+
+            context?.TextureCache?.Materials.SetActiveProfile(effective);
         }
 
         IEnumerator WarmEnhancedAssets(LoadingView loading)
@@ -224,6 +246,7 @@ namespace Doom.MapBuild.Rendering
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             CancelWarm();
+            EnhancedWarmScheduler.ResetCompletedStats();
             warmScheduler = new EnhancedWarmScheduler();
 
             yield return warmScheduler.Warm(

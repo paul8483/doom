@@ -14,6 +14,8 @@ namespace Doom.MapBuild.Rendering
     /// <see cref="EnhancedJobRunner"/> jobs; the main thread integrates GPU
     /// uploads with a per-frame time budget. Used by MapLoader load phases and
     /// GraphicsModeController hot-switch warm (single source of warm loops).
+    /// Resolution order per item: GPU cache → <see cref="EnhancedVariantStore"/>
+    /// → compute.
     public sealed class EnhancedWarmScheduler : IDisposable
     {
         public const float DefaultFrameBudgetMs = 7f;
@@ -25,12 +27,29 @@ namespace Doom.MapBuild.Rendering
         /// Jobs accepted into the last Warm call (for PlayMode assertions).
         public int LastJobsStarted { get; private set; }
 
-        /// Results integrated on the main thread during the last Warm call.
+        /// Results integrated on the main thread during the last Warm call
+        /// (compute path only; store hits are counted separately).
         public int LastJobsIntegrated { get; private set; }
+
+        /// Session-store hits integrated during the last Warm call.
+        public int LastStoreHits { get; private set; }
+
+        /// Cumulative compute jobs across Warm calls since the last
+        /// <see cref="ResetCompletedStats"/> (MapLoader may Warm in two phases).
+        public static int LastCompletedComputeJobs { get; private set; }
+
+        /// Cumulative store hits across Warm calls since the last reset.
+        public static int LastCompletedStoreHits { get; private set; }
 
         /// Monotonic progress samples recorded during the last Warm call.
         public IReadOnlyList<float> LastProgressSamples => progressSamples;
         readonly List<float> progressSamples = new List<float>(64);
+
+        public static void ResetCompletedStats()
+        {
+            LastCompletedComputeJobs = 0;
+            LastCompletedStoreHits = 0;
+        }
 
         public void Cancel()
         {
@@ -58,11 +77,19 @@ namespace Doom.MapBuild.Rendering
             Action<float, string> reportProgress,
             float progressMin = 0f,
             float progressMax = 1f,
-            float frameBudgetMs = DefaultFrameBudgetMs)
+            float frameBudgetMs = DefaultFrameBudgetMs,
+            string wadIdentity = null)
         {
             LastJobsStarted = 0;
             LastJobsIntegrated = 0;
+            LastStoreHits = 0;
             progressSamples.Clear();
+
+            var store = BindStore(wadIdentity);
+            // Warm always builds Enhanced CPU variants. Key/publish with Enhanced
+            // texture-quality layers even when cache factories are still on Classic
+            // (Classic→Enhanced hot-switch warms before ApplyInternal).
+            var layers = EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
 
             int total = 0;
             if (warmWorld && textures != null && textureNames != null)
@@ -89,7 +116,7 @@ namespace Doom.MapBuild.Rendering
             if (warmWorld && textures != null && textureNames != null && textureNames.Count > 0)
             {
                 yield return WarmWorld(
-                    textures, textureNames, frameBudgetMs,
+                    textures, textureNames, frameBudgetMs, store, layers,
                     onItemDone: () =>
                     {
                         done++;
@@ -101,7 +128,7 @@ namespace Doom.MapBuild.Rendering
             if (warmSprites && sprites != null)
             {
                 yield return WarmSprites(
-                    sprites, frameBudgetMs,
+                    sprites, frameBudgetMs, store, layers,
                     onItemDone: () =>
                     {
                         done++;
@@ -113,19 +140,40 @@ namespace Doom.MapBuild.Rendering
             if (warmHud && hud != null)
             {
                 yield return WarmHud(
-                    hud, frameBudgetMs,
+                    hud, frameBudgetMs, store, layers,
                     onItemDone: () =>
                     {
                         done++;
                         Report("ENHANCED HUD");
                     });
             }
+
+            LastCompletedComputeJobs += LastJobsStarted;
+            LastCompletedStoreHits += LastStoreHits;
+        }
+
+        static EnhancedVariantStore BindStore(string wadIdentity)
+        {
+            string identity = wadIdentity;
+            if (string.IsNullOrEmpty(identity))
+                identity = GameSessionHost.Instance != null
+                    ? GameSessionHost.Instance.WadIdentity
+                    : null;
+
+            if (string.IsNullOrEmpty(identity))
+                return null;
+
+            var store = EnhancedVariantStore.Instance;
+            store.BindWadIdentity(identity);
+            return store;
         }
 
         IEnumerator WarmWorld(
             TextureCache textures,
             ICollection<string> textureNames,
             float frameBudgetMs,
+            EnhancedVariantStore store,
+            EnhancedLayerConfig layers,
             Action onItemDone)
         {
             var names = new List<string>(textureNames.Count);
@@ -143,13 +191,26 @@ namespace Doom.MapBuild.Rendering
                 if (textures.HasEnhancedAlbedo(name))
                     continue;
 
+                if (store != null
+                    && store.TryGet(EnhancedJobKind.WorldAlbedo, name, layers, out var storedAlbedo))
+                {
+                    textures.Integrate(name, storedAlbedo);
+                    LastStoreHits++;
+                    continue;
+                }
+
                 var job = textures.TryCreateAlbedoJob(name);
                 if (job != null)
                 {
                     string captured = name;
                     albedoItems.Add(new JobItem(
                         job,
-                        r => textures.Integrate(captured, r)));
+                        r =>
+                        {
+                            textures.Integrate(captured, r);
+                            if (r != null && r.Success)
+                                store?.Publish(EnhancedJobKind.WorldAlbedo, captured, layers, r);
+                        }));
                 }
                 else
                 {
@@ -172,6 +233,15 @@ namespace Doom.MapBuild.Rendering
                     continue;
                 }
 
+                if (store != null
+                    && store.TryGet(EnhancedJobKind.WorldNormal, name, layers, out var storedNormal))
+                {
+                    textures.Integrate(name, storedNormal);
+                    LastStoreHits++;
+                    onItemDone?.Invoke();
+                    continue;
+                }
+
                 var job = textures.TryCreateNormalJob(name);
                 if (job != null)
                 {
@@ -181,6 +251,8 @@ namespace Doom.MapBuild.Rendering
                         r =>
                         {
                             textures.Integrate(captured, r);
+                            if (r != null && r.Success)
+                                store?.Publish(EnhancedJobKind.WorldNormal, captured, layers, r);
                             onItemDone?.Invoke();
                         }));
                 }
@@ -197,6 +269,8 @@ namespace Doom.MapBuild.Rendering
         IEnumerator WarmSprites(
             SpriteCache sprites,
             float frameBudgetMs,
+            EnhancedVariantStore store,
+            EnhancedLayerConfig layers,
             Action onItemDone)
         {
             var lumps = sprites.CachedNativeLumps;
@@ -206,6 +280,16 @@ namespace Doom.MapBuild.Rendering
                 int lump = lumps[i];
                 if (sprites.HasEnhanced(lump))
                 {
+                    onItemDone?.Invoke();
+                    continue;
+                }
+
+                string itemId = lump.ToString();
+                if (store != null
+                    && store.TryGet(EnhancedJobKind.Sprite, itemId, layers, out var stored))
+                {
+                    sprites.Integrate(lump, stored);
+                    LastStoreHits++;
                     onItemDone?.Invoke();
                     continue;
                 }
@@ -223,6 +307,8 @@ namespace Doom.MapBuild.Rendering
                     r =>
                     {
                         sprites.Integrate(captured, r);
+                        if (r != null && r.Success)
+                            store?.Publish(EnhancedJobKind.Sprite, itemId, layers, r);
                         onItemDone?.Invoke();
                     }));
             }
@@ -233,6 +319,8 @@ namespace Doom.MapBuild.Rendering
         IEnumerator WarmHud(
             HudTextureCache hud,
             float frameBudgetMs,
+            EnhancedVariantStore store,
+            EnhancedLayerConfig layers,
             Action onItemDone)
         {
             var names = new List<string>();
@@ -245,6 +333,15 @@ namespace Doom.MapBuild.Rendering
                 string name = names[i];
                 if (hud.HasEnhanced(name))
                 {
+                    onItemDone?.Invoke();
+                    continue;
+                }
+
+                if (store != null
+                    && store.TryGet(EnhancedJobKind.Hud, name, layers, out var stored))
+                {
+                    hud.Integrate(name, stored);
+                    LastStoreHits++;
                     onItemDone?.Invoke();
                     continue;
                 }
@@ -262,6 +359,8 @@ namespace Doom.MapBuild.Rendering
                     r =>
                     {
                         hud.Integrate(captured, r);
+                        if (r != null && r.Success)
+                            store?.Publish(EnhancedJobKind.Hud, captured, layers, r);
                         onItemDone?.Invoke();
                     }));
             }

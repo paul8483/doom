@@ -25,6 +25,7 @@ namespace Doom.Stage3.PlayTests
             TextureCache.ForceEnhancedFailureForTests = false;
             SpriteCache.ForceEnhancedFailureForTests = false;
             HudTextureCache.ForceEnhancedFailureForTests = false;
+            EnhancedVariantStore.ResetForTests();
             GameSessionHost.ResetForTests();
         }
 
