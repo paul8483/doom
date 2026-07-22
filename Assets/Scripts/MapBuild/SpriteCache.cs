@@ -324,8 +324,10 @@ namespace Doom.MapBuild
             return nativeTex;
         }
 
-        static EnhancedLayerConfig StoreLayers =>
-            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+        /// Store key layers derived from the same profile TryCreateJob reads,
+        /// so published content always matches its key (capture profiles too).
+        public EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(materials.ActiveProfile);
 
         bool TryIntegrateFromStore(int lumpIndex)
         {

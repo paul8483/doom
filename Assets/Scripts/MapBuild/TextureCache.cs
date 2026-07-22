@@ -318,8 +318,10 @@ namespace Doom.MapBuild
             return texCache[key];
         }
 
-        static EnhancedLayerConfig StoreLayers =>
-            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+        /// Store key layers derived from the same profile TryCreate*Job reads,
+        /// so published content always matches its key (capture profiles too).
+        public EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(materials.ActiveProfile);
 
         bool TryIntegrateAlbedoFromStore(string name)
         {

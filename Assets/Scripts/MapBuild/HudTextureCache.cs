@@ -261,8 +261,15 @@ namespace Doom.MapBuild
         GraphicsProfile ResolveActiveProfile()
         {
             // Tests pin a profile via ctor; runtime follows the live controller.
-            if (!preferInjectedProfile && GraphicsModeController.Instance != null)
-                return GraphicsModeController.Instance.ActiveProfile;
+            var controller = GraphicsModeController.Instance;
+            if (!preferInjectedProfile && controller != null)
+            {
+                // Mid-apply the controller still reports the pre-switch profile;
+                // PinEnhancedProfileForWarm has set ours via SetActiveProfile —
+                // use it so warm job flags and store keys match the target mode.
+                return controller.IsApplying ? profile : controller.ActiveProfile;
+            }
+
             return profile;
         }
 
@@ -294,8 +301,10 @@ namespace Doom.MapBuild
             return slot.EnhancedTex ?? slot.NativeTex;
         }
 
-        static EnhancedLayerConfig StoreLayers =>
-            EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+        /// Store key layers derived from the same profile TryCreateJob reads,
+        /// so published content always matches its key (capture profiles too).
+        public EnhancedLayerConfig StoreLayers =>
+            EnhancedLayerConfig.FromProfile(ResolveActiveProfile());
 
         bool TryIntegrateFromStore(string name)
         {

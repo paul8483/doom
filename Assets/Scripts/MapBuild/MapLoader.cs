@@ -73,6 +73,16 @@ namespace Doom.MapBuild
         /// with yields when SpritesUpscale4X is active.
         public SpriteCache Sprites { get; private set; }
 
+        /// Warm scheduler of the in-flight Build; disposed in OnDestroy so scene
+        /// teardown mid-warm stops the worker pool instead of letting it run dry.
+        EnhancedWarmScheduler activeWarmScheduler;
+
+        void OnDestroy()
+        {
+            activeWarmScheduler?.Dispose();
+            activeWarmScheduler = null;
+        }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -228,6 +238,11 @@ namespace Doom.MapBuild
 
             // Stage 8: no authored scene lights; strip any leftover Directional Lights.
             StripSceneDirectionalLights();
+
+            // Bind WAD identity before the Enhanced warm phases below: a cold boot
+            // straight into Enhanced must publish first-load results to the session
+            // store (the EnsureWadIdentity near RESTORE runs after both warms).
+            GameSessionHost.Ensure().EnsureWadIdentity(path);
 
             var gfx = GraphicsModeController.Ensure();
             var renderContext = new WorldRenderContext();
@@ -394,6 +409,7 @@ namespace Doom.MapBuild
                 // ApplyProfile does not hitch on first lit material retarget.
                 EnhancedWarmScheduler.ResetCompletedStats();
                 warmScheduler = new EnhancedWarmScheduler();
+                activeWarmScheduler = warmScheduler;
                 yield return warmScheduler.Warm(
                     cache, sprites: null, hud: null, warmNames,
                     warmWorld: true, warmSprites: false, warmHud: false,
@@ -403,6 +419,7 @@ namespace Doom.MapBuild
                 {
                     warmScheduler.Cancel();
                     warmScheduler.Dispose();
+                    activeWarmScheduler = null;
                     yield break;
                 }
             }
@@ -439,6 +456,7 @@ namespace Doom.MapBuild
             if (!StillValid(flow))
             {
                 warmScheduler?.Dispose();
+                activeWarmScheduler = null;
                 yield break;
             }
 
@@ -456,6 +474,7 @@ namespace Doom.MapBuild
             if (loadProfile.SpritesUpscale4X || loadProfile.UiUpscale4X)
             {
                 warmScheduler ??= new EnhancedWarmScheduler();
+                activeWarmScheduler = warmScheduler;
                 yield return warmScheduler.Warm(
                     textures: null,
                     spriteCache,
@@ -471,12 +490,14 @@ namespace Doom.MapBuild
                 {
                     warmScheduler.Dispose();
                     warmScheduler = null;
+                    activeWarmScheduler = null;
                     yield break;
                 }
             }
 
             warmScheduler?.Dispose();
             warmScheduler = null;
+            activeWarmScheduler = null;
 
             // Hot-switch Apply skips Super-xBR warm when this is set.
             if (warmVariant != WorldTextureVariant.Native ||

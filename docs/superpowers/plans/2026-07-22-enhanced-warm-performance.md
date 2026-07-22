@@ -20,7 +20,17 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 **Статус:** Task 3 done (`EnhancedVariantStore`; E1M1 reload **0** compute /
 **889** store hits; store CPU **~375 MB**; E1M1→E1M2 compute **252** vs cold
 **805**, hits **692**; PlayMode Task3 filter **31/31**, EditMode store+Graphics
-**136**). Next: Task 4 disk pack-cache.
+**136**). **Review-фиксы 2026-07-23** (до Task 4): (1) MapLoader привязывает
+WAD identity до warm-фаз — холодный старт в Enhanced публикует первую карту в
+store (PlayMode `Fresh_session_enhanced_load_publishes_during_build_warm`);
+(2) ключи store выводятся из активного профиля кэша (per-cache `StoreLayers`;
+HUD учитывает пин при `IsApplying`), EditMode
+`Lazy_build_publishes_under_active_profile_layers`; (3) scheduler: worker ловит
+все исключения, integrate-цикл не зависает на faulted worker, MapLoader
+диспоузит warm в OnDestroy. EditMode **137**, PlayMode фильтр **31/32**
+(единственный фейл — pre-existing `Hot_switch` +1 материал; изолированно
+lifetime **5/5**×2). Интерактивно подтверждена быстрая загрузка в standalone
+(`Logs/warmperf-build.log`). Next: Task 4 disk pack-cache.
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).

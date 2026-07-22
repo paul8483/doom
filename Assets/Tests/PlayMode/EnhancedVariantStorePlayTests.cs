@@ -235,6 +235,58 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        [Timeout(900000)]
+        public IEnumerator Fresh_session_enhanced_load_publishes_during_build_warm()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+            EnhancedVariantStore.ResetForTests();
+            EnhancedWarmScheduler.ResetCompletedStats();
+
+            // Pin Enhanced in prefs so the reloaded scene warms during Build.
+            var prefs = new SettingsStore();
+            var previous = prefs.Load();
+            prefs.Save(previous.WithGraphicsMode(GraphicsMode.Enhanced));
+
+            try
+            {
+                SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+                yield return WaitForMapBuild();
+
+                var gfx = GraphicsModeController.Ensure();
+                if (!gfx.EnhancedWarmComplete)
+                    yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
+                Assert.IsTrue(gfx.EnhancedWarmComplete);
+
+                // Cold-boot shape: wipe session identity + store while the
+                // controller keeps Enhanced mode, then reload. Build's warm must
+                // bind identity itself and publish what it computes.
+                GameSessionHost.ResetForTests();
+                EnhancedVariantStore.ResetForTests();
+                EnhancedWarmScheduler.ResetCompletedStats();
+
+                SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+                yield return WaitForMapBuild();
+
+                gfx = GraphicsModeController.Ensure();
+                if (!gfx.EnhancedWarmComplete)
+                    yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
+                Assert.IsTrue(gfx.EnhancedWarmComplete);
+
+                int computed = EnhancedWarmScheduler.LastCompletedComputeJobs;
+                Assert.That(computed, Is.GreaterThan(0),
+                    "fresh-identity Enhanced load must recompute (store was wiped)");
+                Assert.That(EnhancedVariantStore.Instance.Count,
+                    Is.GreaterThanOrEqualTo((int)(computed * 0.9f)),
+                    "first Enhanced load must publish its computed results to the store");
+            }
+            finally
+            {
+                prefs.Save(previous);
+            }
+        }
+
+        [UnityTest]
         [Timeout(300000)]
         public IEnumerator Classic_load_does_not_publish_to_store()
         {

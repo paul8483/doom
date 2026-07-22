@@ -86,10 +86,9 @@ namespace Doom.MapBuild.Rendering
             progressSamples.Clear();
 
             var store = BindStore(wadIdentity);
-            // Warm always builds Enhanced CPU variants. Key/publish with Enhanced
-            // texture-quality layers even when cache factories are still on Classic
-            // (Classic→Enhanced hot-switch warms before ApplyInternal).
-            var layers = EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+            // Store keys come from each cache's StoreLayers — derived from the
+            // same active profile its TryCreateJob reads (hot-switch pins the
+            // target profile before warm), so keys always match built content.
 
             int total = 0;
             if (warmWorld && textures != null && textureNames != null)
@@ -116,7 +115,7 @@ namespace Doom.MapBuild.Rendering
             if (warmWorld && textures != null && textureNames != null && textureNames.Count > 0)
             {
                 yield return WarmWorld(
-                    textures, textureNames, frameBudgetMs, store, layers,
+                    textures, textureNames, frameBudgetMs, store, textures.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -128,7 +127,7 @@ namespace Doom.MapBuild.Rendering
             if (warmSprites && sprites != null)
             {
                 yield return WarmSprites(
-                    sprites, frameBudgetMs, store, layers,
+                    sprites, frameBudgetMs, store, sprites.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -140,7 +139,7 @@ namespace Doom.MapBuild.Rendering
             if (warmHud && hud != null)
             {
                 yield return WarmHud(
-                    hud, frameBudgetMs, store, layers,
+                    hud, frameBudgetMs, store, hud.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -379,7 +378,6 @@ namespace Doom.MapBuild.Rendering
 
             var queue = new ConcurrentQueue<(Action<EnhancedJobResult> integrate, EnhancedJobResult result)>();
             var token = cts.Token;
-            int produced = 0;
 
             var options = new ParallelOptions
             {
@@ -395,12 +393,17 @@ namespace Doom.MapBuild.Rendering
                     {
                         var result = EnhancedJobRunner.Run(item.Job);
                         queue.Enqueue((item.Integrate, result));
-                        Interlocked.Increment(ref produced);
                     });
                 }
                 catch (OperationCanceledException)
                 {
                     // Expected on Cancel / scene teardown.
+                }
+                catch (Exception e)
+                {
+                    // Not expected (Run swallows job errors). Log and fall through
+                    // so the integrate loop bails instead of waiting forever.
+                    Debug.LogWarning($"EnhancedWarmScheduler: worker faulted: {e.Message}");
                 }
             }, token);
 
@@ -411,7 +414,6 @@ namespace Doom.MapBuild.Rendering
                     yield break;
 
                 float frameStart = Time.realtimeSinceStartup;
-                bool integratedThisFrame = false;
 
                 while (queue.TryDequeue(out var item))
                 {
@@ -421,7 +423,6 @@ namespace Doom.MapBuild.Rendering
                     item.integrate(item.result);
                     integrated++;
                     LastJobsIntegrated++;
-                    integratedThisFrame = true;
 
                     if ((Time.realtimeSinceStartup - frameStart) * 1000f >= frameBudgetMs)
                         break;
@@ -430,28 +431,13 @@ namespace Doom.MapBuild.Rendering
                 if (integrated >= items.Count)
                     break;
 
-                // Yield every frame so the loading plate stays responsive; also
-                // when the queue is empty while workers are still producing.
-                if (!integratedThisFrame || integrated < items.Count)
-                    yield return null;
-            }
+                // Worker done and nothing left to drain: only reachable when the
+                // worker faulted and dropped items — bail instead of spinning.
+                if (worker.IsCompleted && queue.IsEmpty)
+                    break;
 
-            while (!worker.IsCompleted)
-            {
-                if (cts.IsCancellationRequested)
-                    yield break;
+                // Yield every frame so the loading plate stays responsive.
                 yield return null;
-            }
-
-            // Drain anything still queued (idempotent Integrate; count only new work).
-            if (cts.IsCancellationRequested)
-                yield break;
-
-            while (integrated < items.Count && queue.TryDequeue(out var leftover))
-            {
-                leftover.integrate(leftover.result);
-                integrated++;
-                LastJobsIntegrated++;
             }
         }
 

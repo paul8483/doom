@@ -109,6 +109,39 @@ namespace Doom.Map.Tests
         }
 
         [Test]
+        public void Lazy_build_publishes_under_active_profile_layers()
+        {
+            string wadPath = System.IO.Path.Combine(
+                UnityEngine.Application.dataPath, "StreamingAssets", "wads", "freedoom1.wad");
+            if (!System.IO.File.Exists(wadPath))
+                Assert.Ignore("freedoom1.wad missing");
+
+            var store = EnhancedVariantStore.Instance;
+            store.BindWadIdentity("wad:layer-derivation");
+
+            using var wad = Doom.Wad.WadFile.Open(wadPath);
+            var palette = new Palette(wad.ReadLump("PLAYPAL"));
+            var textures = TextureSet.Load(wad);
+
+            var factory = new DoomMaterialFactory();
+            var custom = GraphicsProfile.EnhancedWithLayers(worldDedither: false);
+            factory.SetActiveProfile(custom);
+            var cache = new Doom.MapBuild.TextureCache(wad, textures, palette, factory);
+
+            cache.GetTexture("FLOOR0_1", WorldTextureVariant.Enhanced4X);
+
+            var customLayers = EnhancedLayerConfig.FromProfile(custom);
+            Assert.IsTrue(
+                store.TryGet(EnhancedJobKind.WorldAlbedo, "FLOOR0_1", customLayers, out _),
+                "lazy build must publish under the layers it was actually built with");
+
+            var enhancedLayers = EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
+            Assert.IsFalse(
+                store.TryGet(EnhancedJobKind.WorldAlbedo, "FLOOR0_1", enhancedLayers, out _),
+                "dedither-off content must not be served under full Enhanced layers");
+        }
+
+        [Test]
         public void LayerConfig_from_Enhanced_profile_matches()
         {
             var fromProfile = EnhancedLayerConfig.FromProfile(GraphicsProfile.Enhanced);
