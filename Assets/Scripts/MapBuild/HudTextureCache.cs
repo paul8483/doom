@@ -133,11 +133,80 @@ namespace Doom.MapBuild
             if (!slot.IsHud || slot.EnhancedFailed)
                 return false;
 
-            var tex = GetOrCreateEnhanced(slot, name);
-            return tex != null &&
-                   slot.EnhancedTex != null &&
-                   ReferenceEquals(tex, slot.EnhancedTex);
+            if (slot.EnhancedTex != null)
+                return true;
+
+            if (ForceEnhancedFailureForTests)
+            {
+                Integrate(name, EnhancedJobResult.Failed(
+                    EnhancedJobKind.Hud,
+                    "Forced Enhanced4X HUD failure (test seam)."));
+                return false;
+            }
+
+            var job = TryCreateJob(name);
+            if (job == null)
+                return slot.EnhancedTex != null && !slot.EnhancedFailed;
+
+            Integrate(name, EnhancedJobRunner.Run(job));
+            return slot.EnhancedTex != null && !slot.EnhancedFailed;
         }
+
+        /// Main-thread: snapshot a HUD Enhanced job, or null if not eligible /
+        /// already done / failed.
+        public EnhancedJob TryCreateJob(string name)
+        {
+            if (string.IsNullOrEmpty(name) || !slots.TryGetValue(name, out var slot))
+                return null;
+            if (!slot.IsHud || slot.EnhancedFailed || slot.EnhancedTex != null)
+                return null;
+            if (slot.NativeImage == null)
+                return null;
+
+            var active = ResolveActiveProfile();
+            return EnhancedJob.ForHud(
+                name,
+                slot.NativeImage,
+                applyDedither: active.WorldDedither,
+                applyAlphaBleed: true,
+                applySharpen: true);
+        }
+
+        /// Main-thread: upload Enhanced HUD patch or mark failed fallback.
+        public void Integrate(string name, EnhancedJobResult result)
+        {
+            if (string.IsNullOrEmpty(name) || !slots.TryGetValue(name, out var slot))
+                return;
+            if (!slot.IsHud || slot.EnhancedFailed || slot.EnhancedTex != null)
+                return;
+
+            if (ForceEnhancedFailureForTests ||
+                result == null ||
+                !result.Success ||
+                result.Rgba == null)
+            {
+                slot.EnhancedFailed = true;
+                string msg = ForceEnhancedFailureForTests
+                    ? "Forced Enhanced4X HUD failure (test seam)."
+                    : (result?.ErrorMessage ?? "Enhanced HUD job failed.");
+                Debug.LogWarning(
+                    $"HudTextureCache: Enhanced 4× failed for '{name}': {msg} — using native");
+                return;
+            }
+
+            var tex = ToTexture2D(result.Rgba);
+            slot.EnhancedTex = tex;
+            context?.RegisterTexture(tex);
+            enhancedVariantCount++;
+            enhancedTextureBytes += (long)tex.width * tex.height * 4L;
+        }
+
+        /// True when an Enhanced (non-fallback) HUD texture exists.
+        public bool HasEnhanced(string name) =>
+            !string.IsNullOrEmpty(name) &&
+            slots.TryGetValue(name, out var slot) &&
+            !slot.EnhancedFailed &&
+            slot.EnhancedTex != null;
 
         public bool TryGet(string name, out Entry entry) =>
             TryGet(name, ResolveVariant(name), out entry);
@@ -198,41 +267,20 @@ namespace Doom.MapBuild
             if (slot.EnhancedTex != null)
                 return slot.EnhancedTex;
 
-            try
+            if (ForceEnhancedFailureForTests)
             {
-                if (ForceEnhancedFailureForTests)
-                    throw new InvalidOperationException(
-                        "Forced Enhanced4X HUD failure (test seam).");
-
-                if (slot.NativeImage == null)
-                    throw new InvalidOperationException(
-                        "Missing native DecodedImage for Enhanced HUD patch.");
-
-                var active = ResolveActiveProfile();
-                var job = EnhancedJob.ForHud(
-                    name,
-                    slot.NativeImage,
-                    applyDedither: active.WorldDedither,
-                    applyAlphaBleed: true,
-                    applySharpen: true);
-                var result = EnhancedJobRunner.Run(job);
-                if (!result.Success)
-                    throw new InvalidOperationException(result.ErrorMessage);
-
-                var tex = ToTexture2D(result.Rgba);
-                slot.EnhancedTex = tex;
-                context?.RegisterTexture(tex);
-                enhancedVariantCount++;
-                enhancedTextureBytes += (long)tex.width * tex.height * 4L;
-                return tex;
-            }
-            catch (Exception e)
-            {
-                slot.EnhancedFailed = true;
-                Debug.LogWarning(
-                    $"HudTextureCache: Enhanced 4× failed for '{name}': {e.Message} — using native");
+                Integrate(name, EnhancedJobResult.Failed(
+                    EnhancedJobKind.Hud,
+                    "Forced Enhanced4X HUD failure (test seam)."));
                 return slot.NativeTex;
             }
+
+            var job = TryCreateJob(name);
+            if (job == null)
+                return slot.EnhancedTex ?? slot.NativeTex;
+
+            Integrate(name, EnhancedJobRunner.Run(job));
+            return slot.EnhancedTex ?? slot.NativeTex;
         }
 
         /// Paint over Freedoom Phase 1 TITLEPIC bottom-left copyright

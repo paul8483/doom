@@ -22,8 +22,8 @@ controlled-mips пайплайн переиспользуются.
 metrics, lifetime suite green). **Интерактивный вердикт по замеру Task 9:
 ~85 с прогрева на карту неприемлемы** → перед Task 10 выполняется отдельная
 доработка `2026-07-22-enhanced-warm-performance` (parallel warm → session
-store → disk cache). Warm-perf Task 1 done; next: Tasks 2–5, затем Task 10
-(E1 smoke / build / visual sign-off) уже с быстрым прогревом.
+store → disk cache). Warm-perf Tasks 1–2 done (parallel warm ~14 s); next: Tasks 3–5, затем
+Task 10 (E1 smoke / build / visual sign-off) уже с быстрым прогревом.
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).

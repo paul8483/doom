@@ -19,13 +19,13 @@ namespace Doom.Stage3.PlayTests
             MapLoader.MapNameOverride = null;
         }
 
-        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
         {
-            MapLoader loader = null;
-            for (int i = 0; i < maxFrames; i++)
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < timeoutSeconds)
             {
                 yield return null;
-                loader = Object.FindFirstObjectByType<MapLoader>();
+                var loader = Object.FindFirstObjectByType<MapLoader>();
                 if (loader != null && loader.LastBuildSeconds > 0f)
                     yield break;
             }

@@ -159,12 +159,87 @@ namespace Doom.MapBuild
             if (!decodedByLump.ContainsKey(lumpIndex))
                 return false;
 
-            var tex = GetOrCreateTexture(lumpIndex, WorldTextureVariant.Enhanced4X);
-            return tex != null &&
-                   texByLumpVariant.TryGetValue(
-                       (lumpIndex, WorldTextureVariant.Enhanced4X), out var enhanced) &&
-                   ReferenceEquals(tex, enhanced);
+            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            if (texByLumpVariant.ContainsKey(key))
+                return true;
+
+            if (ForceEnhancedFailureForTests)
+            {
+                Integrate(lumpIndex, EnhancedJobResult.Failed(
+                    EnhancedJobKind.Sprite,
+                    "Forced Enhanced4X sprite failure (test seam)."));
+                return false;
+            }
+
+            var job = TryCreateJob(lumpIndex);
+            if (job == null)
+                return texByLumpVariant.ContainsKey(key);
+
+            Integrate(lumpIndex, EnhancedJobRunner.Run(job));
+            return texByLumpVariant.TryGetValue(key, out var enhanced) &&
+                   enhanced != null &&
+                   !failedEnhancedLumps.Contains(lumpIndex);
         }
+
+        /// Main-thread: snapshot a sprite Enhanced job, or null if already done /
+        /// failed / native missing.
+        public EnhancedJob TryCreateJob(int lumpIndex)
+        {
+            if (failedLumps.Contains(lumpIndex) || failedEnhancedLumps.Contains(lumpIndex))
+                return null;
+
+            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            if (texByLumpVariant.ContainsKey(key))
+                return null;
+
+            if (!decodedByLump.TryGetValue(lumpIndex, out var nativeImg) || nativeImg == null)
+                return null;
+
+            // Native GPU entry must exist for tracking / fallback.
+            if (CreateNativeTexture(lumpIndex) == null)
+                return null;
+
+            var profile = materials.ActiveProfile;
+            return EnhancedJob.ForSprite(
+                lumpIndex.ToString(),
+                nativeImg,
+                applyDedither: profile.WorldDedither,
+                applyAlphaBleed: true,
+                applySharpen: true);
+        }
+
+        /// Main-thread: upload Enhanced sprite or mark failed fallback.
+        public void Integrate(int lumpIndex, EnhancedJobResult result)
+        {
+            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            if (texByLumpVariant.ContainsKey(key)) return;
+            if (failedEnhancedLumps.Contains(lumpIndex)) return;
+
+            if (ForceEnhancedFailureForTests ||
+                result == null ||
+                !result.Success ||
+                result.Rgba == null)
+            {
+                failedEnhancedLumps.Add(lumpIndex);
+                string msg = ForceEnhancedFailureForTests
+                    ? "Forced Enhanced4X sprite failure (test seam)."
+                    : (result?.ErrorMessage ?? "Enhanced sprite job failed.");
+                Debug.LogWarning(
+                    $"SpriteCache: Enhanced 4× failed for lump {lumpIndex}: {msg} — using native");
+                return;
+            }
+
+            var tex = ToTexture2D(result.Rgba);
+            texByLumpVariant[key] = tex;
+            context?.RegisterTexture(tex);
+            enhancedVariantCount++;
+            enhancedTextureBytes += (long)tex.width * tex.height * 4L;
+        }
+
+        /// True when an Enhanced (non-fallback) texture exists for the lump.
+        public bool HasEnhanced(int lumpIndex) =>
+            !failedEnhancedLumps.Contains(lumpIndex) &&
+            texByLumpVariant.ContainsKey((lumpIndex, WorldTextureVariant.Enhanced4X));
 
         Texture2D GetOrCreateTexture(int lumpIndex, WorldTextureVariant variant)
         {
@@ -213,41 +288,26 @@ namespace Doom.MapBuild
             if (failedEnhancedLumps.Contains(lumpIndex))
                 return nativeTex;
 
-            try
+            if (ForceEnhancedFailureForTests)
             {
-                if (ForceEnhancedFailureForTests)
-                    throw new System.InvalidOperationException(
-                        "Forced Enhanced4X sprite failure (test seam).");
-
-                if (!decodedByLump.TryGetValue(lumpIndex, out var nativeImg) || nativeImg == null)
-                    throw new System.InvalidOperationException(
-                        "Missing native DecodedImage for Enhanced sprite.");
-
-                var profile = materials.ActiveProfile;
-                var job = EnhancedJob.ForSprite(
-                    lumpIndex.ToString(),
-                    nativeImg,
-                    applyDedither: profile.WorldDedither,
-                    applyAlphaBleed: true,
-                    applySharpen: true);
-                var result = EnhancedJobRunner.Run(job);
-                if (!result.Success)
-                    throw new System.InvalidOperationException(result.ErrorMessage);
-
-                var tex = ToTexture2D(result.Rgba);
-                texByLumpVariant[key] = tex;
-                context?.RegisterTexture(tex);
-                enhancedVariantCount++;
-                enhancedTextureBytes += (long)tex.width * tex.height * 4L;
-                return tex;
-            }
-            catch (System.Exception e)
-            {
-                failedEnhancedLumps.Add(lumpIndex);
-                Debug.LogWarning(
-                    $"SpriteCache: Enhanced 4× failed for lump {lumpIndex}: {e.Message} — using native");
+                Integrate(lumpIndex, EnhancedJobResult.Failed(
+                    EnhancedJobKind.Sprite,
+                    "Forced Enhanced4X sprite failure (test seam)."));
                 return nativeTex;
             }
+
+            var job = TryCreateJob(lumpIndex);
+            if (job == null)
+            {
+                if (texByLumpVariant.TryGetValue(key, out existing))
+                    return existing;
+                return nativeTex;
+            }
+
+            Integrate(lumpIndex, EnhancedJobRunner.Run(job));
+            if (texByLumpVariant.TryGetValue(key, out existing))
+                return existing;
+            return nativeTex;
         }
 
         DecodedImage DecodeLump(int lumpIndex)

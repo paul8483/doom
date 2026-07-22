@@ -17,7 +17,9 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 `GraphicsModeController` (дублирующиеся warm-циклы удаляются).
 Спека: `docs/superpowers/specs/2026-07-22-enhanced-warm-performance-design.md`.
 
-**Статус:** Task 1 done (pure `EnhancedJobRunner` + determinism; Graphics EditMode **129**).
+**Статус:** Task 2 done (parallel `EnhancedWarmScheduler`; first Enhanced warm
+E1M1 **~14.1 s**, gate ≤15 s PASS; PlayMode Task2 filter **27/27**, Graphics
+EditMode **129**). Next: Task 3 session store.
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).
@@ -132,38 +134,34 @@ EditMode Graphics **129** passed (`Logs/warmperf-t1-edit.xml`), including
   (`WarmEnhancedAssets` → scheduler)
 - Create: `Assets/Tests/PlayMode/EnhancedWarmSchedulerPlayTests.cs`
 
-- [ ] **Step 1: Failing PlayMode tests.**
+- [x] **Step 1: Failing PlayMode tests.**
 
-- warm завершает все элементы; counts/bytes равны последовательной
-  версии (снятой до правки);
-- прогресс монотонный, фазы TEXTURES/SPRITES/HUD сохраняются;
-- смена сцены посреди warm → нет исключений/утечек, повторная загрузка
-  корректна;
-- ошибка одного job (test seam) → native fallback только для него.
+`EnhancedWarmSchedulerPlayTests` ×4 (complete/idempotent, monotonic
+progress, cancel+reload, single-item ForceEnhancedFailure fallback).
 
-- [ ] **Step 2: Split job/integrate в кэшах.**
+- [x] **Step 2: Split job/integrate в кэшах.**
 
-`TryCreateJob(id)` возвращает `null` для уже готовых/failed; словари
-и `Texture2D` — только в `Integrate` (главный поток). Существующий
-синхронный ленивый путь переиспользует runner + Integrate.
+`TryCreateAlbedoJob`/`TryCreateNormalJob`/`Integrate` (TextureCache),
+`TryCreateJob`/`Integrate` (SpriteCache, HudTextureCache). Lazy paths
+reuse runner + Integrate. Dictionaries/`Texture2D` only on main thread.
 
-- [ ] **Step 3: Реализовать scheduler.**
+- [x] **Step 3: Реализовать scheduler.**
 
-Work-list → `Parallel.ForEach`
-(`MaxDegreeOfParallelism = Max(1, ProcessorCount - 1)`) на фоне;
-`ConcurrentQueue<(id, result)>`; интеграция каждый кадр с бюджетом
-6–8 мс; прогресс = integrated/total; `CancellationTokenSource` в
-`ClearContext`/`RegisterContext`. Оба потребителя (MapLoader,
-GraphicsModeController) переведены; дублирующиеся циклы удалены.
+`EnhancedWarmScheduler`: work-list → `Parallel.ForEach`
+(`MaxDegreeOfParallelism = Max(1, ProcessorCount - 1)`);
+`ConcurrentQueue` + 7 ms/frame integrate; cancel on
+`ClearContext`/`RegisterContext`. MapLoader load phases and
+`GraphicsModeController.WarmEnhancedAssets` both use it; per-item yield
+loops removed.
 
-- [ ] **Step 4: Замерить.**
+- [x] **Step 4: Замерить.**
 
-E1M1/E1M7 первая Enhanced-загрузка и первый hot-switch на 8C/16T —
-записать в baseline notes. **Гейт: ≤ 15 с.** Если не достигнут —
-профилировать (upload-бюджет? worker-голодание?) до/вместо перехода к
-Task 3; ступень 3 не компенсирует провал ступени 1.
+E1M1 Classic→Enhanced first warm **14.11 s** (world=227 / normals=227 /
+sprites=350 / hud=85); lifetime suite E1M1/E1M7 first switch ~14.4 s.
+**Gate ≤15 s PASS.** Notes:
+`Logs/enhanced-texture-quality-baseline-notes.md` (Warm-perf Task 2).
 
-- [ ] **Step 5: Запустить suites.**
+- [x] **Step 5: Запустить suites.**
 
 ```text
 Doom.Stage3.PlayTests.EnhancedWarmSchedulerPlayTests
@@ -172,6 +170,10 @@ Doom.Stage3.PlayTests.TextureUpscalePlayTests
 Doom.Stage3.PlayTests.SpriteUpscalePlayTests
 Doom.Stage3.PlayTests.UiUpscalePlayTests
 ```
+
+PlayMode filter **27/27** (`Logs/warmperf-t2-regress2-play.xml`);
+Graphics EditMode **129** (`Logs/warmperf-t2-edit.xml`). PlayMode waits
+switched from frame-count to realtime (parallel warm races short frames).
 
 **Commit checkpoint:** `rendering: parallel enhanced warm scheduler`
 

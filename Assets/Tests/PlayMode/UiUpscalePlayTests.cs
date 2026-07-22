@@ -23,9 +23,10 @@ namespace Doom.Stage3.PlayTests
             HudTextureCache.ForceEnhancedFailureForTests = false;
         }
 
-        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
         {
-            for (int i = 0; i < maxFrames; i++)
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < timeoutSeconds)
             {
                 yield return null;
                 var loader = Object.FindFirstObjectByType<MapLoader>();

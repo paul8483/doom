@@ -325,20 +325,21 @@ namespace Doom.Stage3.PlayTests
             Assert.That(firstSwitch, Is.GreaterThan(0f));
         }
 
-        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
         {
-            MapLoader loader = null;
-            for (int i = 0; i < maxFrames; i++)
+            // Parallel Enhanced warm is wall-clock bound; frame-count waits race it.
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < timeoutSeconds)
             {
                 yield return null;
-                loader = Object.FindFirstObjectByType<MapLoader>();
+                var loader = Object.FindFirstObjectByType<MapLoader>();
                 if (loader != null && loader.LastBuildSeconds > 0f)
                     yield break;
             }
             Assert.Fail("MapLoader build did not finish in time");
         }
 
-        static IEnumerator LoadMap(string map)
+        static IEnumerator LoadMap(string map, float timeoutSeconds = 180f)
         {
             MapLoader.MapNameOverride = map;
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
@@ -346,7 +347,8 @@ namespace Doom.Stage3.PlayTests
             yield return null;
 
             MapLoader loader = null;
-            for (int i = 0; i < 3600; i++)
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < timeoutSeconds)
             {
                 loader = Object.FindAnyObjectByType<MapLoader>();
                 if (loader != null &&

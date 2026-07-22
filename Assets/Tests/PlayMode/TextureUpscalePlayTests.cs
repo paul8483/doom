@@ -23,14 +23,14 @@ namespace Doom.Stage3.PlayTests
             TextureCache.ForceEnhancedFailureForTests = false;
         }
 
-        /// Enhanced4X warm yields one frame per texture; fixed 90-frame waits are too short.
-        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        /// Parallel Enhanced warm is wall-clock bound; frame-count waits race it.
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
         {
-            MapLoader loader = null;
-            for (int i = 0; i < maxFrames; i++)
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < timeoutSeconds)
             {
                 yield return null;
-                loader = Object.FindFirstObjectByType<MapLoader>();
+                var loader = Object.FindFirstObjectByType<MapLoader>();
                 if (loader != null && loader.LastBuildSeconds > 0f)
                     yield break;
             }

@@ -131,31 +131,107 @@ namespace Doom.MapBuild
             if (normalCache.TryGetValue(key, out var existing))
                 return existing;
 
+            // Albedo mips must exist before a normal job can be created.
+            GetOrCreateEnhanced(name);
+
+            var job = TryCreateNormalJob(name);
+            if (job == null)
+            {
+                normalCache.TryGetValue(key, out existing);
+                return existing;
+            }
+
+            Integrate(name, EnhancedJobRunner.Run(job));
+            normalCache.TryGetValue(key, out existing);
+            return existing;
+        }
+
+        /// Main-thread: snapshot an Enhanced albedo job, or null if already
+        /// cached / failed. Dictionaries are not touched (except EnsureSource).
+        public EnhancedJob TryCreateAlbedoJob(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var key = (name, WorldTextureVariant.Enhanced4X);
+            if (texCache.ContainsKey(key)) return null;
+
             EnsureSource(name);
             var entry = sourceCache[name];
-            var enhancedMips = GetEnhancedMipChain(name, entry);
-            if (enhancedMips == null)
+            if (entry.EnhancedFailed) return null;
+
+            // CPU mips already present (e.g. prior partial warm) — Integrate uploads.
+            if (entry.EnhancedMips != null) return null;
+
+            bool masked = HasTransparent(entry.Native);
+            var profile = materials.ActiveProfile;
+            return EnhancedJob.ForWorldAlbedo(
+                name,
+                entry.Native,
+                WrapFor(entry),
+                applyDedither: profile.WorldDedither,
+                applyAlphaBleed: masked,
+                palette);
+        }
+
+        /// Main-thread: snapshot a normal job after albedo mips exist. Null if
+        /// normal already cached, albedo failed, or mips missing.
+        public EnhancedJob TryCreateNormalJob(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var key = (name, WorldTextureVariant.Enhanced4X);
+            if (normalCache.ContainsKey(key)) return null;
+
+            EnsureSource(name);
+            var entry = sourceCache[name];
+            if (entry.EnhancedFailed || entry.EnhancedMips == null)
                 return null;
 
             if (!categoryByName.TryGetValue(name, out var category))
                 category = MaterialSurfaceCategory.Unknown;
 
-            var job = EnhancedJob.ForWorldNormal(name, enhancedMips, category, WrapFor(entry));
-            var result = EnhancedJobRunner.Run(job);
-            if (!result.Success)
-                throw new System.InvalidOperationException(result.ErrorMessage);
+            return EnhancedJob.ForWorldNormal(
+                name, entry.EnhancedMips, category, WrapFor(entry));
+        }
 
-            var tex = ToNormalTexture2D(result.NormalMips, name, entry);
-            normalCache[key] = tex;
-            normalTextureBytes += TextureBytes(tex);
-            RegisterTextureOnce(tex);
-            context?.RegisterOwned(tex);
+        /// Main-thread: upload GPU textures / mark failed from a job result.
+        /// Safe to call with a cancelled scheduler — caller must drop late results.
+        public void Integrate(string name, EnhancedJobResult result)
+        {
+            if (string.IsNullOrEmpty(name) || result == null) return;
 
-            // CPU 4× buffers are no longer needed once albedo + normal are uploaded.
-            entry.Enhanced = null;
-            entry.EnhancedMips = null;
+            switch (result.Kind)
+            {
+                case EnhancedJobKind.WorldAlbedo:
+                    IntegrateAlbedo(name, result);
+                    break;
+                case EnhancedJobKind.WorldNormal:
+                    IntegrateNormal(name, result);
+                    break;
+            }
+        }
 
-            return tex;
+        /// True when Enhanced albedo GPU entry exists (including native fallback alias).
+        public bool HasEnhancedAlbedo(string name) =>
+            !string.IsNullOrEmpty(name) &&
+            texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
+
+        /// True when a normal map GPU entry exists for the name.
+        public bool HasNormal(string name) =>
+            !string.IsNullOrEmpty(name) &&
+            normalCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
+
+        /// Upload albedo from CPU mips already stored on the source entry
+        /// (when TryCreateAlbedoJob returned null because mips were ready).
+        public void IntegratePendingAlbedoMips(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            var key = (name, WorldTextureVariant.Enhanced4X);
+            if (texCache.ContainsKey(key)) return;
+            EnsureSource(name);
+            var entry = sourceCache[name];
+            if (entry.EnhancedFailed || entry.EnhancedMips == null) return;
+            IntegrateAlbedo(name, EnhancedJobResult.OkWorldAlbedo(entry.EnhancedMips));
         }
 
         /// CPU-side Enhanced4X pipeline (dedither → [bleed] → Super-xBR ×2 ×2).
@@ -189,6 +265,7 @@ namespace Doom.MapBuild
             if (texCache.TryGetValue(key, out var existing))
                 return existing;
 
+            EnsureSource(name);
             var entry = sourceCache[name];
             if (entry.EnhancedFailed)
             {
@@ -199,67 +276,111 @@ namespace Doom.MapBuild
                 return native;
             }
 
-            try
+            if (ForceEnhancedFailureForTests)
             {
-                var enhancedMips = GetEnhancedMipChain(name, entry);
-                var tex = ToAlbedoTexture2D(enhancedMips, name, entry);
-                texCache[key] = tex;
-                albedoToName[tex] = (name, WorldTextureVariant.Enhanced4X);
-                RegisterTextureOnce(tex);
-                enhancedVariantCount++;
-                enhancedTextureBytes += TextureBytes(tex);
-
-                // Mips only needed further for normal gen; drop if normal ready.
-                if (normalCache.ContainsKey(key))
-                {
-                    entry.Enhanced = null;
-                    entry.EnhancedMips = null;
-                }
-
-                return tex;
+                Integrate(name, EnhancedJobResult.Failed(
+                    EnhancedJobKind.WorldAlbedo,
+                    "Forced Enhanced4X failure (test seam)."));
+                return texCache[key];
             }
-            catch (System.Exception e)
+
+            if (entry.EnhancedMips != null)
             {
-                entry.EnhancedFailed = true;
-                entry.Enhanced = null;
-                entry.EnhancedMips = null;
-                GraphicsLog.Warning(
-                    $"TextureCache: Enhanced 4× failed for '{name}': {e.Message} — using native");
+                IntegratePendingAlbedoMips(name);
+                return texCache[key];
+            }
+
+            var job = TryCreateAlbedoJob(name);
+            if (job == null)
+            {
+                if (texCache.TryGetValue(key, out existing))
+                    return existing;
                 var native = GetOrCreateNative(name);
                 texCache[key] = native;
                 return native;
             }
+
+            Integrate(name, EnhancedJobRunner.Run(job));
+            return texCache[key];
         }
 
-        PaletteMipChain GetEnhancedMipChain(string name, SourceEntry entry)
+        void IntegrateAlbedo(string name, EnhancedJobResult result)
         {
+            var key = (name, WorldTextureVariant.Enhanced4X);
+            if (texCache.ContainsKey(key)) return;
+
+            EnsureSource(name);
+            var entry = sourceCache[name];
             if (entry.EnhancedFailed)
-                return null;
-            if (entry.EnhancedMips != null)
-                return entry.EnhancedMips;
+            {
+                var native = GetOrCreateNative(name);
+                texCache[key] = native;
+                return;
+            }
 
-            if (ForceEnhancedFailureForTests)
-                throw new System.InvalidOperationException(
-                    "Forced Enhanced4X failure (test seam).");
-
-            var wrap = WrapFor(entry);
-            var profile = materials.ActiveProfile;
-            bool masked = HasTransparent(entry.Native);
-            var job = EnhancedJob.ForWorldAlbedo(
-                name,
-                entry.Native,
-                wrap,
-                applyDedither: profile.WorldDedither,
-                applyAlphaBleed: masked,
-                palette);
-            var result = EnhancedJobRunner.Run(job);
-            if (!result.Success)
-                throw new System.InvalidOperationException(result.ErrorMessage);
+            if (ForceEnhancedFailureForTests || !result.Success || result.AlbedoMips == null)
+            {
+                entry.EnhancedFailed = true;
+                entry.Enhanced = null;
+                entry.EnhancedMips = null;
+                string msg = ForceEnhancedFailureForTests
+                    ? "Forced Enhanced4X failure (test seam)."
+                    : (result.ErrorMessage ?? "Enhanced albedo job failed.");
+                GraphicsLog.Warning(
+                    $"TextureCache: Enhanced 4× failed for '{name}': {msg} — using native");
+                var native = GetOrCreateNative(name);
+                texCache[key] = native;
+                return;
+            }
 
             entry.EnhancedMips = result.AlbedoMips;
-            // Decoded 4× RGBA is fully captured in the mip chain.
             entry.Enhanced = null;
-            return entry.EnhancedMips;
+
+            var tex = ToAlbedoTexture2D(result.AlbedoMips, name, entry);
+            texCache[key] = tex;
+            albedoToName[tex] = (name, WorldTextureVariant.Enhanced4X);
+            RegisterTextureOnce(tex);
+            enhancedVariantCount++;
+            enhancedTextureBytes += TextureBytes(tex);
+
+            // Mips only needed further for normal gen; drop if normal ready.
+            if (normalCache.ContainsKey(key))
+            {
+                entry.Enhanced = null;
+                entry.EnhancedMips = null;
+            }
+        }
+
+        void IntegrateNormal(string name, EnhancedJobResult result)
+        {
+            var key = (name, WorldTextureVariant.Enhanced4X);
+            if (normalCache.ContainsKey(key)) return;
+
+            EnsureSource(name);
+            var entry = sourceCache[name];
+
+            if (!result.Success || result.NormalMips == null)
+            {
+                entry.Enhanced = null;
+                entry.EnhancedMips = null;
+                if (!result.Success)
+                {
+                    GraphicsLog.Warning(
+                        $"TextureCache: Enhanced normal failed for '{name}': " +
+                        $"{result.ErrorMessage}");
+                }
+                return;
+            }
+
+            var tex = ToNormalTexture2D(result.NormalMips, name, entry);
+            normalCache[key] = tex;
+            normalTextureBytes += TextureBytes(tex);
+            RegisterTextureOnce(tex);
+            context?.RegisterOwned(tex);
+
+            // CPU 4× buffers are no longer needed once albedo + normal are uploaded.
+            entry.Enhanced = null;
+            entry.EnhancedMips = null;
         }
 
         static PixelWrapMode WrapFor(SourceEntry entry)

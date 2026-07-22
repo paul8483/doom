@@ -380,6 +380,7 @@ namespace Doom.MapBuild
             cache.GetTexture(WadSkyRenderer.SkyTextureName);
 
             var warmVariant = GraphicsProfile.ForMode(gfx.Current).WorldTextureVariant;
+            EnhancedWarmScheduler warmScheduler = null;
             if (warmVariant != WorldTextureVariant.Native)
             {
                 var warmNames = new HashSet<string>(StringComparer.Ordinal);
@@ -389,19 +390,19 @@ namespace Doom.MapBuild
                         warmNames.Add(frameName);
                 warmNames.Add(WadSkyRenderer.SkyTextureName);
 
-                int done = 0;
-                int total = Math.Max(1, warmNames.Count);
-                foreach (string name in warmNames)
+                // Normals match Enhanced albedo; build now so RegisterContext
+                // ApplyProfile does not hitch on first lit material retarget.
+                warmScheduler = new EnhancedWarmScheduler();
+                yield return warmScheduler.Warm(
+                    cache, sprites: null, hud: null, warmNames,
+                    warmWorld: true, warmSprites: false, warmHud: false,
+                    reportProgress: (p, label) => flow.ReportLoadProgress(p, label),
+                    progressMin: 0.8f, progressMax: 0.88f);
+                if (!StillValid(flow) || warmScheduler.IsCancelled)
                 {
-                    flow.ReportLoadProgress(
-                        0.8f + 0.08f * done / total, "ENHANCED TEXTURES");
-                    cache.GetTexture(name, warmVariant);
-                    // Normals match Enhanced albedo; build now so RegisterContext
-                    // ApplyProfile does not hitch on first lit material retarget.
-                    cache.GetOrCreateNormal(name);
-                    done++;
-                    yield return null;
-                    if (!StillValid(flow)) yield break;
+                    warmScheduler.Cancel();
+                    warmScheduler.Dispose();
+                    yield break;
                 }
             }
 
@@ -434,7 +435,11 @@ namespace Doom.MapBuild
 
             flow.ReportLoadProgress(0.9f, "THINGS");
             yield return null;
-            if (!StillValid(flow)) yield break;
+            if (!StillValid(flow))
+            {
+                warmScheduler?.Dispose();
+                yield break;
+            }
 
             var thingsRoot = new GameObject("Things");
             thingsRoot.transform.SetParent(root.transform, worldPositionStays: false);
@@ -444,42 +449,33 @@ namespace Doom.MapBuild
                 .SpawnAll(map, thingsRoot.transform, fallbackY, playerGo.transform);
             Debug.Log($"MapLoader: spawned {spawned} sprite things");
 
-            // Enhanced sprite 4× after native warm (weapons + map things). Super-xBR
-            // sync during Get would freeze New Game; yield under the load plaque.
+            // Enhanced sprite/HUD 4× after native warm (weapons + map things).
+            // Parallel CPU via EnhancedWarmScheduler; GPU upload on main thread.
             var loadProfile = GraphicsProfile.ForMode(gfx.Current);
-            if (loadProfile.SpritesUpscale4X)
+            if (loadProfile.SpritesUpscale4X || loadProfile.UiUpscale4X)
             {
-                var lumps = spriteCache.CachedNativeLumps;
-                int done = 0;
-                int total = Math.Max(1, lumps.Count);
-                for (int i = 0; i < lumps.Count; i++)
+                warmScheduler ??= new EnhancedWarmScheduler();
+                yield return warmScheduler.Warm(
+                    textures: null,
+                    spriteCache,
+                    HudTextures,
+                    textureNames: null,
+                    warmWorld: false,
+                    warmSprites: loadProfile.SpritesUpscale4X,
+                    warmHud: loadProfile.UiUpscale4X && HudTextures != null,
+                    reportProgress: (p, label) => flow.ReportLoadProgress(p, label),
+                    progressMin: loadProfile.SpritesUpscale4X ? 0.9f : 0.94f,
+                    progressMax: 0.98f);
+                if (!StillValid(flow) || warmScheduler.IsCancelled)
                 {
-                    flow.ReportLoadProgress(
-                        0.9f + 0.04f * done / total, "ENHANCED SPRITES");
-                    spriteCache.EnsureEnhanced(lumps[i]);
-                    done++;
-                    yield return null;
-                    if (!StillValid(flow)) yield break;
+                    warmScheduler.Dispose();
+                    warmScheduler = null;
+                    yield break;
                 }
             }
 
-            // Status-bar / face 4× (menus/intermission stay native). Small patches;
-            // yield so the load plaque stays responsive.
-            if (loadProfile.UiUpscale4X && HudTextures != null)
-            {
-                var hudNames = new List<string>(HudTextures.HudPatchNames);
-                int done = 0;
-                int total = Math.Max(1, hudNames.Count);
-                for (int i = 0; i < hudNames.Count; i++)
-                {
-                    flow.ReportLoadProgress(
-                        0.94f + 0.04f * done / total, "ENHANCED HUD");
-                    HudTextures.EnsureEnhanced(hudNames[i]);
-                    done++;
-                    yield return null;
-                    if (!StillValid(flow)) yield break;
-                }
-            }
+            warmScheduler?.Dispose();
+            warmScheduler = null;
 
             // Hot-switch Apply skips Super-xBR warm when this is set.
             if (warmVariant != WorldTextureVariant.Native ||

@@ -23,6 +23,7 @@ namespace Doom.MapBuild.Rendering
         bool enhancedWarmComplete;
         bool isApplying;
         Coroutine applyRoutine;
+        EnhancedWarmScheduler warmScheduler;
 
         public GraphicsMode Current => current;
         public GraphicsProfile ActiveProfile => activeProfile;
@@ -98,9 +99,21 @@ namespace Doom.MapBuild.Rendering
         /// MapLoader calls this after yielded ENHANCED TEXTURES/SPRITES/HUD warm.
         public void NotifyEnhancedWarmComplete() => enhancedWarmComplete = true;
 
+        void CancelWarm()
+        {
+            if (warmScheduler != null)
+            {
+                warmScheduler.Cancel();
+                warmScheduler.Dispose();
+                warmScheduler = null;
+            }
+        }
+
         /// Called by MapLoader after creating the world camera / materials.
         public void RegisterContext(WorldRenderContext worldContext)
         {
+            // Cancel workers before stopping the coroutine so Integrate is skipped.
+            CancelWarm();
             if (applyRoutine != null)
             {
                 StopCoroutine(applyRoutine);
@@ -124,6 +137,7 @@ namespace Doom.MapBuild.Rendering
 
         public void ClearContext()
         {
+            CancelWarm();
             if (applyRoutine != null)
             {
                 StopCoroutine(applyRoutine);
@@ -209,52 +223,27 @@ namespace Doom.MapBuild.Rendering
             }
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
-            int spriteTotal = loader != null && loader.Sprites != null
-                ? loader.Sprites.CachedNativeLumpCount : 0;
-            int hudTotal = 0;
-            if (loader != null && loader.HudTextures != null)
-            {
-                foreach (var _ in loader.HudTextures.HudPatchNames)
-                    hudTotal++;
-            }
+            CancelWarm();
+            warmScheduler = new EnhancedWarmScheduler();
 
-            int total = System.Math.Max(1, names.Count + spriteTotal + hudTotal);
-            int done = 0;
-
-            foreach (string name in names)
-            {
-                if (loading != null && loading.IsVisible)
-                    loading.SetProgress(0.05f + 0.7f * done / total, "ENHANCED TEXTURES");
-                cache.GetTexture(name, WorldTextureVariant.Enhanced4X);
-                cache.GetOrCreateNormal(name);
-                done++;
-                yield return null;
-            }
-
-            if (loader != null && loader.Sprites != null)
-            {
-                var lumps = loader.Sprites.CachedNativeLumps;
-                for (int i = 0; i < lumps.Count; i++)
+            yield return warmScheduler.Warm(
+                cache,
+                loader != null ? loader.Sprites : null,
+                loader != null ? loader.HudTextures : null,
+                names,
+                warmWorld: true,
+                warmSprites: loader != null && loader.Sprites != null,
+                warmHud: loader != null && loader.HudTextures != null,
+                reportProgress: (progress, label) =>
                 {
                     if (loading != null && loading.IsVisible)
-                        loading.SetProgress(0.05f + 0.7f * done / total, "ENHANCED SPRITES");
-                    loader.Sprites.EnsureEnhanced(lumps[i]);
-                    done++;
-                    yield return null;
-                }
-            }
+                        loading.SetProgress(progress, label);
+                },
+                progressMin: 0.05f,
+                progressMax: 0.95f);
 
-            if (loader != null && loader.HudTextures != null)
-            {
-                foreach (string name in loader.HudTextures.HudPatchNames)
-                {
-                    if (loading != null && loading.IsVisible)
-                        loading.SetProgress(0.05f + 0.7f * done / total, "ENHANCED HUD");
-                    loader.HudTextures.EnsureEnhanced(name);
-                    done++;
-                    yield return null;
-                }
-            }
+            if (warmScheduler != null && warmScheduler.IsCancelled)
+                yield break;
 
             if (loading != null && loading.IsVisible)
                 loading.SetProgress(0.95f, "ENHANCED READY");
