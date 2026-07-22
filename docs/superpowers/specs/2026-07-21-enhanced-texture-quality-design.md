@@ -1,9 +1,9 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 8 done (multi-scale height → normals with
-height in `_BumpMap.a` + POM on solid opaque). Next: Task 9 (lifetime /
-performance gate)
+**Статус:** in progress — Task 9 done (ownership, yielded Classic→Enhanced
+warm, E1M1/E1M7 metrics, lifetime 5/5). Next: Task 10 (E1 / build / visual
+sign-off)
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.

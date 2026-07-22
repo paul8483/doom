@@ -481,6 +481,14 @@ namespace Doom.MapBuild
                 }
             }
 
+            // Hot-switch Apply skips Super-xBR warm when this is set.
+            if (warmVariant != WorldTextureVariant.Native ||
+                loadProfile.SpritesUpscale4X ||
+                loadProfile.UiUpscale4X)
+            {
+                gfx.NotifyEnhancedWarmComplete();
+            }
+
             LineActivator lineActivator = null;
             LevelStatsTracker tracker = null;
             if (playerGo != null)

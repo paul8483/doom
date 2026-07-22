@@ -32,8 +32,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(sys);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             sys.PulseExplosion(Vector3.zero, 1f / 32f);
             yield return null;
@@ -58,8 +57,7 @@ namespace Doom.Stage3.PlayTests
             var sys = Object.FindFirstObjectByType<EnhancedLightSystem>();
             Assert.IsNotNull(sys);
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             int before = sys.RequestCount;
             for (int i = 0; i < 40; i++)
@@ -93,8 +91,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(health);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             int ammo = weapons.Ammo.Get(AmmoType.Bullets);
             int hp = health.Health;

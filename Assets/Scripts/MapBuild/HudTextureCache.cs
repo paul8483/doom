@@ -57,8 +57,10 @@ namespace Doom.MapBuild
         readonly bool preferInjectedProfile;
         GraphicsProfile profile;
         int enhancedVariantCount;
+        long enhancedTextureBytes;
 
         public int EnhancedVariantCount => enhancedVariantCount;
+        public long EnhancedTextureBytes => enhancedTextureBytes;
 
         /// Status-bar patch names eligible for Enhanced4X (menus stay native).
         public IEnumerable<string> HudPatchNames
@@ -219,6 +221,7 @@ namespace Doom.MapBuild
                 slot.EnhancedTex = tex;
                 context?.RegisterTexture(tex);
                 enhancedVariantCount++;
+                enhancedTextureBytes += (long)tex.width * tex.height * 4L;
                 return tex;
             }
             catch (Exception e)

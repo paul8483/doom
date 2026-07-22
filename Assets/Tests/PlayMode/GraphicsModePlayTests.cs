@@ -15,6 +15,7 @@ namespace Doom.Stage3.PlayTests
         public void TearDown()
         {
             Time.captureDeltaTime = 0f;
+            Time.timeScale = 1f;
             LogAssert.ignoreFailingMessages = false;
             MapLoader.MapNameOverride = null;
         }
@@ -26,7 +27,15 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            MapLoader loader = null;
+            for (int i = 0; i < 3600; i++)
+            {
+                yield return null;
+                loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f) break;
+            }
+            Assert.IsNotNull(loader);
+            Assert.That(loader.LastBuildSeconds, Is.GreaterThan(0f));
 
             var player = GameObject.Find("Player");
             Assert.IsNotNull(player);
@@ -50,7 +59,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(sampleTex);
             Assert.AreEqual(FilterMode.Point, sampleTex.filterMode);
 
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.AreEqual(GraphicsMode.Enhanced, gfx.Current);
             Assert.AreEqual(FilterMode.Point, sampleTex.filterMode);
             Assert.IsTrue(gfx.Context.CameraRenderer.PostProcessingEnabled);
@@ -66,11 +75,10 @@ namespace Doom.Stage3.PlayTests
 
             // Stress: switch repeatedly without growing registered texture count.
             int texCount = gfx.Context.TextureCount;
+            Time.timeScale = 0f;
             for (int i = 0; i < 20; i++)
-            {
                 gfx.Apply(i % 2 == 0 ? GraphicsMode.Enhanced : GraphicsMode.Classic);
-                yield return null;
-            }
+            Time.timeScale = 1f;
             Assert.AreEqual(texCount, gfx.Context.TextureCount);
             Assert.AreEqual(hpBefore, health.Health);
         }

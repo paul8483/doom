@@ -29,8 +29,7 @@ namespace Doom.Stage3.PlayTests
             for (int i = 0; i < 90; i++) yield return null;
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            for (int i = 0; i < 10; i++) yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             int enhancedSprites = 0;
             int anyBillboardMats = 0;

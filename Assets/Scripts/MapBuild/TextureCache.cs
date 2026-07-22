@@ -37,14 +37,30 @@ namespace Doom.MapBuild
         private readonly HashSet<Texture2D> registeredTextures = new();
 
         int enhancedVariantCount;
+        long nativeTextureBytes;
         long enhancedTextureBytes;
+        long normalTextureBytes;
 
         /// Test seam: when true, Enhanced4X transform throws so fallback can be asserted.
         public static bool ForceEnhancedFailureForTests;
 
         public int NormalMapCount => normalCache.Count;
         public int EnhancedVariantCount => enhancedVariantCount;
+        public long NativeTextureBytes => nativeTextureBytes;
         public long EnhancedTextureBytes => enhancedTextureBytes;
+        public long NormalTextureBytes => normalTextureBytes;
+
+        /// True when an albedo for (name, variant) is already in the GPU cache
+        /// (including Enhanced4X→native fallback aliases).
+        public bool HasCachedVariant(string name, WorldTextureVariant variant)
+        {
+#pragma warning disable CS0618
+            if (variant == WorldTextureVariant.Enhanced2X)
+                variant = WorldTextureVariant.Enhanced4X;
+#pragma warning restore CS0618
+            return !string.IsNullOrEmpty(name) &&
+                   texCache.ContainsKey((name, variant));
+        }
 
         public TextureCache(
             WadFile wad,
@@ -127,15 +143,13 @@ namespace Doom.MapBuild
             var profile = MaterialSurfaceProfile.For(category);
             var tex = ToNormalTexture2D(enhancedMips, profile, category, name, entry);
             normalCache[key] = tex;
+            normalTextureBytes += TextureBytes(tex);
             RegisterTextureOnce(tex);
             context?.RegisterOwned(tex);
 
-            // CPU 4× buffer is no longer needed once albedo + normal are uploaded.
-            if (texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X)))
-            {
-                entry.Enhanced = null;
-                entry.EnhancedMips = null;
-            }
+            // CPU 4× buffers are no longer needed once albedo + normal are uploaded.
+            entry.Enhanced = null;
+            entry.EnhancedMips = null;
 
             return tex;
         }
@@ -172,6 +186,7 @@ namespace Doom.MapBuild
             var tex = ToAlbedoTexture2D(entry.Native, name, entry);
             texCache[key] = tex;
             albedoToName[tex] = (name, WorldTextureVariant.Native);
+            nativeTextureBytes += TextureBytes(tex);
             RegisterTextureOnce(tex);
             return tex;
         }
@@ -184,7 +199,13 @@ namespace Doom.MapBuild
 
             var entry = sourceCache[name];
             if (entry.EnhancedFailed)
-                return GetOrCreateNative(name);
+            {
+                // Alias native under the Enhanced key so ApplyProfile does not
+                // re-enter the failure path. Native stays registered once.
+                var native = GetOrCreateNative(name);
+                texCache[key] = native;
+                return native;
+            }
 
             try
             {
@@ -195,6 +216,14 @@ namespace Doom.MapBuild
                 RegisterTextureOnce(tex);
                 enhancedVariantCount++;
                 enhancedTextureBytes += TextureBytes(tex);
+
+                // Mips only needed further for normal gen; drop if normal ready.
+                if (normalCache.ContainsKey(key))
+                {
+                    entry.Enhanced = null;
+                    entry.EnhancedMips = null;
+                }
+
                 return tex;
             }
             catch (System.Exception e)
@@ -204,7 +233,9 @@ namespace Doom.MapBuild
                 entry.EnhancedMips = null;
                 GraphicsLog.Warning(
                     $"TextureCache: Enhanced 4× failed for '{name}': {e.Message} — using native");
-                return GetOrCreateNative(name);
+                var native = GetOrCreateNative(name);
+                texCache[key] = native;
+                return native;
             }
         }
 
@@ -240,6 +271,8 @@ namespace Doom.MapBuild
             var enhanced = GetEnhancedDecoded(name, entry);
             entry.EnhancedMips = PaletteMipGenerator.Generate(
                 enhanced, palette, WrapFor(entry), preserveAlphaCoverage: true);
+            // Decoded 4× RGBA is fully captured in the mip chain.
+            entry.Enhanced = null;
             return entry.EnhancedMips;
         }
 

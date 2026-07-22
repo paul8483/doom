@@ -34,8 +34,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(decals);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             for (int i = 0; i < 40; i++)
             {
@@ -63,8 +62,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(decals);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             particles.Pulse(EffectKind.Puff, Vector3.zero, 1f / 32f);
             decals.Spawn(EffectKind.Puff, Vector3.one, Vector3.forward);
             yield return null;
@@ -92,8 +90,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(particles);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             int before = particles.ActiveCount;
             particles.Pulse(EffectKind.Muzzle, new Vector3(0f, 1f, 0f), 1f / 32f);

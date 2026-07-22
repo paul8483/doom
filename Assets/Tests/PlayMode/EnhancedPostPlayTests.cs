@@ -35,8 +35,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(gfx.Context?.CameraRenderer);
             var cam = gfx.Context.CameraRenderer;
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsTrue(cam.PostProcessingEnabled);
             Assert.IsTrue(cam.VolumeEnabled);
             Assert.IsTrue(cam.WorldCamera.allowHDR);
@@ -56,7 +55,7 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(1, cam.Post.ActiveMsaa);
 
             // Re-enable Enhanced after "resize" notification — no stale Classic state.
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             cam.NotifyDisplayChanged();
             yield return null;
             Assert.IsTrue(cam.PostProcessingEnabled);
@@ -76,8 +75,7 @@ namespace Doom.Stage3.PlayTests
             var gfx = GraphicsModeController.Ensure();
             gfx.SetCapabilities(new GraphicsCapabilityReport(
                 msaa: false, renderScale: false, fsr: false));
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             Assert.AreEqual(GraphicsMode.Enhanced, gfx.Current);
             Assert.IsFalse(gfx.ActiveProfile.Msaa);
@@ -104,8 +102,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsTrue(gfx.EnhancedVolumeProfile.TryGet(out Bloom bloom));
             Assert.IsTrue(gfx.EnhancedVolumeProfile.TryGet(out ColorAdjustments grading));
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsTrue(bloom.active);
             Assert.IsTrue(grading.active);
             Assert.IsTrue(gfx.Context.CameraRenderer.Post.VolumeReady);

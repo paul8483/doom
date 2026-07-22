@@ -30,8 +30,7 @@ namespace Doom.Stage3.PlayTests
             var classicLayout = VirtualScreenRenderer.Compute(1280, 720);
             var gfx = GraphicsModeController.Ensure();
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsTrue(gfx.Context.CameraRenderer.PostProcessingEnabled);
 
             var enhancedLayout = VirtualScreenRenderer.Compute(1280, 720);

@@ -38,8 +38,7 @@ namespace Doom.Stage3.PlayTests
             for (int i = 0; i < 90; i++) yield return null;
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             var sky = gfx.Context?.Sky ?? Object.FindFirstObjectByType<WadSkyRenderer>();
             Assert.IsNotNull(sky);
@@ -104,8 +103,7 @@ namespace Doom.Stage3.PlayTests
             for (int i = 0; i < 90; i++) yield return null;
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             gfx.Apply(GraphicsMode.Classic);
             yield return null;
 
@@ -136,8 +134,7 @@ namespace Doom.Stage3.PlayTests
             var gfx = GraphicsModeController.Ensure();
             foreach (var mode in new[] { GraphicsMode.Enhanced, GraphicsMode.Classic })
             {
-                gfx.Apply(mode);
-                yield return null;
+                yield return GraphicsApplyWait.Apply(gfx, mode);
 
                 foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
                 {

@@ -83,8 +83,7 @@ namespace Doom.Stage3.PlayTests
             var nativeFromCache = loader.WorldTextures.GetTexture(sampleName, WorldTextureVariant.Native);
             Assert.AreSame(nativeTex, nativeFromCache);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsNull(gfx.LastError, gfx.LastError);
 
             var enhanced = loader.WorldTextures.GetTexture(sampleName, WorldTextureVariant.Enhanced4X);
@@ -165,8 +164,7 @@ namespace Doom.Stage3.PlayTests
                 WadSkyRenderer.SkyTextureName, WorldTextureVariant.Native);
             Assert.IsNotNull(nativeSky);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             var enhancedSky = loader.WorldTextures.GetTexture(
                 WadSkyRenderer.SkyTextureName, WorldTextureVariant.Enhanced4X);

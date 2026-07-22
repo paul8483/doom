@@ -82,7 +82,7 @@ namespace Doom.Stage3.PlayTests
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             loader.SectorLights.NotifyProfileChanged();
             yield return null;
 

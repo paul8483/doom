@@ -46,7 +46,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(loader.WorldTextures);
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.AreEqual(GraphicsMode.Enhanced, gfx.Current);
             Assert.IsNull(gfx.LastError, gfx.LastError);
             Assert.IsTrue(gfx.ActiveProfile.WorldTexelAA);
@@ -146,10 +146,9 @@ namespace Doom.Stage3.PlayTests
             yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsNull(gfx.LastError, gfx.LastError);
             Assert.IsTrue(gfx.ActiveProfile.WorldParallax);
-            yield return null;
 
             int opaqueWithPom = 0;
             int cutoutChecked = 0;
@@ -211,9 +210,8 @@ namespace Doom.Stage3.PlayTests
             yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsNull(gfx.LastError, gfx.LastError);
-            yield return null;
 
             // Layered profile without texel-AA: keyword off (editor/test capture path).
             // Apply via context — GraphicsModeController.Apply early-outs on same mode.
@@ -265,8 +263,7 @@ namespace Doom.Stage3.PlayTests
             Assert.IsNotNull(loader);
             var gfx = GraphicsModeController.Ensure();
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             int normalsAfterWarmup = loader.WorldTextures.NormalMapCount;
             int texAfterWarmup = gfx.Context.TextureCount;
             Assert.That(normalsAfterWarmup, Is.GreaterThan(0));

@@ -87,7 +87,8 @@ namespace Doom.Stage3.PlayTests
             float classicOffset = block.GetVector(
                 Shader.PropertyToID("_MainTex_ST")).z;
 
-            GraphicsModeController.Ensure().Apply(GraphicsMode.Enhanced);
+            var gfx = GraphicsModeController.Ensure();
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             scroll.ApplyTicForTest(35);
             renderer.GetPropertyBlock(block);
             float enhancedOffset = block.GetVector(

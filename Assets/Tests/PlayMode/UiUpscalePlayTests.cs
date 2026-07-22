@@ -257,8 +257,7 @@ namespace Doom.Stage3.PlayTests
             var classicWeaponTex = classicWeapon.Material.mainTexture as Texture2D;
             Assert.IsNotNull(classicWeaponTex);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsNull(gfx.LastError, gfx.LastError);
 
             Assert.IsTrue(loader.HudTextures.TryGet("STBAR", out var enhancedHud));
@@ -283,8 +282,7 @@ namespace Doom.Stage3.PlayTests
             var restoredWeapon = loader.Sprites.Get("PISG", 0, 0);
             Assert.AreSame(classicWeaponTex, restoredWeapon.Material.mainTexture);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsTrue(loader.HudTextures.TryGet("STBAR", out var enhancedAgain));
             Assert.AreSame(enhancedHud.Texture, enhancedAgain.Texture);
             if (gfx.Context != null)

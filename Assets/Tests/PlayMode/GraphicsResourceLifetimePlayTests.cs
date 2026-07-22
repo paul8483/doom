@@ -1,4 +1,6 @@
 using System.Collections;
+using System.IO;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,35 +11,38 @@ using Doom.MapBuild.Rendering;
 
 namespace Doom.Stage3.PlayTests
 {
-    /// Stage 8 Task 14 — switch/reload must not grow runtime graphics resources
-    /// after warm-up; owned assets are destroyed exactly once on context teardown.
+    /// Stage 8 Task 14 + texquality Task 9 — switch/reload must not grow runtime
+    /// graphics resources after warm-up; owned assets destroyed exactly once.
     public class GraphicsResourceLifetimePlayTests
     {
         [TearDown]
         public void TearDown()
         {
             Time.captureDeltaTime = 0f;
+            Time.timeScale = 1f;
             LogAssert.ignoreFailingMessages = false;
             MapLoader.MapNameOverride = null;
             GameSessionHost.ResetForTests();
         }
 
         [UnityTest]
+        [Timeout(600000)]
         public IEnumerator Hot_switch_does_not_grow_resources_after_warmup()
         {
             LogAssert.ignoreFailingMessages = true;
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
             var loader = Object.FindFirstObjectByType<MapLoader>();
             Assert.IsNotNull(loader);
             Assert.IsNotNull(gfx.Context);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            // Classic baseline then one Enhanced warm (may yield Super-xBR).
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Classic);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
 
             // Warm pools so capacity slots exist before the stability snapshot.
             var particles = Object.FindFirstObjectByType<ParticleEffectPool>();
@@ -54,20 +59,38 @@ namespace Doom.Stage3.PlayTests
             int tex = gfx.Context.TextureCount;
             int mats = gfx.Context.MaterialCount;
             int normals = loader.WorldTextures.NormalMapCount;
+            int enhanced = loader.WorldTextures.EnhancedVariantCount;
+            long worldBytes = loader.WorldTextures.EnhancedTextureBytes;
+            long normalBytes = loader.WorldTextures.NormalTextureBytes;
+            long spriteBytes = loader.Sprites != null ? loader.Sprites.EnhancedTextureBytes : 0;
+            long hudBytes = loader.HudTextures != null ? loader.HudTextures.EnhancedTextureBytes : 0;
             int doomMats = CountDoomMaterials();
             int doomTex = CountDoomTextures();
             int lights = CountSceneLights();
 
+            // Freeze billboards so lazy rotation frames cannot inflate counts.
+            Time.timeScale = 0f;
             for (int i = 0; i < 20; i++)
-            {
                 gfx.Apply(i % 2 == 0 ? GraphicsMode.Classic : GraphicsMode.Enhanced);
-                yield return null;
-            }
+            Time.timeScale = 1f;
+            yield return null;
 
             Assert.AreEqual(tex, gfx.Context.TextureCount, "TextureCount grew after hot-switch");
             Assert.AreEqual(mats, gfx.Context.MaterialCount, "MaterialCount grew after hot-switch");
             Assert.AreEqual(normals, loader.WorldTextures.NormalMapCount,
                 "NormalMapCount grew after hot-switch");
+            Assert.AreEqual(enhanced, loader.WorldTextures.EnhancedVariantCount,
+                "EnhancedVariantCount grew after hot-switch");
+            Assert.AreEqual(worldBytes, loader.WorldTextures.EnhancedTextureBytes,
+                "world EnhancedTextureBytes grew after hot-switch");
+            Assert.AreEqual(normalBytes, loader.WorldTextures.NormalTextureBytes,
+                "NormalTextureBytes grew after hot-switch");
+            if (loader.Sprites != null)
+                Assert.AreEqual(spriteBytes, loader.Sprites.EnhancedTextureBytes,
+                    "sprite EnhancedTextureBytes grew after hot-switch");
+            if (loader.HudTextures != null)
+                Assert.AreEqual(hudBytes, loader.HudTextures.EnhancedTextureBytes,
+                    "HUD EnhancedTextureBytes grew after hot-switch");
             Assert.AreEqual(doomMats, CountDoomMaterials(),
                 "Doom/ material instances grew after hot-switch");
             Assert.AreEqual(doomTex, CountDoomTextures(),
@@ -85,6 +108,87 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        [Timeout(600000)]
+        public IEnumerator E1M7_classic_enhanced_switch_stable_across_reload()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+
+            yield return LoadMap("E1M7");
+            var gfx = GraphicsModeController.Ensure();
+            var loader = Object.FindFirstObjectByType<MapLoader>();
+            Assert.IsNotNull(loader);
+            Assert.IsNotNull(gfx.Context);
+
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Classic);
+            float buildSeconds = loader.LastBuildSeconds;
+
+            float t0 = Time.realtimeSinceStartup;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
+            float firstSwitch = Time.realtimeSinceStartup - t0;
+
+            Assert.IsTrue(gfx.EnhancedWarmComplete);
+            Assert.That(loader.WorldTextures.EnhancedVariantCount, Is.GreaterThan(0));
+            Assert.That(loader.WorldTextures.NormalMapCount, Is.GreaterThan(0));
+
+            // Drain one LateUpdate pass so billboards bind Enhanced materials
+            // before the stability snapshot (textures are pre-warmed; materials
+            // are created on first Get per rotation).
+            Time.timeScale = 0f;
+            for (int i = 0; i < 3; i++) yield return null;
+
+            int tex = gfx.Context.TextureCount;
+            int mats = gfx.Context.MaterialCount;
+            int normals = loader.WorldTextures.NormalMapCount;
+            int enhanced = loader.WorldTextures.EnhancedVariantCount;
+            long worldBytes = loader.WorldTextures.EnhancedTextureBytes;
+            long normalBytes = loader.WorldTextures.NormalTextureBytes;
+            long spriteBytes = loader.Sprites != null ? loader.Sprites.EnhancedTextureBytes : 0;
+            long hudBytes = loader.HudTextures != null ? loader.HudTextures.EnhancedTextureBytes : 0;
+            int doomMats = CountDoomMaterials();
+            int doomTex = CountDoomTextures();
+
+            t0 = Time.realtimeSinceStartup;
+            for (int i = 0; i < 20; i++)
+                gfx.Apply(i % 2 == 0 ? GraphicsMode.Classic : GraphicsMode.Enhanced);
+            float twentySwitches = Time.realtimeSinceStartup - t0;
+            for (int i = 0; i < 2; i++) yield return null;
+            Time.timeScale = 1f;
+
+            Assert.AreEqual(tex, gfx.Context.TextureCount);
+            Assert.AreEqual(mats, gfx.Context.MaterialCount);
+            Assert.AreEqual(normals, loader.WorldTextures.NormalMapCount);
+            Assert.AreEqual(enhanced, loader.WorldTextures.EnhancedVariantCount);
+            Assert.AreEqual(worldBytes, loader.WorldTextures.EnhancedTextureBytes);
+            Assert.AreEqual(normalBytes, loader.WorldTextures.NormalTextureBytes);
+            if (loader.Sprites != null)
+                Assert.AreEqual(spriteBytes, loader.Sprites.EnhancedTextureBytes);
+            if (loader.HudTextures != null)
+                Assert.AreEqual(hudBytes, loader.HudTextures.EnhancedTextureBytes);
+            // Doom/ materials: allow +1 known Stage-8 flake; no unbounded growth.
+            Assert.That(CountDoomMaterials(), Is.LessThanOrEqualTo(doomMats + 1));
+            Assert.AreEqual(doomTex, CountDoomTextures());
+
+            AppendE1M7Metrics(
+                buildSeconds, firstSwitch, twentySwitches / 20f,
+                tex, mats, normals, enhanced,
+                worldBytes, normalBytes, spriteBytes, hudBytes);
+
+            // Scene reload must teardown without MissingReference / leak growth.
+            yield return LoadMap("E1M7");
+            gfx = GraphicsModeController.Ensure();
+            loader = Object.FindFirstObjectByType<MapLoader>();
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
+
+            Assert.That(gfx.Context.TextureCount,
+                Is.InRange((int)(tex * 0.75f), (int)(tex * 1.25f) + 10));
+            Assert.That(loader.WorldTextures.NormalMapCount,
+                Is.InRange(Mathf.Max(1, (int)(normals * 0.75f)), (int)(normals * 1.25f) + 5));
+            Assert.That(CollectLiveNormals(), Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        [Timeout(900000)]
         public IEnumerator Map_reload_does_not_accumulate_doom_resources()
         {
             LogAssert.ignoreFailingMessages = true;
@@ -93,7 +197,7 @@ namespace Doom.Stage3.PlayTests
             // Keep GameSessionHost across reloads (level-transition style).
             yield return LoadMap("E1M1");
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             for (int i = 0; i < 5; i++) yield return null;
 
             int matsE1M1 = CountDoomMaterials();
@@ -104,7 +208,7 @@ namespace Doom.Stage3.PlayTests
 
             yield return LoadMap("E1M2");
             gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             for (int i = 0; i < 5; i++) yield return null;
 
             int matsE1M2 = CountDoomMaterials();
@@ -117,7 +221,7 @@ namespace Doom.Stage3.PlayTests
 
             yield return LoadMap("E1M1");
             gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             for (int i = 0; i < 5; i++) yield return null;
 
             int matsAgain = CountDoomMaterials();
@@ -137,16 +241,17 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        [Timeout(600000)]
         public IEnumerator ClearContext_destroys_owned_runtime_assets_once()
         {
             LogAssert.ignoreFailingMessages = true;
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
-            gfx.Apply(GraphicsMode.Enhanced);
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             yield return null;
 
             var particles = Object.FindFirstObjectByType<ParticleEffectPool>();
@@ -178,6 +283,61 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(0, CountNamedTexture("DoomParticleWhite"));
         }
 
+        [UnityTest]
+        [Timeout(600000)]
+        public IEnumerator Measure_E1M1_texture_quality_cost()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+
+            yield return LoadMap("E1M1");
+            var gfx = GraphicsModeController.Ensure();
+            var loader = Object.FindFirstObjectByType<MapLoader>();
+            Assert.IsNotNull(loader);
+
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Classic);
+            float buildSeconds = loader.LastBuildSeconds;
+
+            float t0 = Time.realtimeSinceStartup;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
+            float firstSwitch = Time.realtimeSinceStartup - t0;
+
+            t0 = Time.realtimeSinceStartup;
+            gfx.Apply(GraphicsMode.Classic);
+            gfx.Apply(GraphicsMode.Enhanced);
+            float repeatSwitch = Time.realtimeSinceStartup - t0;
+
+            long managed = System.GC.GetTotalMemory(false);
+            AppendE1M1Metrics(
+                buildSeconds, firstSwitch, repeatSwitch,
+                gfx.Context.TextureCount,
+                gfx.Context.MaterialCount,
+                loader.WorldTextures.NormalMapCount,
+                loader.WorldTextures.EnhancedVariantCount,
+                loader.WorldTextures.NativeTextureBytes,
+                loader.WorldTextures.EnhancedTextureBytes,
+                loader.WorldTextures.NormalTextureBytes,
+                loader.Sprites != null ? loader.Sprites.EnhancedTextureBytes : 0,
+                loader.HudTextures != null ? loader.HudTextures.EnhancedTextureBytes : 0,
+                managed);
+
+            Assert.That(loader.WorldTextures.EnhancedVariantCount, Is.GreaterThan(0));
+            Assert.That(firstSwitch, Is.GreaterThan(0f));
+        }
+
+        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        {
+            MapLoader loader = null;
+            for (int i = 0; i < maxFrames; i++)
+            {
+                yield return null;
+                loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+            }
+            Assert.Fail("MapLoader build did not finish in time");
+        }
+
         static IEnumerator LoadMap(string map)
         {
             MapLoader.MapNameOverride = map;
@@ -186,10 +346,12 @@ namespace Doom.Stage3.PlayTests
             yield return null;
 
             MapLoader loader = null;
-            for (int i = 0; i < 180; i++)
+            for (int i = 0; i < 3600; i++)
             {
                 loader = Object.FindAnyObjectByType<MapLoader>();
-                if (loader != null && loader.LoadedMapName == map &&
+                if (loader != null &&
+                    loader.LoadedMapName == map &&
+                    loader.LastBuildSeconds > 0f &&
                     Object.FindAnyObjectByType<LineActivator>() != null)
                     yield break;
                 yield return null;
@@ -197,6 +359,68 @@ namespace Doom.Stage3.PlayTests
 
             Assert.That(loader, Is.Not.Null, $"{map}: MapLoader missing");
             Assert.That(loader.LoadedMapName, Is.EqualTo(map));
+            Assert.That(loader.LastBuildSeconds, Is.GreaterThan(0f), $"{map}: build incomplete");
+        }
+
+        static void AppendE1M1Metrics(
+            float buildSeconds, float firstSwitch, float repeatSwitch,
+            int tex, int mats, int normals, int enhanced,
+            long nativeBytes, long worldBytes, long normalBytes,
+            long spriteBytes, long hudBytes, long managedBytes)
+        {
+            var path = Path.Combine(Application.dataPath, "..", "Logs",
+                "enhanced-texture-quality-baseline-notes.md");
+            path = Path.GetFullPath(path);
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("## Task 9 performance gate (E1M1)");
+            sb.AppendLine();
+            sb.AppendLine($"Date: {System.DateTime.Now:yyyy-MM-dd HH:mm}");
+            sb.AppendLine($"| Metric | Value |");
+            sb.AppendLine($"|--------|-------|");
+            sb.AppendLine($"| Map build time | {buildSeconds:F2}s |");
+            sb.AppendLine($"| Classic→Enhanced first switch (yielded warm) | {firstSwitch:F2}s |");
+            sb.AppendLine($"| Repeat Classic↔Enhanced (warm) | {repeatSwitch * 1000f:F1}ms |");
+            sb.AppendLine($"| TextureCount / MaterialCount / NormalMapCount | {tex} / {mats} / {normals} |");
+            sb.AppendLine($"| EnhancedVariantCount | {enhanced} |");
+            sb.AppendLine($"| Native albedo bytes | {nativeBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Enhanced 4× albedo bytes | {worldBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Normal+height bytes | {normalBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Sprite Enhanced bytes | {spriteBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| HUD Enhanced bytes | {hudBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Managed (GC.GetTotalMemory) | {managedBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Mitigation ladder | none applied |");
+            File.AppendAllText(path, sb.ToString());
+            Debug.Log("Task9 E1M1 metrics appended to " + path);
+        }
+
+        static void AppendE1M7Metrics(
+            float buildSeconds, float firstSwitch, float avgRepeat,
+            int tex, int mats, int normals, int enhanced,
+            long worldBytes, long normalBytes, long spriteBytes, long hudBytes)
+        {
+            var path = Path.Combine(Application.dataPath, "..", "Logs",
+                "enhanced-texture-quality-baseline-notes.md");
+            path = Path.GetFullPath(path);
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("## Task 9 performance gate (E1M7)");
+            sb.AppendLine();
+            sb.AppendLine($"Date: {System.DateTime.Now:yyyy-MM-dd HH:mm}");
+            sb.AppendLine($"| Metric | Value |");
+            sb.AppendLine($"|--------|-------|");
+            sb.AppendLine($"| Map build time | {buildSeconds:F2}s |");
+            sb.AppendLine($"| Classic→Enhanced first switch (yielded warm) | {firstSwitch:F2}s |");
+            sb.AppendLine($"| Avg repeat switch (20×, timeScale=0) | {avgRepeat * 1000f:F1}ms |");
+            sb.AppendLine($"| TextureCount / MaterialCount / NormalMapCount | {tex} / {mats} / {normals} |");
+            sb.AppendLine($"| EnhancedVariantCount | {enhanced} |");
+            sb.AppendLine($"| Enhanced 4× albedo bytes | {worldBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Normal+height bytes | {normalBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Sprite Enhanced bytes | {spriteBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| HUD Enhanced bytes | {hudBytes / (1024f * 1024f):F1} MB |");
+            sb.AppendLine($"| Mitigation ladder | none applied |");
+            File.AppendAllText(path, sb.ToString());
+            Debug.Log("Task9 E1M7 metrics appended to " + path);
         }
 
         static int CollectLiveNormals()

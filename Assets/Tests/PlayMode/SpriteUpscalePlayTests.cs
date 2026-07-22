@@ -234,8 +234,7 @@ namespace Doom.Stage3.PlayTests
             var nativeTex = nativeSm.Material.mainTexture as Texture2D;
             Assert.IsNotNull(nativeTex);
 
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             Assert.IsNull(gfx.LastError, gfx.LastError);
 
             var enhancedSm = loader.Sprites.Get(
@@ -258,8 +257,7 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(headerH, restored.Height);
 
             // Re-enter Enhanced: same Enhanced objects, no count growth from rebuild.
-            gfx.Apply(GraphicsMode.Enhanced);
-            yield return null;
+            yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
             var enhancedAgain = loader.Sprites.Get(
                 "POSS", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X);
             Assert.AreSame(enhancedSm.Material.mainTexture, enhancedAgain.Material.mainTexture);

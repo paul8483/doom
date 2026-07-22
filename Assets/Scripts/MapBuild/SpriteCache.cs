@@ -45,9 +45,11 @@ namespace Doom.MapBuild
         private readonly List<int> nativeLumpOrder = new();
 
         int enhancedVariantCount;
+        long enhancedTextureBytes;
 
         public DoomMaterialFactory Materials => materials;
         public int EnhancedVariantCount => enhancedVariantCount;
+        public long EnhancedTextureBytes => enhancedTextureBytes;
         public int CachedNativeLumpCount => nativeLumpOrder.Count;
 
         /// Lumps that already have a native texture (warm order). Used for yielded
@@ -234,6 +236,7 @@ namespace Doom.MapBuild
                 texByLumpVariant[key] = tex;
                 context?.RegisterTexture(tex);
                 enhancedVariantCount++;
+                enhancedTextureBytes += (long)tex.width * tex.height * 4L;
                 return tex;
             }
             catch (System.Exception e)
@@ -278,7 +281,7 @@ namespace Doom.MapBuild
                 System.Array.Copy(src, y * stride, flipped, (h - 1 - y) * stride, stride);
 
             tex.LoadRawTextureData(flipped);
-            tex.Apply(updateMipmaps: true, makeNoLongerReadable: false);
+            tex.Apply(updateMipmaps: true, makeNoLongerReadable: true);
             return tex;
         }
     }

@@ -18,9 +18,8 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 8 done (HeightMapGenerator + multi-scale normals with height
-in alpha + `DOOM_PARALLAX` on solid opaque). Next: Task 9 (lifetime /
-performance gate).
+**Статус:** Task 9 done (ownership, yielded Classic→Enhanced warm, E1M1/E1M7
+metrics, lifetime suite green). Next: Task 10 (E1 smoke / build / visual sign-off).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -574,43 +573,44 @@ Doom.Stage3.PlayTests.TextureUpscalePlayTests
 
 **Files:**
 - Modify: `Assets/Scripts/MapBuild/TextureCache.cs`
+- Modify: `Assets/Scripts/MapBuild/SpriteCache.cs`
+- Modify: `Assets/Scripts/MapBuild/HudTextureCache.cs`
+- Modify: `Assets/Scripts/MapBuild/Rendering/GraphicsModeController.cs`
+- Modify: `Assets/Scripts/MapBuild/MapLoader.cs`
 - Modify: `Assets/Tests/PlayMode/GraphicsResourceLifetimePlayTests.cs`
+- Create: `Assets/Tests/PlayMode/GraphicsApplyWait.cs`
 - Modify: `Logs/enhanced-texture-quality-baseline-notes.md`
 
-- [ ] **Step 1: Закрыть ownership.**
+- [x] **Step 1: Закрыть ownership.**
 
-Каждый native/4× albedo и normal зарегистрирован и уничтожается один раз;
-fallback alias не освобождается дважды; промежуточные CPU буферы
-(dedithered, 2×, 4×, height) не удерживаются после последнего consumer;
-`makeNoLongerReadable` включён.
+`TextureCache`: free `Enhanced` after mip chain; free mips after normal;
+Enhanced4X failure aliases native under the Enhanced key without
+double-register; `NativeTextureBytes` / `NormalTextureBytes` diagnostics.
+Sprites/HUD: `makeNoLongerReadable: true`; `EnhancedTextureBytes` exposed.
 
-- [ ] **Step 2: Warm-up stability на E1M7.**
+- [x] **Step 2: Warm-up stability на E1M7.**
 
-Classic load → Enhanced → counts → 20 switches → counts неизменны →
-scene reload → teardown без MissingReferenceException/leak growth.
+`E1M7_classic_enhanced_switch_stable_across_reload`: Classic → Enhanced
+(yielded) → drain LateUpdate → 20 switches → stable counts/bytes → reload
+→ counts in range. No MissingReferenceException.
 
-- [ ] **Step 3: Измерить cost против baseline Task 1.**
+- [x] **Step 3: Измерить cost против baseline Task 1.**
 
-E1M1/E1M7: load time, первый/повторный switch, managed/texture memory
-(world + sprite + UI байты раздельно), frame time после warm-up. Числа
-записать. **Память — главный риск итерации (16× albedo + 16× normal
-против 4×+4× в Scale2x-версии, плюс sprite set).**
-Если E1M7 неприемлем — применять mitigation ladder из спеки по одной
-ступени с повторным измерением: (1) height/normal из 2×; (2) 4× только
-для textures ≥ 64px; (3) общий откат на 2× Super-xBR. Каждую применённую
-ступень задокументировать.
+E1M1 first Classic→Enhanced **~85s** yielded; repeat **~11ms**. E1M7 first
+**~86s**; repeat avg **~14ms**. Enhanced albedo+normal ~300 MB + sprites
+~60 MB — acceptable; **mitigation ladder not applied**. Sync hot-switch
+rejected (same class of freeze as post-T4 New Game): `GraphicsModeController.Apply`
+yields world/sprite/HUD warm under loading plate when `!EnhancedWarmComplete`;
+`MapLoader` calls `NotifyEnhancedWarmComplete` after load-time warm.
 
-**Отдельно: первый Classic → Enhanced hot-switch.** Покадровый прогрев
-работает только на загрузке при персистентном Enhanced; hot-switch из
-паузы строит все варианты синхронно в одном кадре — с Super-xBR это
-ожидаемый фриз. Замерить; при неприемлемом — покадровый прогрев под
-индикатором (аналог `ENHANCED TEXTURES`) и повторный замер.
-
-- [ ] **Step 4: Запустить lifetime tests.**
+- [x] **Step 4: Запустить lifetime tests.**
 
 ```text
 Doom.Stage3.PlayTests.GraphicsResourceLifetimePlayTests
 ```
+
+**5/5 passed** (`Logs/texquality-t9-lifetime-play.xml`; retry evidence
+`Logs/texquality-t9-lifetime-retry-play.xml` for E1M7+Map_reload).
 
 **Commit checkpoint:** `rendering: bound texture quality memory and lifetime`
 

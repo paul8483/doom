@@ -76,7 +76,7 @@ namespace Doom.Stage3.PlayTests
                     Assert.That(float.IsNaN(loader.LastBuildSeconds), Is.False);
 
                     var gfx = GraphicsModeController.Ensure();
-                    gfx.Apply(mode);
+                    yield return GraphicsApplyWait.Apply(gfx, mode);
                     for (int i = 0; i < 5; i++) yield return null;
 
                     Assert.AreEqual(mode, gfx.Current, $"{map}/{mode}: mode not applied");

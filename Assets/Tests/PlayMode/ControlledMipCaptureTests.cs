@@ -67,8 +67,7 @@ namespace Doom.Stage3.PlayTests
                 if (controller != null) controller.enabled = false;
 
                 var graphics = GraphicsModeController.Ensure();
-                graphics.Apply(GraphicsMode.Enhanced);
-                yield return null;
+                yield return GraphicsApplyWait.Apply(graphics, GraphicsMode.Enhanced);
                 Assert.IsNull(graphics.LastError, graphics.LastError);
 
                 // Apply can run pending session/profile callbacks; reacquire scene objects.
