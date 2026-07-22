@@ -148,7 +148,9 @@ Shader "Doom/EnhancedCutout"
                 clip(albedoSample.a - _Cutoff);
 
                 half3 albedo = albedoSample.rgb;
-                half3 normalTS = UnpackNormalScale(
+                // RGB unpack: height lives in _BumpMap.a (see NormalMapGenerator);
+                // UnpackNormalScale would multiply X by alpha on the DXT5nm path.
+                half3 normalTS = UnpackNormalRGB(
                     DoomSampleControlled(
                         TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
                         input.uv, _BumpMap_TexelSize), _BumpScale);

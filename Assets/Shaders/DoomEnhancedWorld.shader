@@ -168,7 +168,9 @@ Shader "Doom/EnhancedWorld"
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex), uv, _MainTex_TexelSize);
                 half3 albedo = albedoSample.rgb;
 
-                half3 normalTS = UnpackNormalScale(
+                // RGB unpack: our runtime normal maps store height in alpha, and
+                // UnpackNormalScale's RGorAG path multiplies X by alpha (DXT5nm).
+                half3 normalTS = UnpackNormalRGB(
                     DoomSampleControlled(
                         TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
                         uv, _BumpMap_TexelSize), _BumpScale);

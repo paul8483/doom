@@ -165,7 +165,9 @@ Shader "Doom/Fluid"
                 half3 albedo = tex.rgb;
                 half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);
 
-                float3 nTS = UnpackNormalScale(
+                // RGB unpack: height lives in _BumpMap.a (see NormalMapGenerator);
+                // UnpackNormalScale would multiply X by alpha on the DXT5nm path.
+                float3 nTS = UnpackNormalRGB(
                     DoomSampleControlled(
                         TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
                         uv, _BumpMap_TexelSize), _BumpScale);
