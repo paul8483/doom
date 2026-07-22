@@ -270,8 +270,17 @@ namespace Doom.MapBuild
         static void DrawEntry(
             in VirtualScreenRenderer.Transform t, HudTextureCache.Entry e, float vx, float vy)
         {
-            var r = VirtualScreenRenderer.ToScreenSnapped(t, vx, vy, e.Width, e.Height);
-            GUI.DrawTexture(r, e.Texture);
+            GUI.DrawTexture(PlacementRect(t, e, vx, vy), e.Texture);
+        }
+
+        /// V_DrawPatch semantics: the patch's own offsets shift it from the anchor.
+        /// Freedoom face patches carry (-5,-2) — ignoring them drew the face off
+        /// center of the STBAR frame; all other HUD patches have zero offsets.
+        public static Rect PlacementRect(
+            in VirtualScreenRenderer.Transform t, HudTextureCache.Entry e, float vx, float vy)
+        {
+            return VirtualScreenRenderer.ToScreenSnapped(
+                t, vx - e.LeftOffset, vy - e.TopOffset, e.Width, e.Height);
         }
 
         static bool IsWeaponPickup(int doomedNum) =>

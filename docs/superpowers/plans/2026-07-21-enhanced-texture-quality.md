@@ -447,6 +447,16 @@ alpha untouched; прозрачные вне blur) c amount **0.5**, выбра�
 
 **Commit checkpoint:** `sprites: sharpen upscaled sprite and hud art`
 
+**Post-Task 5/6 (2026-07-22): face placement fix.** Интерактивно: лицо
+HUD не по центру рамки. Причина pre-existing (Stage 7b): `DoomHud`
+игнорировал `LeftOffset`/`TopOffset` патча, а лицевые патчи Freedoom несут
+(-5,-2) — ваниль (`V_DrawPatch`) их вычитает. Остальные HUD-патчи имеют
+нулевые офсеты (проверено по WAD). Фикс: `DoomHud.PlacementRect` вычитает
+офсеты; регрессионный тест `Face_patch_offsets_shift_placement_like_v_drawpatch`.
+`UiUpscalePlayTests` **7/7** (`Logs/texquality-facefix-play.xml`).
+
+**Commit checkpoint:** `hud: honor patch offsets so the face centers`
+
 ---
 
 ## Task 7: Texel-AA sampling в Enhanced shaders

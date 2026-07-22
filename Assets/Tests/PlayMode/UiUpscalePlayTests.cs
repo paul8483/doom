@@ -101,6 +101,38 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Face_patch_offsets_shift_placement_like_v_drawpatch()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenHudCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                // Freedoom face patches carry (-5,-2); ignoring them drew the
+                // face left/up of the STBAR frame center (regression 2026-07-22).
+                Assert.IsTrue(cache.TryGet("STFST01", WorldTextureVariant.Native, out var face));
+                Assert.IsTrue(face.IsValid);
+                Assert.AreEqual(-5, face.LeftOffset, "Freedoom face left offset");
+                Assert.AreEqual(-2, face.TopOffset, "Freedoom face top offset");
+
+                var t = VirtualScreenRenderer.Compute(1280, 800);
+                var expected = VirtualScreenRenderer.ToScreenSnapped(
+                    t, 143 + 5, 168 + 2, face.Width, face.Height);
+                var actual = DoomHud.PlacementRect(t, face, 143, 168);
+                Assert.AreEqual(expected, actual);
+
+                // Zero-offset patches are unaffected by the fix.
+                Assert.IsTrue(cache.TryGet("STTNUM0", WorldTextureVariant.Native, out var digit));
+                Assert.AreEqual(0, digit.LeftOffset);
+                Assert.AreEqual(0, digit.TopOffset);
+                var digitExpected = VirtualScreenRenderer.ToScreenSnapped(
+                    t, 48, 171, digit.Width, digit.Height);
+                Assert.AreEqual(digitExpected, DoomHud.PlacementRect(t, digit, 48, 171));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Weapon_placement_rect_identical_native_vs_enhanced()
         {
             LogAssert.ignoreFailingMessages = true;
