@@ -1,8 +1,8 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 6 done (`HudTextureCache` Enhanced4X + weapon
-via `SpriteCache` + yielded `ENHANCED HUD`). Next: Task 7 (texel-AA)
+**Статус:** in progress — Task 7 done (fat-pixel texel-AA + `DOOM_TEXEL_AA` on
+Enhanced opaque/cutout). Next: Task 8 (height / normals / POM)
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.

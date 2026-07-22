@@ -24,6 +24,8 @@ namespace Doom.MapBuild.Rendering
         public const string SoftFloorFadeProperty = "_SoftFloorFade";
         public const string CrossFadeProperty = "_CrossFade";
         public const string CrossTexProperty = "_CrossTex";
+        /// Fat-pixel texel-AA sampling in Enhanced world shaders (opaque/cutout).
+        public const string TexelAaKeyword = "DOOM_TEXEL_AA";
         public const float SoftFloorFadeAmount = 0.08f;
 
         Shader classicOpaque;
@@ -172,6 +174,12 @@ namespace Doom.MapBuild.Rendering
         {
             if (masked && material.HasProperty(CutoffProperty))
                 material.SetFloat(CutoffProperty, 0.5f);
+
+            // Texel-AA is Enhanced world albedo only; Classic shaders ignore the keyword.
+            if (active.WorldTexelAA)
+                material.EnableKeyword(TexelAaKeyword);
+            else
+                material.DisableKeyword(TexelAaKeyword);
 
             bool enhanced = active.UseLitMaterials && active.ProceduralNormals;
             if (enhanced)

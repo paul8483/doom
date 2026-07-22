@@ -35,6 +35,7 @@ Shader "Doom/EnhancedWorld"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_TEXEL_AA
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -147,7 +148,8 @@ Shader "Doom/EnhancedWorld"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                half4 albedoSample = DoomSampleControlled(
+                // Albedo: texel-AA when DOOM_TEXEL_AA; normals stay controlled.
+                half4 albedoSample = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
                 half3 albedo = albedoSample.rgb;
 

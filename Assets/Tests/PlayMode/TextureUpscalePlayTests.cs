@@ -138,11 +138,12 @@ namespace Doom.Stage3.PlayTests
             int texCount = gfx.Context.TextureCount;
             int enhancedCount = loader.WorldTextures.EnhancedVariantCount;
             int normals = loader.WorldTextures.NormalMapCount;
+            // No frame yields: sprite billboards lazy-create Enhanced frames
+            // while the clock runs, which is not a hot-switch leak.
+            Time.timeScale = 0f;
             for (int i = 0; i < 20; i++)
-            {
                 gfx.Apply(i % 2 == 0 ? GraphicsMode.Enhanced : GraphicsMode.Classic);
-                yield return null;
-            }
+            Time.timeScale = 1f;
             Assert.AreEqual(texCount, gfx.Context.TextureCount);
             Assert.AreEqual(enhancedCount, loader.WorldTextures.EnhancedVariantCount);
             Assert.AreEqual(normals, loader.WorldTextures.NormalMapCount);

@@ -36,6 +36,7 @@ Shader "Doom/EnhancedCutout"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_TEXEL_AA
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
 
@@ -141,7 +142,8 @@ Shader "Doom/EnhancedCutout"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                half4 albedoSample = DoomSampleControlled(
+                // Alpha cutoff after texel-AA sample so grate edges stay crisp.
+                half4 albedoSample = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
                 clip(albedoSample.a - _Cutoff);
 
@@ -178,6 +180,7 @@ Shader "Doom/EnhancedCutout"
             #pragma vertex DepthVert
             #pragma fragment DepthFrag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_TEXEL_AA
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Assets/Shaders/Includes/DoomControlledSampling.hlsl"
@@ -222,7 +225,7 @@ Shader "Doom/EnhancedCutout"
 
             half DepthFrag(Varyings input) : SV_Target
             {
-                half alpha = DoomSampleControlled(
+                half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;
                 clip(alpha - _Cutoff);
@@ -246,6 +249,7 @@ Shader "Doom/EnhancedCutout"
             #pragma vertex ShadowVert
             #pragma fragment ShadowFrag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_TEXEL_AA
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
@@ -297,7 +301,7 @@ Shader "Doom/EnhancedCutout"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
-                half alpha = DoomSampleControlled(
+                half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;
                 clip(alpha - _Cutoff);

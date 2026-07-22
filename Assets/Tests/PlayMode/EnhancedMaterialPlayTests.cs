@@ -49,9 +49,11 @@ namespace Doom.Stage3.PlayTests
             gfx.Apply(GraphicsMode.Enhanced);
             Assert.AreEqual(GraphicsMode.Enhanced, gfx.Current);
             Assert.IsNull(gfx.LastError, gfx.LastError);
+            Assert.IsTrue(gfx.ActiveProfile.WorldTexelAA);
 
             int enhanced = 0;
             int withNormal = 0;
+            int withAlbedo = 0;
             foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
             {
                 var mat = r.sharedMaterial;
@@ -63,9 +65,20 @@ namespace Doom.Stage3.PlayTests
 
                 enhanced++;
                 Assert.That(name, Does.Not.Contain("Hidden/InternalErrorShader"));
+                Assert.IsTrue(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword),
+                    "Enhanced world materials must enable DOOM_TEXEL_AA");
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.BumpMapProperty));
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.RoughnessProperty));
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.EmissionProperty));
+
+                if (mat.mainTexture is Texture2D albedo)
+                {
+                    withAlbedo++;
+                    Assert.AreEqual(FilterMode.Trilinear, albedo.filterMode,
+                        "Enhanced albedo uses controlled mips (Trilinear) with texel-AA");
+                    Assert.That(albedo.mipmapCount, Is.GreaterThan(1));
+                    Assert.That(albedo.anisoLevel, Is.GreaterThan(1));
+                }
 
                 var bump = mat.GetTexture(DoomMaterialFactory.BumpMapProperty);
                 if (bump != null && bump != Texture2D.normalTexture)
@@ -84,11 +97,13 @@ namespace Doom.Stage3.PlayTests
             }
 
             Assert.That(enhanced, Is.GreaterThan(0), "expected Enhanced world materials");
+            Assert.That(withAlbedo, Is.GreaterThan(0), "expected Enhanced albedo textures");
             Assert.That(withNormal, Is.GreaterThan(0), "expected procedural normals on world mats");
             Assert.That(loader.WorldTextures.NormalMapCount, Is.GreaterThan(0));
 
-            // Classic must drop Enhanced shaders and clear bump maps.
+            // Classic must drop Enhanced shaders, texel-AA keyword, and clear bump maps.
             gfx.Apply(GraphicsMode.Classic);
+            Assert.IsFalse(gfx.ActiveProfile.WorldTexelAA);
             int classic = 0;
             foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
             {
@@ -99,10 +114,65 @@ namespace Doom.Stage3.PlayTests
                     name != DoomMaterialFactory.ClassicCutoutName)
                     continue;
                 classic++;
+                Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword),
+                    "Classic materials must not keep DOOM_TEXEL_AA");
+                if (mat.mainTexture is Texture2D classicAlbedo)
+                    Assert.AreEqual(FilterMode.Point, classicAlbedo.filterMode);
                 if (mat.HasProperty(DoomMaterialFactory.BumpMapProperty))
                     Assert.IsNull(mat.GetTexture(DoomMaterialFactory.BumpMapProperty));
             }
             Assert.That(classic, Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator Texel_AA_keyword_follows_WorldTexelAA_layer_flag()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForMapBuild();
+
+            var gfx = GraphicsModeController.Ensure();
+            gfx.Apply(GraphicsMode.Enhanced);
+            Assert.IsNull(gfx.LastError, gfx.LastError);
+            yield return null;
+
+            // Layered profile without texel-AA: keyword off (editor/test capture path).
+            // Apply via context — GraphicsModeController.Apply early-outs on same mode.
+            var noAa = GraphicsProfile.EnhancedWithLayers(worldTexelAA: false);
+            gfx.Context.ApplyProfile(noAa, gfx.Factory);
+            int checkedMats = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var mat = r.sharedMaterial;
+                if (mat == null || mat.shader == null) continue;
+                string name = mat.shader.name;
+                if (name != DoomMaterialFactory.EnhancedOpaqueName &&
+                    name != DoomMaterialFactory.EnhancedCutoutName)
+                    continue;
+                checkedMats++;
+                Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword));
+                Assert.That(name, Does.Not.Contain("Hidden/InternalErrorShader"));
+            }
+            Assert.That(checkedMats, Is.GreaterThan(0));
+
+            // Restore full Enhanced layers (texel-AA on).
+            gfx.Context.ApplyProfile(GraphicsProfile.Enhanced, gfx.Factory);
+            yield return null;
+            int restored = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var mat = r.sharedMaterial;
+                if (mat == null || mat.shader == null) continue;
+                if (mat.shader.name != DoomMaterialFactory.EnhancedOpaqueName &&
+                    mat.shader.name != DoomMaterialFactory.EnhancedCutoutName)
+                    continue;
+                restored++;
+                Assert.IsTrue(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword));
+                Assert.That(mat.shader.name, Does.Not.Contain("Hidden/InternalErrorShader"));
+            }
+            Assert.That(restored, Is.GreaterThan(0));
         }
 
         [UnityTest]
@@ -124,11 +194,12 @@ namespace Doom.Stage3.PlayTests
             int texAfterWarmup = gfx.Context.TextureCount;
             Assert.That(normalsAfterWarmup, Is.GreaterThan(0));
 
+            // No frame yields: billboards would otherwise lazy-create Enhanced
+            // rotation frames and inflate TextureCount unrelated to hot-switch.
+            Time.timeScale = 0f;
             for (int i = 0; i < 20; i++)
-            {
                 gfx.Apply(i % 2 == 0 ? GraphicsMode.Classic : GraphicsMode.Enhanced);
-                yield return null;
-            }
+            Time.timeScale = 1f;
 
             Assert.AreEqual(normalsAfterWarmup, loader.WorldTextures.NormalMapCount,
                 "hot-switch must not create new normal maps after warm-up");

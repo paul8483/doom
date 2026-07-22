@@ -206,7 +206,10 @@ namespace Doom.MapBuild.Rendering
             softFloorIntersection: true,
             particles: true,
             decals: true,
-            // Point keeps WAD albedo crisp until texel-AA lands (Task 7).
+            // Enhanced4X albedo is Trilinear via ControlledWorldMipmaps + aniso.
+            // Texel-AA (DOOM_TEXEL_AA) sharpens close-ups in the shader; keep
+            // BilinearWorldFiltering false so shared native Point textures are
+            // not mutated during Enhanced (Classic hot-switch exact restore).
             bilinearWorldFiltering: false,
             worldDedither: true,
             worldUpscale4X: true,

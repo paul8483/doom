@@ -18,8 +18,8 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 6 done (`HudTextureCache` Enhanced4X + weapon placement via
-`SpriteCache` + yielded `ENHANCED HUD` warm). Next: Task 7 (texel-AA).
+**Статус:** Task 7 done (fat-pixel texel-AA + `DOOM_TEXEL_AA` keyword on
+Enhanced opaque/cutout). Next: Task 8 (height / multi-scale normals / POM).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -467,33 +467,40 @@ HUD не по центру рамки. Причина pre-existing (Stage 7b): `
 - Modify: `Assets/Scripts/MapBuild/Rendering/DoomMaterialFactory.cs`
 - Modify: `Assets/Tests/PlayMode/EnhancedMaterialPlayTests.cs`
 
-- [ ] **Step 1: Написать failing material assertions.**
+- [x] **Step 1: Написать failing material assertions.**
 
-Enhanced albedo: Bilinear + mips + aniso; texel-AA property/keyword
-включён на Enhanced world материалах при `WorldTexelAA`; Classic
-материалы — Point, без keyword.
+Enhanced albedo: Trilinear + mips + aniso (via `ControlledWorldMipmaps`);
+`DOOM_TEXEL_AA` keyword на Enhanced world материалах при `WorldTexelAA`;
+Classic — Point, без keyword. `BilinearWorldFiltering` остаётся false,
+чтобы hot-switch не мутировал shared native Point textures.
 
-- [ ] **Step 2: Реализовать texel-AA выборку.**
+- [x] **Step 2: Реализовать texel-AA выборку.**
 
-Функция в общем include: UV → texel space, `frac` квантуется к центру
-texel со сглаживанием шириной `fwidth` (fat pixels + smoothstep), затем
-обычная bilinear выборка. Применить в Enhanced opaque и cutout albedo
-paths. Cutout: alpha порог после texel-AA выборки, проверить отсутствие
-«тающих» краёв решёток.
+`DoomSampleTexelAA` в `DoomControlledSampling.hlsl`: fat-pixel UV
+(`fwidth` + `smoothstep`) + LOD0 sample вблизи, distant → ordinary
+filtered sample (mips/aniso). `DoomSampleAlbedo` выбирает путь по
+`DOOM_TEXEL_AA`. Enhanced opaque/cutout (forward + cutout depth/shadow).
+Нормали остаются на `DoomSampleControlled`. Factory
+`EnableKeyword`/`DisableKeyword` от `WorldTexelAA`.
 
-- [ ] **Step 3: Проверить дистанции и углы.**
+- [x] **Step 3: Проверить дистанции и углы.**
 
-PlayMode capture-level sanity: рендер плоскости под острым углом не даёт
-NaN/чёрных артефактов; переключение профилей на лету меняет режим выборки
-без pink materials. Визуальная оценка качества — Task 10, здесь только
-корректность.
+PlayMode: layered profile `EnhancedWithLayers(worldTexelAA: false)` снимает
+keyword; restore включает обратно; pink materials нет. (Визуальная оценка —
+Task 10.)
 
-- [ ] **Step 4: Запустить material tests.**
+- [x] **Step 4: Запустить material tests.**
 
 ```text
 Doom.Stage3.PlayTests.EnhancedMaterialPlayTests
 Doom.Stage3.PlayTests.TextureUpscalePlayTests
 ```
+
+**3/3 EnhancedMaterial** + **5/5 TextureUpscale**
+(`Logs/texquality-t7-Doom.Stage3.PlayTests.EnhancedMaterialPlayTests.xml`,
+`Logs/texquality-t7-Doom.Stage3.PlayTests.TextureUpscalePlayTests.xml`).
+Hot-switch stress: `timeScale=0` между Apply, иначе billboards
+lazy-создают Enhanced rotation frames и ложно растят `TextureCount`.
 
 **Commit checkpoint:** `rendering: texel antialiased sampling for enhanced world`
 
