@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -166,7 +167,7 @@ namespace Doom.MapBuild
         /// Solid black clear so holes / empty frames never flash Unity default blue.
         static void NeutralizeSceneCameras()
         {
-            var cams = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            var cams = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
             for (int i = 0; i < cams.Length; i++)
             {
                 var cam = cams[i];
@@ -364,20 +365,38 @@ namespace Doom.MapBuild
                 return i >= 0 && wad.Directory[i].Size == 64 * 64;
             }
             var animCatalog = Doom.Graphics.TextureAnimationCatalog.Build(TextureExists);
-            // Pre-warm animated frame textures while WAD is open (native decode).
-            // If the persisted mode is Enhanced, also build 4× variants now so the
-            // first ApplyProfile does not hitch on every animated frame.
-            var warmVariant = GraphicsProfile.ForMode(gfx.Current).WorldTextureVariant;
+            // Native decode only here. Enhanced4X Super-xBR is far heavier than
+            // Scale2x — sync warm during GEOMETRY/ATMOSPHERE freezes New Game.
             foreach (var seq in animCatalog.Sequences)
                 foreach (string frameName in seq.Frames)
-                {
                     cache.GetTexture(frameName);
-                    if (warmVariant != WorldTextureVariant.Native)
-                        cache.GetTexture(frameName, warmVariant);
-                }
             cache.GetTexture(WadSkyRenderer.SkyTextureName);
+
+            var warmVariant = GraphicsProfile.ForMode(gfx.Current).WorldTextureVariant;
             if (warmVariant != WorldTextureVariant.Native)
-                cache.GetTexture(WadSkyRenderer.SkyTextureName, warmVariant);
+            {
+                var warmNames = new HashSet<string>(StringComparer.Ordinal);
+                renderContext.CollectTextureNames(warmNames);
+                foreach (var seq in animCatalog.Sequences)
+                    foreach (string frameName in seq.Frames)
+                        warmNames.Add(frameName);
+                warmNames.Add(WadSkyRenderer.SkyTextureName);
+
+                int done = 0;
+                int total = Math.Max(1, warmNames.Count);
+                foreach (string name in warmNames)
+                {
+                    flow.ReportLoadProgress(
+                        0.8f + 0.08f * done / total, "ENHANCED TEXTURES");
+                    cache.GetTexture(name, warmVariant);
+                    // Normals match Enhanced albedo; build now so RegisterContext
+                    // ApplyProfile does not hitch on first lit material retarget.
+                    cache.GetOrCreateNormal(name);
+                    done++;
+                    yield return null;
+                    if (!StillValid(flow)) yield break;
+                }
+            }
 
             var fogSys = gameObject.GetComponent<SectorFogSystem>()
                 ?? gameObject.AddComponent<SectorFogSystem>();
@@ -400,6 +419,7 @@ namespace Doom.MapBuild
 
             // Register after camera + atmosphere systems exist so hot-switch and the
             // initial Apply both retarget materials, fog, sky, and effect pools.
+            // Enhanced variants are already warmed (with yields) above.
             gfx.RegisterContext(renderContext);
 
             var registry = gameObject.GetComponent<WorldStateRegistry>()
@@ -471,10 +491,10 @@ namespace Doom.MapBuild
             if (!StillValid(flow)) yield break;
 
             LastBuildSeconds = Time.realtimeSinceStartup - t0;
-            LastMeshCount = Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None).Length;
-            LastMaterialCount = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Length;
-            LastColliderCount = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).Length;
-            LastGameObjectCount = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Length;
+            LastMeshCount = UnityEngine.Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None).Length;
+            LastMaterialCount = UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Length;
+            LastColliderCount = UnityEngine.Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).Length;
+            LastGameObjectCount = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Length;
             Debug.Log($"MapLoader: build {LastBuildSeconds:F3}s — " +
                       $"meshes={LastMeshCount} renderers={LastMaterialCount} " +
                       $"colliders={LastColliderCount} transforms={LastGameObjectCount}");
@@ -482,12 +502,12 @@ namespace Doom.MapBuild
 
         static void StripSceneDirectionalLights()
         {
-            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            var lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
             for (int i = 0; i < lights.Length; i++)
             {
                 var light = lights[i];
                 if (light == null || light.type != LightType.Directional) continue;
-                Object.Destroy(light.gameObject);
+                UnityEngine.Object.Destroy(light.gameObject);
             }
         }
 

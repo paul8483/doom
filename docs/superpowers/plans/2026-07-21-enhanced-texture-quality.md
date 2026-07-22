@@ -18,7 +18,7 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 4 done. Next: Task 5 (texel-AA) or Task 6 (height/normals/POM).
+**Статус:** Task 4 done (+ New Game hang fix: yielded Enhanced4X warm). Next: Task 5 (texel-AA) or Task 6 (height/normals/POM).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -315,6 +315,16 @@ Doom.Stage3.PlayTests.TextureUpscalePlayTests
 **5/5 passed** (`Logs/texquality-t4-play.xml`).
 
 **Commit checkpoint:** `mapbuild: build enhanced 4x texture variant pipeline`
+
+**Post-Task 4 (2026-07-22): New Game hang fix.** Sync Super-xBR during
+`GetMaterial`/GEOMETRY froze standalone on Enhanced New Game. Fix: native
+albedo at material create; yielded warm of registered names + anim/sky +
+normals under `ENHANCED TEXTURES` before `RegisterContext`; PlayMode
+`WaitForMapBuild` on `LastBuildSeconds`. Re-verified
+`TextureUpscalePlayTests`+`EnhancedMaterialPlayTests` **7/7**; Windows
+build OK.
+
+**Commit checkpoint:** `mapbuild: yield enhanced 4x warm so new game stays responsive`
 
 ---
 

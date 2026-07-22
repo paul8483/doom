@@ -19,6 +19,19 @@ namespace Doom.Stage3.PlayTests
             MapLoader.MapNameOverride = null;
         }
 
+        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        {
+            MapLoader loader = null;
+            for (int i = 0; i < maxFrames; i++)
+            {
+                yield return null;
+                loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+            }
+            Assert.Fail("MapLoader build did not finish in time");
+        }
+
         [UnityTest]
         public IEnumerator Enhanced_assigns_lit_shader_normal_and_surface_props()
         {
@@ -26,7 +39,7 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             Assert.IsNotNull(loader);
@@ -99,7 +112,7 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             Assert.IsNotNull(loader);

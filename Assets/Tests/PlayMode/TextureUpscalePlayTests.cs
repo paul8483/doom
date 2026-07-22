@@ -23,6 +23,20 @@ namespace Doom.Stage3.PlayTests
             TextureCache.ForceEnhancedFailureForTests = false;
         }
 
+        /// Enhanced4X warm yields one frame per texture; fixed 90-frame waits are too short.
+        static IEnumerator WaitForMapBuild(int maxFrames = 3600)
+        {
+            MapLoader loader = null;
+            for (int i = 0; i < maxFrames; i++)
+            {
+                yield return null;
+                loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+            }
+            Assert.Fail("MapLoader build did not finish in time");
+        }
+
         [UnityTest]
         public IEnumerator Enhanced_world_textures_are_4x_mipped_and_hot_switch_restores_native()
         {
@@ -30,7 +44,7 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             Assert.IsNotNull(loader);
@@ -141,7 +155,7 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return WaitForMapBuild();
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
             var gfx = GraphicsModeController.Ensure();

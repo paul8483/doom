@@ -55,6 +55,18 @@ namespace Doom.MapBuild.Rendering
             materials.Add((material, masked, textureName));
         }
 
+        /// Unique world texture names registered on materials (for Enhanced warm).
+        public void CollectTextureNames(HashSet<string> dst)
+        {
+            if (dst == null) throw new ArgumentNullException(nameof(dst));
+            for (int i = 0; i < materials.Count; i++)
+            {
+                string name = materials[i].textureName;
+                if (!string.IsNullOrEmpty(name))
+                    dst.Add(name);
+            }
+        }
+
         public void RegisterOwned(UnityEngine.Object obj)
         {
             if (obj != null) owned.Add(obj);

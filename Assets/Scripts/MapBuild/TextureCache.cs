@@ -71,7 +71,10 @@ namespace Doom.MapBuild
         {
             var key = (name, masked);
             if (matCache.TryGetValue(key, out var m)) return m;
-            var tex = GetTextureForProfile(name, materials.ActiveProfile);
+            // Always bind native albedo at creation. Enhanced4X (Super-xBR) is built
+            // in a yielded warm/ApplyProfile pass — doing it here freezes New Game
+            // for minutes while GEOMETRY runs without a frame.
+            var tex = GetTexture(name, WorldTextureVariant.Native);
             var mat = materials.CreateMaterial(tex, masked);
             matCache[key] = mat;
             context?.RegisterMaterial(mat, masked, name);
