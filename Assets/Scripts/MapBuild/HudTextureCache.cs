@@ -209,15 +209,17 @@ namespace Doom.MapBuild
                         "Missing native DecodedImage for Enhanced HUD patch.");
 
                 var active = ResolveActiveProfile();
-                var enhancedImg = TextureCache.BuildEnhanced4XDecoded(
+                var job = EnhancedJob.ForHud(
+                    name,
                     slot.NativeImage,
-                    PixelWrapMode.Clamp,
                     applyDedither: active.WorldDedither,
-                    applyAlphaBleed: true);
-                // Same crunch restore as sprites: HUD art is iconic pixel art.
-                enhancedImg = SharpenFilter.Apply(enhancedImg);
+                    applyAlphaBleed: true,
+                    applySharpen: true);
+                var result = EnhancedJobRunner.Run(job);
+                if (!result.Success)
+                    throw new InvalidOperationException(result.ErrorMessage);
 
-                var tex = ToTexture2D(enhancedImg);
+                var tex = ToTexture2D(result.Rgba);
                 slot.EnhancedTex = tex;
                 context?.RegisterTexture(tex);
                 enhancedVariantCount++;

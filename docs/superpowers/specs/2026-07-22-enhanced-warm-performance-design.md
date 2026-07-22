@@ -1,7 +1,7 @@
 # Enhanced Warm Performance — дизайн
 
 **Дата:** 2026-07-22
-**Статус:** draft
+**Статус:** in progress — Task 1 done (pure job runner + determinism)
 **Контекст:** Enhanced Texture Quality (ветка `texquality`, Tasks 1–9)
 дал видимое улучшение картинки, но замер Task 9 зафиксировал цену:
 первый прогрев Enhanced — **~85 секунд** (E1M1 и E1M7), и её платит

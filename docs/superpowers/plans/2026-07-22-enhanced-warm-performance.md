@@ -17,7 +17,7 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 `GraphicsModeController` (дублирующиеся warm-циклы удаляются).
 Спека: `docs/superpowers/specs/2026-07-22-enhanced-warm-performance-design.md`.
 
-**Статус:** not started.
+**Статус:** Task 1 done (pure `EnhancedJobRunner` + determinism; Graphics EditMode **129**).
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).
@@ -85,7 +85,7 @@ bulk add, сначала failing test.
 - Create: `Assets/Scripts/Graphics/EnhancedJobRunner.cs`
 - Create: `Assets/Tests/EditMode/Graphics/EnhancedJobRunnerTests.cs`
 
-- [ ] **Step 1: Определить контракты.**
+- [x] **Step 1: Определить контракты.**
 
 `EnhancedJob`: kind (WorldAlbedo/WorldNormal/Sprite/Hud), immutable вход
 (native `DecodedImage`, `PixelWrapMode`, layer-флаги, category, spectre —
@@ -93,7 +93,7 @@ bulk add, сначала failing test.
 (albedo mips / normal+height / RGBA) либо ошибка. `EnhancedPipelineVersion.Value`
 (int, стартово 1) с правилом инкремента в комментарии.
 
-- [ ] **Step 2: Реализовать `EnhancedJobRunner.Run(job)`.**
+- [x] **Step 2: Реализовать `EnhancedJobRunner.Run(job)`.**
 
 Чистая функция: повторяет текущие пайплайны кэшей (мир: dedither →
 [bleed] → superxbr ×2 ×2 → palette mips; нормаль: height → normals;
@@ -101,17 +101,20 @@ bulk add, сначала failing test.
 API. Существующие приватные пайплайны кэшей переводятся на вызов
 runner'а (single-source-of-truth), поведение неизменно.
 
-- [ ] **Step 3: Тест детерминизма.**
+- [x] **Step 3: Тест детерминизма.**
 
 Для ~10 Freedoom элементов (стены/флет/masked/скай/спрайты/STBAR):
 `Parallel.ForEach` по jobs × 4 повтора == последовательный прогон,
 побайтно. Плюс regression: результаты runner'а == текущим методам кэшей.
 
-- [ ] **Step 4: Запустить Graphics suite.**
+- [x] **Step 4: Запустить Graphics suite.**
 
 ```text
 Doom.Graphics.Tests
 ```
+
+EditMode Graphics **129** passed (`Logs/warmperf-t1-edit.xml`), including
+`EnhancedJobRunnerTests` ×8 (determinism + legacy composition).
 
 **Commit checkpoint:** `graphics: extract pure enhanced job runner`
 

@@ -224,15 +224,17 @@ namespace Doom.MapBuild
                         "Missing native DecodedImage for Enhanced sprite.");
 
                 var profile = materials.ActiveProfile;
-                var enhancedImg = TextureCache.BuildEnhanced4XDecoded(
+                var job = EnhancedJob.ForSprite(
+                    lumpIndex.ToString(),
                     nativeImg,
-                    PixelWrapMode.Clamp,
                     applyDedither: profile.WorldDedither,
-                    applyAlphaBleed: true);
-                // Iconic sprite art reads as mush after Super-xBR; restore crunch.
-                enhancedImg = SharpenFilter.Apply(enhancedImg);
+                    applyAlphaBleed: true,
+                    applySharpen: true);
+                var result = EnhancedJobRunner.Run(job);
+                if (!result.Success)
+                    throw new System.InvalidOperationException(result.ErrorMessage);
 
-                var tex = ToTexture2D(enhancedImg);
+                var tex = ToTexture2D(result.Rgba);
                 texByLumpVariant[key] = tex;
                 context?.RegisterTexture(tex);
                 enhancedVariantCount++;

@@ -140,8 +140,12 @@ namespace Doom.MapBuild
             if (!categoryByName.TryGetValue(name, out var category))
                 category = MaterialSurfaceCategory.Unknown;
 
-            var profile = MaterialSurfaceProfile.For(category);
-            var tex = ToNormalTexture2D(enhancedMips, profile, category, name, entry);
+            var job = EnhancedJob.ForWorldNormal(name, enhancedMips, category, WrapFor(entry));
+            var result = EnhancedJobRunner.Run(job);
+            if (!result.Success)
+                throw new System.InvalidOperationException(result.ErrorMessage);
+
+            var tex = ToNormalTexture2D(result.NormalMips, name, entry);
             normalCache[key] = tex;
             normalTextureBytes += TextureBytes(tex);
             RegisterTextureOnce(tex);
@@ -156,25 +160,13 @@ namespace Doom.MapBuild
 
         /// CPU-side Enhanced4X pipeline (dedither → [bleed] → Super-xBR ×2 ×2).
         /// Exposed for diagnostics and PlayMode assertions before GPU upload.
+        /// Delegates to <see cref="EnhancedJobRunner"/> (single source of truth).
         public static DecodedImage BuildEnhanced4XDecoded(
             DecodedImage native,
             PixelWrapMode wrap,
             bool applyDedither,
-            bool applyAlphaBleed)
-        {
-            if (native == null)
-                throw new System.ArgumentNullException(nameof(native));
-
-            var processed = applyDedither
-                ? DeditherFilter.Apply(native, wrap)
-                : native;
-
-            if (applyAlphaBleed)
-                processed = AlphaBleedGuard.Dilate(processed);
-
-            var x2 = SuperXbrUpscaler.Scale2X(processed, wrap);
-            return SuperXbrUpscaler.Scale2X(x2, wrap);
-        }
+            bool applyAlphaBleed) =>
+            EnhancedJobRunner.BuildEnhanced4X(native, wrap, applyDedither, applyAlphaBleed);
 
         Texture2D GetOrCreateNative(string name)
         {
@@ -239,12 +231,12 @@ namespace Doom.MapBuild
             }
         }
 
-        DecodedImage GetEnhancedDecoded(string name, SourceEntry entry)
+        PaletteMipChain GetEnhancedMipChain(string name, SourceEntry entry)
         {
             if (entry.EnhancedFailed)
                 return null;
-            if (entry.Enhanced != null)
-                return entry.Enhanced;
+            if (entry.EnhancedMips != null)
+                return entry.EnhancedMips;
 
             if (ForceEnhancedFailureForTests)
                 throw new System.InvalidOperationException(
@@ -253,24 +245,18 @@ namespace Doom.MapBuild
             var wrap = WrapFor(entry);
             var profile = materials.ActiveProfile;
             bool masked = HasTransparent(entry.Native);
-            entry.Enhanced = BuildEnhanced4XDecoded(
+            var job = EnhancedJob.ForWorldAlbedo(
+                name,
                 entry.Native,
                 wrap,
                 applyDedither: profile.WorldDedither,
-                applyAlphaBleed: masked);
-            return entry.Enhanced;
-        }
+                applyAlphaBleed: masked,
+                palette);
+            var result = EnhancedJobRunner.Run(job);
+            if (!result.Success)
+                throw new System.InvalidOperationException(result.ErrorMessage);
 
-        PaletteMipChain GetEnhancedMipChain(string name, SourceEntry entry)
-        {
-            if (entry.EnhancedFailed)
-                return null;
-            if (entry.EnhancedMips != null)
-                return entry.EnhancedMips;
-
-            var enhanced = GetEnhancedDecoded(name, entry);
-            entry.EnhancedMips = PaletteMipGenerator.Generate(
-                enhanced, palette, WrapFor(entry), preserveAlphaCoverage: true);
+            entry.EnhancedMips = result.AlbedoMips;
             // Decoded 4× RGBA is fully captured in the mip chain.
             entry.Enhanced = null;
             return entry.EnhancedMips;
@@ -396,14 +382,12 @@ namespace Doom.MapBuild
         }
 
         private Texture2D ToNormalTexture2D(
-            PaletteMipChain albedoChain,
-            MaterialSurfaceProfile profile,
-            MaterialSurfaceCategory category,
+            PaletteMipChain normalMips,
             string name,
             SourceEntry entry)
         {
-            var levelZero = albedoChain[0];
-            bool hasMips = albedoChain.Count > 1;
+            var levelZero = normalMips[0];
+            bool hasMips = normalMips.Count > 1;
             var tex = new Texture2D(
                 levelZero.Width, levelZero.Height, TextureFormat.RGBA32,
                 mipChain: hasMips, linear: true);
@@ -412,17 +396,8 @@ namespace Doom.MapBuild
             tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Bilinear;
             tex.anisoLevel = hasMips ? anisoLevel : 1;
 
-            var wrap = WrapFor(entry);
-            for (int level = 0; level < albedoChain.Count; level++)
-            {
-                // Multi-scale height from processed albedo; normals from height;
-                // height packed into alpha for POM.
-                var height = HeightMapGenerator.Generate(
-                    albedoChain[level], category, wrap);
-                var normal = NormalMapGenerator.Generate(
-                    height, profile.Strength, profile.Wrap);
-                UploadFlipped(tex, normal, level);
-            }
+            for (int level = 0; level < normalMips.Count; level++)
+                UploadFlipped(tex, normalMips[level], level);
             tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             return tex;
         }
