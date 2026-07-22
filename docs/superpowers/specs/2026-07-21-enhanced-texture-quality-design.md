@@ -1,7 +1,7 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 4 done (`TextureCache` Enhanced4X + yielded load warm so New Game stays responsive); next Task 5 texel-AA or Task 6 height/normals/POM
+**Статус:** in progress — Task 4 done (`TextureCache` Enhanced4X + yielded load warm). **Reprioritized 2026-07-22:** после первого eyeball (мир лучше, спрайты/оружие/HUD выбиваются) добавлен слой 5 «sprites/weapon/HUD 4×» — идёт до texel-AA/POM. Next: Task 5 (sprites 4×)
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.
@@ -26,6 +26,12 @@ green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 4. **Multi-scale normals + parallax occlusion mapping** — рельеф на панелях,
    кирпичах и заклёпках из сгенерированных heightmap; работает там, где
    апскейл бессилен.
+5. **Sprites, weapon view и HUD 4×** *(добавлено 2026-07-22 по итогам
+   первого eyeball)* — тот же пайплайн апскейла для спрайтов монстров,
+   предметов, снарядов, viewmodel оружия и статус-бара. Мир стал заметно
+   лучше, и объекты, которые постоянно в кадре (монстры, оружие, аптечки,
+   HUD), начали выбиваться — «смешанное ощущение». Приоритет: этот слой
+   идёт **до** texel-AA и POM.
 
 Инварианты предыдущей итерации сохраняются:
 
@@ -130,7 +136,44 @@ DecodedImage (native)
   -> Texture2D (Enhanced4X)
 ```
 
-### 3. Texel-AA sampling для Enhanced world albedo
+### 3. Sprites, weapon view и HUD 4× (приоритет после мира)
+
+Тот же CPU-пайплайн (`[DeditherFilter]` → `AlphaBleedGuard` →
+`SuperXbrUpscaler` ×2 ×2) применяется к патчам спрайтов и UI при активном
+Enhanced. Ключевые факты, делающие это дешёвым по дизайну:
+
+- **Виртуальный экран 320×200 — только координатная трансформация.**
+  `VirtualScreenRenderer` вычисляет экранные прямоугольники, а патчи
+  рисуются `GUI.DrawTexture` в полном разрешении экрана — 4×-текстура
+  даёт видимый выигрыш без изменений layout.
+- **Прямоугольники отрисовки берутся из `PatchHeader` (DOOM units), а не
+  из размеров текстуры** — 4×-текстура автоматически масштабируется в тот
+  же rect; позиционирование не меняется. Это инвариант и тест.
+- **Геометрия билбордов не зависит от текстуры** — quad строится из
+  header dims/offsets; UV стандартные.
+
+Объём:
+
+- `SpriteCache`: вариант Enhanced4X по ключу `(lump, variant, spectre)`;
+  wrap = Clamp (спрайты не тайлятся); bleed guard обязателен (cutout);
+  существующий mirror-флип через scale не меняется; spectre-материал
+  получает тот же 4× источник. Fallback per lump как в `TextureCache`
+  (failed state, native при ошибке).
+- Прогрев: существующий pre-warm спрайтов (пока WAD открыт) расширяется
+  Enhanced-вариантами с покадровыми yield под загрузочной плашкой (как
+  `ENHANCED TEXTURES`); кадры, впервые запрошенные в геймплее (дропы,
+  снаряды), строятся лениво — один спрайт мал, хитч ограничен.
+- Weapon view: кадры оружия и muzzle flash получают 4× вариант тем же
+  пайплайном; placement rect (порт `R_DrawPSprite`) не меняется.
+- HUD (`HudTextureCache`/`UiPatchCatalog`): STBAR, цифры, arms, ключи,
+  лицо — 4× вариант при Enhanced; Classic — native. Меню и intermission
+  остаются native (вне объёма).
+- Hot-switch: спрайтовые/HUD текстуры следуют активному профилю так же,
+  как world variants; возврат в Classic восстанавливает native-объекты.
+- Профиль получает декларативные флаги `SpritesUpscale4X`, `UiUpscale4X`
+  (Classic false / Enhanced true) — для тестов и послойных captures.
+
+### 4. Texel-AA sampling для Enhanced world albedo
 
 - Enhanced world albedo переводится с `FilterMode.Point` на
   `FilterMode.Bilinear` + существующие controlled mips + aniso.
@@ -143,9 +186,10 @@ DecodedImage (native)
   использует Point»): Point отвергнут вместе со Scale2x-итерацией, texel-AA
   — его замена без bilinear mush.
 - Classic шейдеры и Classic albedo (`Point`, native) не меняются.
-- Sprites, HUD, weapon view, menus не затрагиваются.
+- Texel-AA применяется только к world albedo; спрайты и HUD получают 4×
+  без texel-AA (их выборка — GUI/billboard, не world shader).
 
-### 4. Multi-scale normals, heightmap и POM
+### 5. Multi-scale normals, heightmap и POM
 
 - Height generation: из обработанного 4× albedo строится heightmap как
   взвешенная сумма fine luminance (детали: заклёпки, швы) и blurred coarse
@@ -166,14 +210,15 @@ DecodedImage (native)
   силуэтов и cross-fade дороже пользы).
 - Classic не имеет normals/POM — как и сейчас.
 
-### 5. Presentation contracts и hot-switch
+### 6. Presentation contracts и hot-switch
 
 - `WorldTextureVariant` получает `Enhanced4X`; `Enhanced2X` удаляется из
   profile mapping (значение enum сохраняется для стабильности, помечается
   obsolete).
 - `GraphicsProfile` вместо одного флага апскейла несёт декларативные
   флаги слоёв: `WorldDedither`, `WorldUpscale4X`, `WorldTexelAA`,
-  `WorldParallax`. Classic — все false; Enhanced — все true. Новые
+  `WorldParallax`, а с ревизии 2026-07-22 также `SpritesUpscale4X` и
+  `UiUpscale4X`. Classic — все false; Enhanced — все true. Новые
   user-facing настройки **не добавляются**: пользователь по-прежнему видит
   Classic/Enhanced.
 - Флаги нужны для тестов и послойных captures: capture/test harness может
@@ -191,7 +236,9 @@ DecodedImage (native)
   будущий эксперимент.
 - xBRZ в любом виде (GPL-3.0-only несовместим с проприетарным Unity
   runtime).
-- Upscale/texel-AA/POM для sprites, HUD, weapon view, menus, intermission.
+- Upscale для menus и intermission (остаются native).
+- Texel-AA/normals/POM для sprites, weapon view и HUD (они получают только
+  4×-апскейл).
 - Пользовательский selector Texture Quality и новые строки Options.
 - Изменение WAD palette, UV density, world scale, geometry, gameplay,
   save schema.
@@ -231,6 +278,10 @@ DecodedImage (native)
 - `WorldRenderContext`/`GraphicsModeController`/`AnimatedSurfaceSystem`/
   `WadSkyRenderer` — без структурных изменений, целевой variant меняется
   на Enhanced4X.
+- `SpriteCache`: variant-ключ `(lump, variant, spectre)`, Enhanced4X через
+  общий `BuildEnhanced4XDecoded` (wrap Clamp), failed state per lump,
+  прогрев с yields; `HudTextureCache`/weapon view — та же схема для UI
+  патчей. Placement rects всегда из `PatchHeader`, не из texture dims.
 
 ### Поток данных
 
@@ -273,7 +324,16 @@ normal+height  = native × 16
 ```
 
 Для типичной E1-карты (~100 world textures 128×128) это порядка сотен МБ
-GPU-памяти в Enhanced. Поэтому обязательны:
+GPU-памяти в Enhanced.
+
+Спрайты (ревизия 2026-07-22): лампы малы (типичный кадр 30–60 px), но их
+много (ротации × кадры анимаций). Прогреваются только кадры, реально
+используемые вещами карты (существующий pre-warm set) — **не** весь
+S_START/S_END; остальное лениво. Sprite-байты входят в diagnostics и в
+замер производительного гейта. UI-патчи пренебрежимо малы (STBAR 320×32
+при 4× ≈ 2 МБ).
+
+Поэтому обязательны:
 
 - lazy creation только реально запрошенных world textures;
 - `makeNoLongerReadable` после upload; освобождение промежуточных CPU
@@ -326,6 +386,12 @@ CPU-стоимость transforms (dedither + 2×superxbr + height) выше Sca
   не меняются; 20 switches не растят counts.
 - Animated/fluid pairs и `SKY1` — единый variant, без mixed dimensions.
 - Ошибка одного transform → native fallback без pink materials.
+- Sprites: Enhanced sprite material — 4× texture при неизменных
+  header dims/offsets/mirror; Classic — native; hot-switch восстанавливает
+  native; spectre вариант следует профилю; дропы/снаряды (ленивый путь)
+  получают корректный variant.
+- Weapon view/HUD: placement rects идентичны native (снапшот rect'ов);
+  Enhanced текстуры 4×; меню/intermission native в обоих режимах.
 - E1M1–E1M9 smoke в обоих режимах.
 
 ### Capture и интерактивно
@@ -337,8 +403,10 @@ camera poses (E1M1, E1M3, E1M7; brick/metal/door/flats в упор и под о�
 1. Classic native (reference);
 2. Enhanced только dedither (без апскейла);
 3. Enhanced dedither + Super-xBR 4× (Point, без texel-AA);
-4. - texel-AA (полный albedo-стек);
-5. - multi-scale normals + POM (полный стек).
+4. + sprites/weapon/HUD 4× (проверка равномерности картинки: мир и
+   объекты в кадре на одном уровне);
+5. + texel-AA (полный albedo-стек);
+6. + multi-scale normals + POM (полный стек).
 
 Оценка каждого слоя отдельно: что даёт видимый вклад, что нет, что портит
 стиль. Дополнительно: masked walls без fringes, animated nukage/lava без
@@ -349,15 +417,18 @@ Windows standalone — время switches и память.
 
 1. Enhanced world albedo проходит пайплайн dedither → Super-xBR 4× →
    controlled mips; внешние/baked assets отсутствуют; Classic не изменён.
-2. Texel-AA работает в Enhanced opaque/cutout; вблизи нет ни грязи Point,
+2. Sprites (монстры/предметы/снаряды/спектр), weapon view и HUD получают
+   4× вариант в Enhanced при неизменном placement; меню/intermission
+   native; картинка равномерна — мир и объекты в кадре на одном уровне.
+3. Texel-AA работает в Enhanced opaque/cutout; вблизи нет ни грязи Point,
    ни bilinear mush.
-3. Normals строятся multi-scale из height; POM активен на solid
+4. Normals строятся multi-scale из height; POM активен на solid
    поверхностях с консервативной амплитудой.
-4. Hot-switch/rollback/fallback сохраняют инварианты Scale2x-итерации.
-5. EditMode, PlayMode, E1 smoke и Windows build зелёные; totals записаны.
-6. Memory/load/switch числа E1M1/E1M7 записаны; при превышении — применён
-   и задокументирован mitigation ladder.
-7. **Visual gate:** послойные captures + интерактивный eyeball подтверждают
+5. Hot-switch/rollback/fallback сохраняют инварианты Scale2x-итерации.
+6. EditMode, PlayMode, E1 smoke и Windows build зелёные; totals записаны.
+7. Memory/load/switch числа E1M1/E1M7 записаны (включая sprite-байты);
+   при превышении — применён и задокументирован mitigation ladder.
+8. **Visual gate:** послойные captures + интерактивный eyeball подтверждают
    значимое улучшение близкого плана без потери пиксель-арт стиля.
    Если полный стек его не даёт — доработка не закрывается как успех, и
    фиксируется вывод для решения о нейроапскейл-эксперименте.

@@ -18,7 +18,10 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 4 done (+ New Game hang fix: yielded Enhanced4X warm). Next: Task 5 (texel-AA) or Task 6 (height/normals/POM).
+**Статус:** Task 4 done (+ New Game hang fix: yielded Enhanced4X warm).
+**Reprioritized 2026-07-22** после первого eyeball (мир лучше,
+спрайты/оружие/HUD выбиваются): новые Task 5 (sprites 4×) и Task 6
+(weapon/HUD 4×) идут до texel-AA (Task 7) и POM (Task 8). Next: Task 5.
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -73,7 +76,9 @@ batchmode; в этом случае закрыть Editor или записат�
 4. Одна animation sequence / fluid pair не смешивает variants.
 5. Повторный hot-switch не создаёт texture/material/normal objects.
 6. Ошибка одной texture даёт native fallback только для неё.
-7. HUD, sprites, weapon view, gameplay и save schema не меняются.
+7. Gameplay и save schema не меняются; menus/intermission остаются native.
+   Sprites/weapon view/HUD — в объёме (4×-вариант при Enhanced, native при
+   Classic); placement rects всегда из `PatchHeader`, не из texture dims.
 8. Промежуточные CPU буферы (dedithered, 2×, 4×, height) освобождаются
    после последнего consumer; GPU textures — `makeNoLongerReadable`.
 9. POM keyword отсутствует на masked/cutout, fluids и sky материалах.
@@ -328,7 +333,106 @@ build OK.
 
 ---
 
-## Task 5: Texel-AA sampling в Enhanced shaders
+## Task 5: Enhanced sprites 4× (монстры, предметы, снаряды, спектр)
+
+> Добавлено ревизией 2026-07-22 (см. спеку, слой 5): после первого eyeball
+> мир стал заметно лучше, а спрайты выбиваются. Идёт до texel-AA/POM.
+
+**Files:**
+- Modify: `Assets/Scripts/MapBuild/Rendering/GraphicsProfile.cs`
+  (+ `SpritesUpscale4X`, `UiUpscale4X`; тесты `GraphicsProfileTests`)
+- Modify: `Assets/Scripts/MapBuild/SpriteCache.cs`
+- Modify: `Assets/Scripts/MapBuild/MapLoader.cs` (прогрев спрайтов с yields)
+- Create: `Assets/Tests/PlayMode/SpriteUpscalePlayTests.cs`
+
+- [ ] **Step 1: Расширить profile contract.**
+
+`SpritesUpscale4X`/`UiUpscale4X`: Classic false, Enhanced true;
+`EnhancedWithLayers` принимает оба. Тесты профиля обновить.
+
+- [ ] **Step 2: Написать failing sprite-cache tests.**
+
+- Enhanced sprite material: texture ровно 4× от patch dims; header
+  dims/offsets/mirror в `SpriteMaterial` неизменны (rect billboards тот же);
+- Classic: native texture, побайтно тот же объект при повторном Get;
+- spectre вариант следует профилю (тот же 4× источник);
+- cutout края после bleed+4× без тёмного RGB над порогом cutoff;
+- ошибка transform одного lump → native fallback, failed state per lump;
+- hot-switch Enhanced→Classic восстанавливает native объекты.
+
+- [ ] **Step 3: Реализовать Enhanced4X в `SpriteCache`.**
+
+Ключ кэша `(lump, variant, spectre)`. Пайплайн: `AlphaBleedGuard` →
+`BuildEnhanced4XDecoded` без dedither-стадии для спрайтов не изобретать —
+использовать общий helper с `applyDedither` по профилю (для спрайтов
+паттерн-гейт безопасен), wrap = `Clamp`. Фильтрация/мипы — как у текущих
+sprite-материалов (не менять политику в этой задаче).
+
+- [ ] **Step 4: Прогрев без фризов.**
+
+Расширить существующий sprite pre-warm (пока WAD открыт): при Enhanced
+строить 4× варианты покадрово (yield) под загрузочной плашкой, фаза
+`ENHANCED SPRITES` после `ENHANCED TEXTURES`. Ленивый путь в геймплее
+(дропы, снаряды, поздние кадры) остаётся — один спрайт мал. Прогревать
+только кадры, реально используемые вещами карты + weapon set, не весь
+`S_START/S_END`.
+
+- [ ] **Step 5: Hot-switch спрайтов.**
+
+Переключение профиля ретаргетит текстуры существующих sprite-материалов
+(или materials-per-variant — по фактической архитектуре Stage 8 lit
+sprites); возврат в Classic — exact native. Counts стабильны после 20
+switches.
+
+- [ ] **Step 6: Запустить sprite tests.**
+
+```text
+Doom.Map.Tests.GraphicsProfileTests
+Doom.Stage3.PlayTests.SpriteUpscalePlayTests
+```
+
+**Commit checkpoint:** `sprites: build enhanced 4x sprite variants`
+
+---
+
+## Task 6: Weapon view и HUD 4×
+
+**Files:**
+- Modify: `Assets/Scripts/MapBuild/WeaponView.cs`
+- Modify: `Assets/Scripts/MapBuild/HudTextureCache.cs`
+- Modify: `Assets/Scripts/MapBuild/DoomHud.cs` (если требуется variant plumb)
+- Create/Modify: PlayMode тесты weapon/HUD
+
+- [ ] **Step 1: Написать failing placement tests.**
+
+Снапшот weapon patch rect (`VirtualScreenRenderer.WeaponPatch`) и HUD
+rect'ов на native vs Enhanced: прямоугольники идентичны (позиции из
+`PatchHeader`, не из texture dims). Enhanced текстуры — 4× dims; Classic —
+native. Меню/intermission — native в обоих режимах.
+
+- [ ] **Step 2: Variant-путь в `HudTextureCache`/weapon.**
+
+Ключ `(lump, variant)`; пайплайн bleed → Super-xBR ×2 ×2 (Clamp);
+failed → native. Прогрев weapon set при загрузке (кадры оружия + muzzle
+flash — их немного); HUD-патчи можно строить лениво при первом кадре HUD
+(малы) или прогреть вместе с weapon set.
+
+- [ ] **Step 3: Hot-switch UI.**
+
+OnGUI-потребители берут текстуру по активному профилю; переключение в
+паузе меняет weapon/HUD на следующий кадр без мигания и без утечки
+(counts стабильны).
+
+- [ ] **Step 4: Запустить weapon/HUD tests + eyeball.**
+
+Быстрый интерактивный взгляд: STBAR/цифры/лицо и viewmodel в Enhanced
+стали 4×, позиционирование не поехало, Classic не изменился.
+
+**Commit checkpoint:** `ui: enhanced 4x weapon and hud patches`
+
+---
+
+## Task 7: Texel-AA sampling в Enhanced shaders
 
 **Files:**
 - Modify: Enhanced world shaders (opaque + cutout; актуальные имена файлов
@@ -354,7 +458,7 @@ paths. Cutout: alpha порог после texel-AA выборки, провер
 
 PlayMode capture-level sanity: рендер плоскости под острым углом не даёт
 NaN/чёрных артефактов; переключение профилей на лету меняет режим выборки
-без pink materials. Визуальная оценка качества — Task 8, здесь только
+без pink materials. Визуальная оценка качества — Task 10, здесь только
 корректность.
 
 - [ ] **Step 4: Запустить material tests.**
@@ -368,7 +472,7 @@ Doom.Stage3.PlayTests.TextureUpscalePlayTests
 
 ---
 
-## Task 6: Height, multi-scale normals и POM
+## Task 8: Height, multi-scale normals и POM
 
 **Files:**
 - Create: `Assets/Scripts/Graphics/HeightMapGenerator.cs`
@@ -404,7 +508,7 @@ normal-тесты; regression: normal texture alpha не константа дл
 - [ ] **Step 4: Включить пайплайн в cache/factory.**
 
 Height/normal генерируются из 4× обработанного albedo (или из 2×
-промежуточного — см. mitigation ladder, только по результатам Task 7).
+промежуточного — см. mitigation ladder, только по результатам Task 9).
 Factory: POM keyword + амплитуда per surface category **только** для
 solid opaque walls/flats; masked, fluids, sky — без POM.
 
@@ -427,7 +531,7 @@ Doom.Stage3.PlayTests.EnhancedMaterialPlayTests
 
 ---
 
-## Task 7: Lifetime и performance gate
+## Task 9: Lifetime и performance gate
 
 **Files:**
 - Modify: `Assets/Scripts/MapBuild/TextureCache.cs`
@@ -448,13 +552,20 @@ scene reload → teardown без MissingReferenceException/leak growth.
 
 - [ ] **Step 3: Измерить cost против baseline Task 1.**
 
-E1M1/E1M7: load time, первый/повторный switch, managed/texture memory,
-frame time после warm-up. Числа записать. **Память — главный риск
-итерации (16× albedo + 16× normal против 4×+4× в Scale2x-версии).**
+E1M1/E1M7: load time, первый/повторный switch, managed/texture memory
+(world + sprite + UI байты раздельно), frame time после warm-up. Числа
+записать. **Память — главный риск итерации (16× albedo + 16× normal
+против 4×+4× в Scale2x-версии, плюс sprite set).**
 Если E1M7 неприемлем — применять mitigation ladder из спеки по одной
 ступени с повторным измерением: (1) height/normal из 2×; (2) 4× только
 для textures ≥ 64px; (3) общий откат на 2× Super-xBR. Каждую применённую
 ступень задокументировать.
+
+**Отдельно: первый Classic → Enhanced hot-switch.** Покадровый прогрев
+работает только на загрузке при персистентном Enhanced; hot-switch из
+паузы строит все варианты синхронно в одном кадре — с Super-xBR это
+ожидаемый фриз. Замерить; при неприемлемом — покадровый прогрев под
+индикатором (аналог `ENHANCED TEXTURES`) и повторный замер.
 
 - [ ] **Step 4: Запустить lifetime tests.**
 
@@ -466,7 +577,7 @@ Doom.Stage3.PlayTests.GraphicsResourceLifetimePlayTests
 
 ---
 
-## Task 8: E1 regression, build и послойный visual sign-off
+## Task 10: E1 regression, build и послойный visual sign-off
 
 **Files:**
 - Modify: `Assets/Tests/PlayMode/E1MapSmokePlayTests.cs`
@@ -494,10 +605,13 @@ missing shaders (включая POM/texel-AA варианты) и editor-only
 
 - [ ] **Step 4: Снять послойные captures.**
 
-Одинаковые poses (E1M1/E1M3/E1M7, записаны в baseline notes), пять
+Одинаковые poses (E1M1/E1M3/E1M7, записаны в baseline notes), шесть
 конфигураций из спеки: Classic native → +dedither → +Super-xBR 4× →
-+texel-AA → +normals/POM. Крупный план brick/metal/door/flats, острые
-углы, masked walls, fluids, sky. Raw PNG не commit'ить.
++sprites/weapon/HUD 4× → +texel-AA → +normals/POM. Крупный план
+brick/metal/door/flats, острые углы, masked walls, fluids, sky, монстры и
+предметы в кадре, viewmodel и STBAR. Между конфигурациями с разным
+составом CPU-слоёв перезагружать сцену (кэш вариантов строится под
+активный профиль). Raw PNG не commit'ить.
 
 - [ ] **Step 5: Интерактивный sign-off (visual gate).**
 
@@ -513,8 +627,9 @@ first/repeat switch responsiveness; 4:3/16:9. **Решение о статусе
 Только после green suites/build/sign-off: отметить spec/plan
 завершёнными с датой и вердиктом послойной оценки; записать exact test
 totals и performance numbers; обновить roadmap и `CLAUDE.md`; перечислить
-ограничения (sprites/HUD native, POM не на masked/fluids/sky, нейроапскейл
-отложен) и, при частичном успехе, рекомендацию по следующему шагу.
+ограничения (menus/intermission native, texel-AA/POM только для мира,
+нейроапскейл отложен) и, при частичном успехе, рекомендацию по следующему
+шагу.
 
 **Commit checkpoint:** `graphics: complete enhanced texture quality stack`
 
@@ -536,20 +651,27 @@ Task 4 TextureCache Enhanced4X pipeline
         |
         +--------------------+
         v                    v
-Task 5 texel-AA shaders   Task 6 height/normals/POM
+Task 5 sprites 4x         Task 6 weapon/HUD 4x
+        |                    |
+        +--------------------+
+        |
+        +--------------------+
+        v                    v
+Task 7 texel-AA shaders   Task 8 height/normals/POM
         |                    |
         +--------------------+
         |
         v
-Task 7 lifetime/performance
+Task 9 lifetime/performance
         |
         v
-Task 8 E1/build/послойный sign-off/docs
+Task 10 E1/build/послойный sign-off/docs
 ```
 
 Tasks 2–3 — pure transforms, могут выполняться изолированно после
-контрактов Task 1. Tasks 5 и 6 независимы друг от друга и могут идти в
-любом порядке после Task 4, но обе должны завершиться до Task 7.
+контрактов Task 1. Tasks 5 и 6 (приоритет ревизии 2026-07-22) и Tasks 7 и
+8 внутри своих пар независимы и могут идти в любом порядке, но пара 5/6
+идёт до пары 7/8, и все четыре должны завершиться до Task 9.
 
 ## Stop conditions
 
@@ -577,6 +699,9 @@ Tasks 2–3 — pure transforms, могут выполняться изолир�
       зелёные, включая Freedoom integration.
 - [ ] Enhanced4X пайплайн в cache: 4×, Bilinear+mips, wrap policy,
       fallback; Classic — exact native/Point.
+- [ ] Sprites/weapon/HUD: 4× варианты в Enhanced при неизменном placement
+      (rects из `PatchHeader`); menus/intermission native; hot-switch
+      восстанавливает native; прогрев без фризов.
 - [ ] Texel-AA включён в Enhanced opaque/cutout; POM — только solid.
 - [ ] Hot-switch/rollback: exact Classic restore, стабильные counts после
       20 switches и scene reload.
