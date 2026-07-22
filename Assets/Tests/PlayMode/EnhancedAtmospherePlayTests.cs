@@ -74,7 +74,17 @@ namespace Doom.Stage3.PlayTests
             SettingsController.Ensure().ConfigureForTests(store, new FakeDisplayAdapter());
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            // Enhanced boot warms 4x textures/sprites/HUD one per frame under the
+            // load plaque, so a fixed 90-frame wait is not enough — wait for the
+            // build to actually finish (same pattern as the upscale suites).
+            for (int i = 0; i < 3600; i++)
+            {
+                yield return null;
+                var loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    break;
+            }
+            yield return null;
 
             Assert.AreEqual(GraphicsMode.Enhanced, GraphicsModeController.Ensure().Current);
             var fog = Object.FindFirstObjectByType<SectorFogSystem>();
