@@ -19,7 +19,11 @@ controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
 **Статус:** Task 9 done (ownership, yielded Classic→Enhanced warm, E1M1/E1M7
-metrics, lifetime suite green). Next: Task 10 (E1 smoke / build / visual sign-off).
+metrics, lifetime suite green). **Интерактивный вердикт по замеру Task 9:
+~85 с прогрева на карту неприемлемы** → перед Task 10 выполняется отдельная
+доработка `2026-07-22-enhanced-warm-performance` (parallel warm → session
+store → disk cache). Next: warm-performance Tasks 1–5, затем Task 10
+(E1 smoke / build / visual sign-off) уже с быстрым прогревом.
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
