@@ -245,8 +245,9 @@ namespace Doom.MapBuild
             WorldTextures = cache;
 
             // Stage 7b: decode HUD/menu/intermission patches while the WAD is open.
+            // Follows GraphicsModeController for UiUpscale4X (menus stay native).
             var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
-            HudTextures = new HudTextureCache(uiCatalog);
+            HudTextures = new HudTextureCache(uiCatalog, context: renderContext);
 
             // Keep loading plate on the freshest UI cache (TITLEPIC / STCFN / WILV).
             if (flow.Loading != null && flow.Loading.IsVisible)
@@ -445,7 +446,8 @@ namespace Doom.MapBuild
 
             // Enhanced sprite 4× after native warm (weapons + map things). Super-xBR
             // sync during Get would freeze New Game; yield under the load plaque.
-            if (GraphicsProfile.ForMode(gfx.Current).SpritesUpscale4X)
+            var loadProfile = GraphicsProfile.ForMode(gfx.Current);
+            if (loadProfile.SpritesUpscale4X)
             {
                 var lumps = spriteCache.CachedNativeLumps;
                 int done = 0;
@@ -453,8 +455,26 @@ namespace Doom.MapBuild
                 for (int i = 0; i < lumps.Count; i++)
                 {
                     flow.ReportLoadProgress(
-                        0.9f + 0.05f * done / total, "ENHANCED SPRITES");
+                        0.9f + 0.04f * done / total, "ENHANCED SPRITES");
                     spriteCache.EnsureEnhanced(lumps[i]);
+                    done++;
+                    yield return null;
+                    if (!StillValid(flow)) yield break;
+                }
+            }
+
+            // Status-bar / face 4× (menus/intermission stay native). Small patches;
+            // yield so the load plaque stays responsive.
+            if (loadProfile.UiUpscale4X && HudTextures != null)
+            {
+                var hudNames = new List<string>(HudTextures.HudPatchNames);
+                int done = 0;
+                int total = Math.Max(1, hudNames.Count);
+                for (int i = 0; i < hudNames.Count; i++)
+                {
+                    flow.ReportLoadProgress(
+                        0.94f + 0.04f * done / total, "ENHANCED HUD");
+                    HudTextures.EnsureEnhanced(hudNames[i]);
                     done++;
                     yield return null;
                     if (!StillValid(flow)) yield break;

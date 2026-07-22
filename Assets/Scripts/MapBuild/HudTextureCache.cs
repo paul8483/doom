@@ -2,16 +2,23 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Doom.Graphics;
+using Doom.MapBuild.Rendering;
 
 namespace Doom.MapBuild
 {
     /// Unity Texture2D cache for UI patches. Built from a fully-decoded
     /// <see cref="UiPatchCatalog"/> — never opens the WAD.
+    /// Status-bar / face patches follow <see cref="GraphicsProfile.UiUpscale4X"/>;
+    /// menus, intermission and title always stay native.
     public sealed class HudTextureCache
     {
+        /// Test seam: next Enhanced4X build throws and falls back to native.
+        public static bool ForceEnhancedFailureForTests;
+
         public readonly struct Entry
         {
             public readonly Texture2D Texture;
+            /// Native patch dims (DOOM units) — placement never uses Texture size.
             public readonly int Width;
             public readonly int Height;
             public readonly int LeftOffset;
@@ -29,16 +36,55 @@ namespace Doom.MapBuild
             public bool IsValid => Texture != null;
         }
 
-        readonly Dictionary<string, Entry> entries =
-            new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+        sealed class Slot
+        {
+            public DecodedImage NativeImage;
+            public int Width, Height, LeftOffset, TopOffset;
+            public Texture2D NativeTex;
+            public Texture2D EnhancedTex;
+            public bool IsHud;
+            public bool EnhancedFailed;
+        }
+
+        readonly Dictionary<string, Slot> slots =
+            new Dictionary<string, Slot>(StringComparer.OrdinalIgnoreCase);
         readonly HashSet<string> misses =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        readonly HashSet<string> hudNames =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly int anisoLevel;
+        readonly WorldRenderContext context;
+        readonly bool preferInjectedProfile;
+        GraphicsProfile profile;
+        int enhancedVariantCount;
 
-        public HudTextureCache(UiPatchCatalog catalog, int anisoLevel = 1)
+        public int EnhancedVariantCount => enhancedVariantCount;
+
+        /// Status-bar patch names eligible for Enhanced4X (menus stay native).
+        public IEnumerable<string> HudPatchNames
+        {
+            get
+            {
+                foreach (var kv in slots)
+                    if (kv.Value.IsHud)
+                        yield return kv.Key;
+            }
+        }
+
+        public HudTextureCache(
+            UiPatchCatalog catalog,
+            int anisoLevel = 1,
+            WorldRenderContext context = null,
+            GraphicsProfile? profile = null)
         {
             if (catalog == null) throw new ArgumentNullException(nameof(catalog));
             this.anisoLevel = anisoLevel;
+            this.context = context;
+            preferInjectedProfile = profile.HasValue;
+            this.profile = profile ?? GraphicsProfile.Classic;
+
+            foreach (string name in UiPatchCatalog.StatusBarNames)
+                hudNames.Add(name);
 
             foreach (var info in catalog.Entries)
             {
@@ -56,9 +102,129 @@ namespace Doom.MapBuild
                     ShiftFreedoomTitlePhase1(info.Image);
                 }
 
-                var tex = ToTexture2D(info.Image);
-                entries[info.Name] = new Entry(
-                    tex, info.Width, info.Height, info.LeftOffset, info.TopOffset);
+                var slot = new Slot
+                {
+                    NativeImage = info.Image,
+                    Width = info.Width,
+                    Height = info.Height,
+                    LeftOffset = info.LeftOffset,
+                    TopOffset = info.TopOffset,
+                    IsHud = hudNames.Contains(info.Name),
+                };
+                slot.NativeTex = ToTexture2D(info.Image);
+                context?.RegisterTexture(slot.NativeTex);
+                slots[info.Name] = slot;
+            }
+        }
+
+        public void SetActiveProfile(GraphicsProfile profile)
+        {
+            this.profile = profile;
+        }
+
+        /// Build Enhanced4X for a status-bar patch that already has a native decode.
+        /// No-op for menu/intermission names. Returns false on miss/failure.
+        public bool EnsureEnhanced(string name)
+        {
+            if (string.IsNullOrEmpty(name) || !slots.TryGetValue(name, out var slot))
+                return false;
+            if (!slot.IsHud || slot.EnhancedFailed)
+                return false;
+
+            var tex = GetOrCreateEnhanced(slot, name);
+            return tex != null &&
+                   slot.EnhancedTex != null &&
+                   ReferenceEquals(tex, slot.EnhancedTex);
+        }
+
+        public bool TryGet(string name, out Entry entry) =>
+            TryGet(name, ResolveVariant(name), out entry);
+
+        public bool TryGet(string name, WorldTextureVariant variant, out Entry entry)
+        {
+            if (string.IsNullOrEmpty(name) || !slots.TryGetValue(name, out var slot))
+            {
+                entry = default;
+                return false;
+            }
+
+            if (variant == WorldTextureVariant.Enhanced2X)
+                variant = WorldTextureVariant.Enhanced4X;
+
+            // Non-HUD patches never upscale (menus / intermission / title).
+            if (!slot.IsHud)
+                variant = WorldTextureVariant.Native;
+
+            Texture2D tex = variant == WorldTextureVariant.Enhanced4X
+                ? GetOrCreateEnhanced(slot, name)
+                : slot.NativeTex;
+
+            entry = new Entry(
+                tex, slot.Width, slot.Height, slot.LeftOffset, slot.TopOffset);
+            return entry.IsValid;
+        }
+
+        public bool IsMiss(string name) =>
+            !string.IsNullOrEmpty(name) && misses.Contains(name);
+
+        public bool IsHudPatch(string name) =>
+            !string.IsNullOrEmpty(name) && hudNames.Contains(name);
+
+        WorldTextureVariant ResolveVariant(string name)
+        {
+            if (!IsHudPatch(name))
+                return WorldTextureVariant.Native;
+
+            var active = ResolveActiveProfile();
+            return active.UiUpscale4X
+                ? WorldTextureVariant.Enhanced4X
+                : WorldTextureVariant.Native;
+        }
+
+        GraphicsProfile ResolveActiveProfile()
+        {
+            // Tests pin a profile via ctor; runtime follows the live controller.
+            if (!preferInjectedProfile && GraphicsModeController.Instance != null)
+                return GraphicsModeController.Instance.ActiveProfile;
+            return profile;
+        }
+
+        Texture2D GetOrCreateEnhanced(Slot slot, string name)
+        {
+            if (slot.EnhancedFailed)
+                return slot.NativeTex;
+            if (slot.EnhancedTex != null)
+                return slot.EnhancedTex;
+
+            try
+            {
+                if (ForceEnhancedFailureForTests)
+                    throw new InvalidOperationException(
+                        "Forced Enhanced4X HUD failure (test seam).");
+
+                if (slot.NativeImage == null)
+                    throw new InvalidOperationException(
+                        "Missing native DecodedImage for Enhanced HUD patch.");
+
+                var active = ResolveActiveProfile();
+                var enhancedImg = TextureCache.BuildEnhanced4XDecoded(
+                    slot.NativeImage,
+                    PixelWrapMode.Clamp,
+                    applyDedither: active.WorldDedither,
+                    applyAlphaBleed: true);
+
+                var tex = ToTexture2D(enhancedImg);
+                slot.EnhancedTex = tex;
+                context?.RegisterTexture(tex);
+                enhancedVariantCount++;
+                return tex;
+            }
+            catch (Exception e)
+            {
+                slot.EnhancedFailed = true;
+                Debug.LogWarning(
+                    $"HudTextureCache: Enhanced 4× failed for '{name}': {e.Message} — using native");
+                return slot.NativeTex;
             }
         }
 
@@ -150,20 +316,6 @@ namespace Doom.MapBuild
                 Array.Copy(snap, y * bandW * 4, rgba, dst, bandW * 4);
             }
         }
-
-        public bool TryGet(string name, out Entry entry)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                entry = default;
-                return false;
-            }
-
-            return entries.TryGetValue(name, out entry);
-        }
-
-        public bool IsMiss(string name) =>
-            !string.IsNullOrEmpty(name) && misses.Contains(name);
 
         Texture2D ToTexture2D(DecodedImage img)
         {

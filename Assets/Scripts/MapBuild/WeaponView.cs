@@ -187,16 +187,24 @@ namespace Doom.MapBuild
         void DrawPatch(string sprite, int frame, float sx, float sy,
                        in VirtualScreenRenderer.Transform t, Rect clip)
         {
+            // SpriteCache serves Enhanced4X when SpritesUpscale4X is active;
+            // placement always uses PatchHeader dims/offsets (not texture size).
             var sm = cache.Get(sprite, frame, 0);
             if (!sm.IsValid) return;
             var tex = sm.Material != null ? sm.Material.mainTexture : null;
             if (tex == null) return;
 
-            var r = VirtualScreenRenderer.WeaponPatch(
-                t, sx, sy, sm.LeftOffset, sm.TopOffset, sm.Width, sm.Height);
+            var r = PlacementRect(t, sx, sy, sm);
             r.x -= clip.x;
             r.y -= clip.y;
             GUI.DrawTexture(r, tex);
         }
+
+        /// R_DrawPSprite screen rect from header dims — identical for native and 4×.
+        public static Rect PlacementRect(
+            in VirtualScreenRenderer.Transform t, float sx, float sy, in SpriteMaterial sm) =>
+            VirtualScreenRenderer.WeaponPatch(
+                t, sx, sy, sm.LeftOffset, sm.TopOffset, sm.Width, sm.Height);
     }
 }
+

@@ -18,8 +18,8 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 5 done (`SpriteCache` Enhanced4X + yielded `ENHANCED SPRITES`
-warm). Next: Task 6 (weapon/HUD 4×).
+**Статус:** Task 6 done (`HudTextureCache` Enhanced4X + weapon placement via
+`SpriteCache` + yielded `ENHANCED HUD` warm). Next: Task 7 (texel-AA).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -406,30 +406,30 @@ Doom.Stage3.PlayTests.SpriteUpscalePlayTests
 - Modify: `Assets/Scripts/MapBuild/DoomHud.cs` (если требуется variant plumb)
 - Create/Modify: PlayMode тесты weapon/HUD
 
-- [ ] **Step 1: Написать failing placement tests.**
+- [x] **Step 1: Написать failing placement tests.**
 
 Снапшот weapon patch rect (`VirtualScreenRenderer.WeaponPatch`) и HUD
 rect'ов на native vs Enhanced: прямоугольники идентичны (позиции из
 `PatchHeader`, не из texture dims). Enhanced текстуры — 4× dims; Classic —
 native. Меню/intermission — native в обоих режимах.
 
-- [ ] **Step 2: Variant-путь в `HudTextureCache`/weapon.**
+- [x] **Step 2: Variant-путь в `HudTextureCache`/weapon.**
 
-Ключ `(lump, variant)`; пайплайн bleed → Super-xBR ×2 ×2 (Clamp);
-failed → native. Прогрев weapon set при загрузке (кадры оружия + muzzle
-flash — их немного); HUD-патчи можно строить лениво при первом кадре HUD
-(малы) или прогреть вместе с weapon set.
+Ключ `(name, variant)` в `HudTextureCache`; пайплайн bleed → Super-xBR ×2 ×2
+(Clamp); failed → native. Только `UiPatchCatalog.StatusBarNames` апскейлятся;
+menus/title/intermission всегда native. Weapon view уже берёт 4× из
+`SpriteCache` (`SpritesUpscale4X`). Прогрев: weapon set (Task 5) + yielded
+`ENHANCED HUD` status-bar patches после `ENHANCED SPRITES`.
 
-- [ ] **Step 3: Hot-switch UI.**
+- [x] **Step 3: Hot-switch UI.**
 
-OnGUI-потребители берут текстуру по активному профилю; переключение в
-паузе меняет weapon/HUD на следующий кадр без мигания и без утечки
-(counts стабильны).
+OnGUI `TryGet` / `SpriteCache.Get` следуют активному профилю; Classic
+восстанавливает native объекты; повторный Enhanced не растит counts.
 
-- [ ] **Step 4: Запустить weapon/HUD tests + eyeball.**
+- [x] **Step 4: Запустить weapon/HUD tests + eyeball.**
 
-Быстрый интерактивный взгляд: STBAR/цифры/лицо и viewmodel в Enhanced
-стали 4×, позиционирование не поехало, Classic не изменился.
+**6/6 UiUpscalePlayTests** (`Logs/texquality-t6-ui-play.xml`). Интерактивный
+eyeball — с послойным sign-off Task 10.
 
 **Commit checkpoint:** `ui: enhanced 4x weapon and hud patches`
 
