@@ -69,6 +69,10 @@ namespace Doom.MapBuild
         /// Stage 8 world albedo/normal materials. Built while the WAD is open.
         public TextureCache WorldTextures { get; private set; }
 
+        /// Stage 5 sprite materials. Built while the WAD is open; Enhanced 4× warmed
+        /// with yields when SpritesUpscale4X is active.
+        public SpriteCache Sprites { get; private set; }
+
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
         // even when the scene has no pre-wired MapLoader GO. Runs once after the
@@ -315,6 +319,7 @@ namespace Doom.MapBuild
 
             var spriteSet = SpriteSet.Load(wad);
             var spriteCache = new SpriteCache(wad, spriteSet, palette, materialFactory, renderContext);
+            Sprites = spriteCache;
 
             var particles = gameObject.GetComponent<ParticleEffectPool>()
                 ?? gameObject.AddComponent<ParticleEffectPool>();
@@ -323,8 +328,9 @@ namespace Doom.MapBuild
                 ?? gameObject.AddComponent<DecalEffectPool>();
             decals.Init(renderContext, spriteCache);
 
-            // Pre-warm weapon/flash/effect sprites: the WAD closes at the end of
-            // Build(), and WeaponView/HitEffect fetch these lazily at runtime.
+            // Pre-warm weapon/flash/effect sprites (native only): the WAD closes at
+            // the end of Build(), and WeaponView/HitEffect fetch these lazily.
+            // Enhanced 4× is yielded after THINGS under ENHANCED SPRITES.
             foreach (var (spr, frames) in new (string, int[])[]
             {
                 ("PUNG", new[] { 0, 1, 2, 3 }), ("PISG", new[] { 0, 1, 2 }), ("PISF", new[] { 0 }),
@@ -341,7 +347,7 @@ namespace Doom.MapBuild
                 ("BFE2", new[] { 0, 1, 2, 3 }),
                 ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),
             })
-                foreach (int f in frames) spriteCache.Get(spr, f, 0);
+                foreach (int f in frames) spriteCache.WarmNative(spr, f, 0);
 
             flow.ReportLoadProgress(0.7f, "PLAYER");
             yield return null;
@@ -436,6 +442,24 @@ namespace Doom.MapBuild
             int spawned = new ThingSpawner(spriteCache, worldScale, Sound)
                 .SpawnAll(map, thingsRoot.transform, fallbackY, playerGo.transform);
             Debug.Log($"MapLoader: spawned {spawned} sprite things");
+
+            // Enhanced sprite 4× after native warm (weapons + map things). Super-xBR
+            // sync during Get would freeze New Game; yield under the load plaque.
+            if (GraphicsProfile.ForMode(gfx.Current).SpritesUpscale4X)
+            {
+                var lumps = spriteCache.CachedNativeLumps;
+                int done = 0;
+                int total = Math.Max(1, lumps.Count);
+                for (int i = 0; i < lumps.Count; i++)
+                {
+                    flow.ReportLoadProgress(
+                        0.9f + 0.05f * done / total, "ENHANCED SPRITES");
+                    spriteCache.EnsureEnhanced(lumps[i]);
+                    done++;
+                    yield return null;
+                    if (!StillValid(flow)) yield break;
+                }
+            }
 
             LineActivator lineActivator = null;
             LevelStatsTracker tracker = null;

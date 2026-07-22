@@ -21,10 +21,14 @@ namespace Doom.MapBuild
         public bool IsValid => Material != null;
     }
 
-    /// Decodes sprite lumps into cutout Materials, cached by lump index.
+    /// Decodes sprite lumps into cutout Materials, cached by (lump, variant, spectre).
     /// Mirror is NOT baked into the texture — the billboard flips its X scale.
+    /// Header dims/offsets always come from the native PatchHeader (placement invariant).
     public sealed class SpriteCache
     {
+        /// Test seam: next Enhanced4X build throws and falls back to native.
+        public static bool ForceEnhancedFailureForTests;
+
         private readonly WadFile wad;
         private readonly SpriteSet sprites;
         private readonly Palette palette;
@@ -32,12 +36,23 @@ namespace Doom.MapBuild
         private readonly WorldRenderContext context;
         private readonly int anisoLevel;
 
-        private readonly Dictionary<int, Material> matByLump = new();
-        private readonly Dictionary<int, Material> spectreMatByLump = new();
         private readonly Dictionary<int, PatchHeader> headerByLump = new();
+        private readonly Dictionary<int, DecodedImage> decodedByLump = new();
+        private readonly Dictionary<(int lump, WorldTextureVariant variant), Texture2D> texByLumpVariant = new();
+        private readonly Dictionary<(int lump, WorldTextureVariant variant, bool spectre), Material> matCache = new();
         private readonly HashSet<int> failedLumps = new();
+        private readonly HashSet<int> failedEnhancedLumps = new();
+        private readonly List<int> nativeLumpOrder = new();
+
+        int enhancedVariantCount;
 
         public DoomMaterialFactory Materials => materials;
+        public int EnhancedVariantCount => enhancedVariantCount;
+        public int CachedNativeLumpCount => nativeLumpOrder.Count;
+
+        /// Lumps that already have a native texture (warm order). Used for yielded
+        /// Enhanced4X warm without re-scanning the map.
+        public IReadOnlyList<int> CachedNativeLumps => nativeLumpOrder;
 
         public SpriteCache(
             WadFile wad,
@@ -55,13 +70,36 @@ namespace Doom.MapBuild
             this.anisoLevel = anisoLevel;
         }
 
+        WorldTextureVariant ActiveSpriteVariant =>
+            materials.ActiveProfile.SpritesUpscale4X
+                ? WorldTextureVariant.Enhanced4X
+                : WorldTextureVariant.Native;
+
         public SpriteMaterial GetSpectre(string sprite, int frame, int rotationIndex) =>
             Get(sprite, frame, rotationIndex, spectre: true);
 
-        /// Resolve (sprite, frame, rotationIndex 0..7). Returns an invalid
-        /// SpriteMaterial (IsValid == false) if the frame/rotation is missing.
-        public SpriteMaterial Get(string sprite, int frame, int rotationIndex, bool spectre = false)
+        /// Pre-warm native decode/material while the WAD is open. Ignores the
+        /// active profile so Enhanced Super-xBR never runs during ThingSpawner.
+        public SpriteMaterial WarmNative(
+            string sprite, int frame, int rotationIndex, bool spectre = false) =>
+            Get(sprite, frame, rotationIndex, spectre, WorldTextureVariant.Native);
+
+        /// Resolve (sprite, frame, rotationIndex 0..7) for the active profile.
+        /// Returns an invalid SpriteMaterial (IsValid == false) if missing.
+        public SpriteMaterial Get(
+            string sprite, int frame, int rotationIndex, bool spectre = false) =>
+            Get(sprite, frame, rotationIndex, spectre, ActiveSpriteVariant);
+
+        public SpriteMaterial Get(
+            string sprite,
+            int frame,
+            int rotationIndex,
+            bool spectre,
+            WorldTextureVariant variant)
         {
+            if (variant == WorldTextureVariant.Enhanced2X)
+                variant = WorldTextureVariant.Enhanced4X;
+
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
 
@@ -78,33 +116,23 @@ namespace Doom.MapBuild
                     headerByLump[refr.LumpIndex] = header;
                 }
 
-                var cache = spectre ? spectreMatByLump : matByLump;
-                if (!cache.TryGetValue(refr.LumpIndex, out mat))
-                {
-                    Texture2D tex;
-                    if (matByLump.TryGetValue(refr.LumpIndex, out var existing) &&
-                        existing != null && existing.mainTexture is Texture2D shared)
-                    {
-                        tex = shared;
-                    }
-                    else if (spectreMatByLump.TryGetValue(refr.LumpIndex, out var existingSpectre) &&
-                             existingSpectre != null && existingSpectre.mainTexture is Texture2D sharedSpectre)
-                    {
-                        tex = sharedSpectre;
-                    }
-                    else
-                    {
-                        var img = Patch.Decode(wad.ReadLump(refr.LumpIndex), palette);
-                        tex = ToTexture2D(img);
-                        context?.RegisterTexture(tex);
-                    }
+                var tex = GetOrCreateTexture(refr.LumpIndex, variant);
+                if (tex == null)
+                    return default;
 
+                var key = (refr.LumpIndex, variant, spectre);
+                if (!matCache.TryGetValue(key, out mat))
+                {
                     mat = materials.CreateSpriteMaterial(tex, spectre);
-                    cache[refr.LumpIndex] = mat;
+                    matCache[key] = mat;
                     // Owned for teardown only — do not RegisterMaterial: world
                     // RetargetMaterial would force world cutout shaders;
                     // SpriteBillboard retargets sprites live on mode switch.
                     context?.RegisterOwned(mat);
+                }
+                else if (mat.mainTexture != tex)
+                {
+                    mat.mainTexture = tex;
                 }
             }
             catch (System.ObjectDisposedException)
@@ -118,6 +146,119 @@ namespace Doom.MapBuild
 
             return new SpriteMaterial(mat, header.Width, header.Height,
                                       header.LeftOffset, header.TopOffset, refr.Mirrored);
+        }
+
+        /// Build Enhanced4X for a lump that already has a native decode. Safe after
+        /// WAD close. Returns false if native is missing or Enhanced failed.
+        public bool EnsureEnhanced(int lumpIndex)
+        {
+            if (failedLumps.Contains(lumpIndex) || failedEnhancedLumps.Contains(lumpIndex))
+                return false;
+            if (!decodedByLump.ContainsKey(lumpIndex))
+                return false;
+
+            var tex = GetOrCreateTexture(lumpIndex, WorldTextureVariant.Enhanced4X);
+            return tex != null &&
+                   texByLumpVariant.TryGetValue(
+                       (lumpIndex, WorldTextureVariant.Enhanced4X), out var enhanced) &&
+                   ReferenceEquals(tex, enhanced);
+        }
+
+        Texture2D GetOrCreateTexture(int lumpIndex, WorldTextureVariant variant)
+        {
+            if (variant == WorldTextureVariant.Enhanced4X &&
+                failedEnhancedLumps.Contains(lumpIndex))
+                return GetOrCreateTexture(lumpIndex, WorldTextureVariant.Native);
+
+            var key = (lumpIndex, variant);
+            if (texByLumpVariant.TryGetValue(key, out var existing))
+                return existing;
+
+            if (variant == WorldTextureVariant.Native)
+                return CreateNativeTexture(lumpIndex);
+
+            return CreateEnhancedTexture(lumpIndex);
+        }
+
+        Texture2D CreateNativeTexture(int lumpIndex)
+        {
+            var key = (lumpIndex, WorldTextureVariant.Native);
+            if (texByLumpVariant.TryGetValue(key, out var existing))
+                return existing;
+
+            var img = DecodeLump(lumpIndex);
+            if (img == null)
+                return null;
+
+            var tex = ToTexture2D(img);
+            texByLumpVariant[key] = tex;
+            nativeLumpOrder.Add(lumpIndex);
+            context?.RegisterTexture(tex);
+            return tex;
+        }
+
+        Texture2D CreateEnhancedTexture(int lumpIndex)
+        {
+            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            if (texByLumpVariant.TryGetValue(key, out var existing))
+                return existing;
+
+            // Native must exist first (decoded + tracked).
+            var nativeTex = CreateNativeTexture(lumpIndex);
+            if (nativeTex == null)
+                return null;
+
+            if (failedEnhancedLumps.Contains(lumpIndex))
+                return nativeTex;
+
+            try
+            {
+                if (ForceEnhancedFailureForTests)
+                    throw new System.InvalidOperationException(
+                        "Forced Enhanced4X sprite failure (test seam).");
+
+                if (!decodedByLump.TryGetValue(lumpIndex, out var nativeImg) || nativeImg == null)
+                    throw new System.InvalidOperationException(
+                        "Missing native DecodedImage for Enhanced sprite.");
+
+                var profile = materials.ActiveProfile;
+                var enhancedImg = TextureCache.BuildEnhanced4XDecoded(
+                    nativeImg,
+                    PixelWrapMode.Clamp,
+                    applyDedither: profile.WorldDedither,
+                    applyAlphaBleed: true);
+
+                var tex = ToTexture2D(enhancedImg);
+                texByLumpVariant[key] = tex;
+                context?.RegisterTexture(tex);
+                enhancedVariantCount++;
+                return tex;
+            }
+            catch (System.Exception e)
+            {
+                failedEnhancedLumps.Add(lumpIndex);
+                Debug.LogWarning(
+                    $"SpriteCache: Enhanced 4× failed for lump {lumpIndex}: {e.Message} — using native");
+                return nativeTex;
+            }
+        }
+
+        DecodedImage DecodeLump(int lumpIndex)
+        {
+            if (decodedByLump.TryGetValue(lumpIndex, out var cached))
+                return cached;
+
+            try
+            {
+                var img = Patch.Decode(wad.ReadLump(lumpIndex), palette);
+                decodedByLump[lumpIndex] = img;
+                return img;
+            }
+            catch (System.ObjectDisposedException)
+            {
+                failedLumps.Add(lumpIndex);
+                throw;
+            }
         }
 
         private Texture2D ToTexture2D(DecodedImage img)

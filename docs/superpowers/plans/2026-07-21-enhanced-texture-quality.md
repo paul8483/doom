@@ -18,10 +18,8 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 4 done (+ New Game hang fix: yielded Enhanced4X warm).
-**Reprioritized 2026-07-22** после первого eyeball (мир лучше,
-спрайты/оружие/HUD выбиваются): новые Task 5 (sprites 4×) и Task 6
-(weapon/HUD 4×) идут до texel-AA (Task 7) и POM (Task 8). Next: Task 5.
+**Статус:** Task 5 done (`SpriteCache` Enhanced4X + yielded `ENHANCED SPRITES`
+warm). Next: Task 6 (weapon/HUD 4×).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -345,12 +343,14 @@ build OK.
 - Modify: `Assets/Scripts/MapBuild/MapLoader.cs` (прогрев спрайтов с yields)
 - Create: `Assets/Tests/PlayMode/SpriteUpscalePlayTests.cs`
 
-- [ ] **Step 1: Расширить profile contract.**
+- [x] **Step 1: Расширить profile contract.**
 
 `SpritesUpscale4X`/`UiUpscale4X`: Classic false, Enhanced true;
 `EnhancedWithLayers` принимает оба. Тесты профиля обновить.
 
-- [ ] **Step 2: Написать failing sprite-cache tests.**
+**5/5 GraphicsProfileTests** (`Logs/texquality-t5-profile-edit.xml`).
+
+- [x] **Step 2: Написать failing sprite-cache tests.**
 
 - Enhanced sprite material: texture ровно 4× от patch dims; header
   dims/offsets/mirror в `SpriteMaterial` неизменны (rect billboards тот же);
@@ -360,7 +360,7 @@ build OK.
 - ошибка transform одного lump → native fallback, failed state per lump;
 - hot-switch Enhanced→Classic восстанавливает native объекты.
 
-- [ ] **Step 3: Реализовать Enhanced4X в `SpriteCache`.**
+- [x] **Step 3: Реализовать Enhanced4X в `SpriteCache`.**
 
 Ключ кэша `(lump, variant, spectre)`. Пайплайн: `AlphaBleedGuard` →
 `BuildEnhanced4XDecoded` без dedither-стадии для спрайтов не изобретать —
@@ -368,7 +368,7 @@ build OK.
 паттерн-гейт безопасен), wrap = `Clamp`. Фильтрация/мипы — как у текущих
 sprite-материалов (не менять политику в этой задаче).
 
-- [ ] **Step 4: Прогрев без фризов.**
+- [x] **Step 4: Прогрев без фризов.**
 
 Расширить существующий sprite pre-warm (пока WAD открыт): при Enhanced
 строить 4× варианты покадрово (yield) под загрузочной плашкой, фаза
@@ -377,19 +377,22 @@ sprite-материалов (не менять политику в этой за
 только кадры, реально используемые вещами карты + weapon set, не весь
 `S_START/S_END`.
 
-- [ ] **Step 5: Hot-switch спрайтов.**
+- [x] **Step 5: Hot-switch спрайтов.**
 
 Переключение профиля ретаргетит текстуры существующих sprite-материалов
 (или materials-per-variant — по фактической архитектуре Stage 8 lit
 sprites); возврат в Classic — exact native. Counts стабильны после 20
 switches.
 
-- [ ] **Step 6: Запустить sprite tests.**
+- [x] **Step 6: Запустить sprite tests.**
 
 ```text
 Doom.Map.Tests.GraphicsProfileTests
 Doom.Stage3.PlayTests.SpriteUpscalePlayTests
 ```
+
+**5/5 profile** (`Logs/texquality-t5-profile-edit.xml`);
+**6/6 SpriteUpscalePlayTests** (`Logs/texquality-t5-sprite-play.xml`).
 
 **Commit checkpoint:** `sprites: build enhanced 4x sprite variants`
 

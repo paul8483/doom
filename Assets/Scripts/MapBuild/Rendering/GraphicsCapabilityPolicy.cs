@@ -109,6 +109,8 @@ namespace Doom.MapBuild.Rendering
                 requested.WorldUpscale4X,
                 requested.WorldTexelAA,
                 requested.WorldParallax,
+                requested.SpritesUpscale4X,
+                requested.UiUpscale4X,
                 requested.ControlledWorldMipmaps);
         }
     }

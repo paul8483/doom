@@ -27,6 +27,8 @@ namespace Doom.Map.Tests
             Assert.IsFalse(p.WorldUpscale4X);
             Assert.IsFalse(p.WorldTexelAA);
             Assert.IsFalse(p.WorldParallax);
+            Assert.IsFalse(p.SpritesUpscale4X);
+            Assert.IsFalse(p.UiUpscale4X);
             Assert.IsFalse(p.ControlledWorldMipmaps);
             Assert.AreEqual(WorldTextureVariant.Native, p.WorldTextureVariant);
             Assert.IsTrue(p.Sky);
@@ -53,6 +55,8 @@ namespace Doom.Map.Tests
             Assert.IsTrue(p.WorldUpscale4X);
             Assert.IsTrue(p.WorldTexelAA);
             Assert.IsTrue(p.WorldParallax);
+            Assert.IsTrue(p.SpritesUpscale4X);
+            Assert.IsTrue(p.UiUpscale4X);
             Assert.IsTrue(p.ControlledWorldMipmaps);
             Assert.AreEqual(WorldTextureVariant.Enhanced4X, p.WorldTextureVariant);
         }
@@ -64,13 +68,17 @@ namespace Doom.Map.Tests
                 worldDedither: true,
                 worldUpscale4X: false,
                 worldTexelAA: false,
-                worldParallax: false);
+                worldParallax: false,
+                spritesUpscale4X: false,
+                uiUpscale4X: false);
 
             Assert.AreEqual(GraphicsMode.Enhanced, deditherOnly.Mode);
             Assert.IsTrue(deditherOnly.WorldDedither);
             Assert.IsFalse(deditherOnly.WorldUpscale4X);
             Assert.IsFalse(deditherOnly.WorldTexelAA);
             Assert.IsFalse(deditherOnly.WorldParallax);
+            Assert.IsFalse(deditherOnly.SpritesUpscale4X);
+            Assert.IsFalse(deditherOnly.UiUpscale4X);
             Assert.AreEqual(WorldTextureVariant.Native, deditherOnly.WorldTextureVariant);
             Assert.IsTrue(deditherOnly.UseLitMaterials);
             Assert.IsTrue(deditherOnly.ControlledWorldMipmaps);
@@ -81,6 +89,8 @@ namespace Doom.Map.Tests
             Assert.IsTrue(full.WorldUpscale4X);
             Assert.IsTrue(full.WorldTexelAA);
             Assert.IsTrue(full.WorldParallax);
+            Assert.IsTrue(full.SpritesUpscale4X);
+            Assert.IsTrue(full.UiUpscale4X);
         }
 
         [Test]
@@ -105,6 +115,8 @@ namespace Doom.Map.Tests
             Assert.IsTrue(effective.WorldUpscale4X);
             Assert.IsTrue(effective.WorldTexelAA);
             Assert.IsTrue(effective.WorldParallax);
+            Assert.IsTrue(effective.SpritesUpscale4X);
+            Assert.IsTrue(effective.UiUpscale4X);
             Assert.IsTrue(effective.ControlledWorldMipmaps);
         }
 

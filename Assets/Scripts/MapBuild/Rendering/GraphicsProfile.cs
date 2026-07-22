@@ -35,6 +35,10 @@ namespace Doom.MapBuild.Rendering
         public readonly bool WorldTexelAA;
         /// Multi-scale normals + parallax occlusion on solid world surfaces.
         public readonly bool WorldParallax;
+        /// Super-xBR 4× for monster/item/projectile sprite patches.
+        public readonly bool SpritesUpscale4X;
+        /// Super-xBR 4× for weapon view and HUD patches (menus stay native).
+        public readonly bool UiUpscale4X;
         /// Keeps LOD0 point-sharp while enabling controlled mip/aniso minification.
         public readonly bool ControlledWorldMipmaps;
 
@@ -68,6 +72,8 @@ namespace Doom.MapBuild.Rendering
             bool worldUpscale4X = false,
             bool worldTexelAA = false,
             bool worldParallax = false,
+            bool spritesUpscale4X = false,
+            bool uiUpscale4X = false,
             bool controlledWorldMipmaps = false)
         {
             Mode = mode;
@@ -96,6 +102,8 @@ namespace Doom.MapBuild.Rendering
             WorldUpscale4X = worldUpscale4X;
             WorldTexelAA = worldTexelAA;
             WorldParallax = worldParallax;
+            SpritesUpscale4X = spritesUpscale4X;
+            UiUpscale4X = uiUpscale4X;
             ControlledWorldMipmaps = controlledWorldMipmaps;
         }
 
@@ -108,7 +116,9 @@ namespace Doom.MapBuild.Rendering
             bool worldDedither = true,
             bool worldUpscale4X = true,
             bool worldTexelAA = true,
-            bool worldParallax = true)
+            bool worldParallax = true,
+            bool spritesUpscale4X = true,
+            bool uiUpscale4X = true)
         {
             var e = Enhanced;
             return new GraphicsProfile(
@@ -138,6 +148,8 @@ namespace Doom.MapBuild.Rendering
                 worldUpscale4X,
                 worldTexelAA,
                 worldParallax,
+                spritesUpscale4X,
+                uiUpscale4X,
                 e.ControlledWorldMipmaps);
         }
 
@@ -168,6 +180,8 @@ namespace Doom.MapBuild.Rendering
             worldUpscale4X: false,
             worldTexelAA: false,
             worldParallax: false,
+            spritesUpscale4X: false,
+            uiUpscale4X: false,
             controlledWorldMipmaps: false);
 
         public static GraphicsProfile Enhanced { get; } = new GraphicsProfile(
@@ -192,12 +206,14 @@ namespace Doom.MapBuild.Rendering
             softFloorIntersection: true,
             particles: true,
             decals: true,
-            // Point keeps WAD albedo crisp until texel-AA lands (Task 5).
+            // Point keeps WAD albedo crisp until texel-AA lands (Task 7).
             bilinearWorldFiltering: false,
             worldDedither: true,
             worldUpscale4X: true,
             worldTexelAA: true,
             worldParallax: true,
+            spritesUpscale4X: true,
+            uiUpscale4X: true,
             controlledWorldMipmaps: true);
     }
 }

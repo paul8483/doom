@@ -41,7 +41,7 @@ namespace Doom.MapBuild
                 if (!ThingTable.TryGet(entry.Key, out var pickupDef)) continue;
                 foreach (int frame in entry.Value.Frames)
                     for (int rot = 0; rot < 8; rot++)
-                        cache.Get(pickupDef.Sprite, frame, rot);
+                        cache.WarmNative(pickupDef.Sprite, frame, rot);
             }
 
             for (int thingIndex = 0; thingIndex < map.Things.Length; thingIndex++)
@@ -74,15 +74,15 @@ namespace Doom.MapBuild
                 if (t.Type == 58)
                     bb.SetSpectre(true);
 
-                // Pre-warm the cache for all 8 rotations while the WAD is still open.
-                // SpriteCache.Get is lazy and reads from the WAD on first access; by the
+                // Pre-warm native decode for all 8 rotations while the WAD is still open.
+                // SpriteCache is lazy and reads from the WAD on first access; by the
                 // time LateUpdate runs, MapLoader's `using var wad` has disposed the stream.
-                // Fetching all rotations now bakes them into the in-memory material cache.
+                // Enhanced 4× is yielded later under ENHANCED SPRITES (not here).
                 for (int rot = 0; rot < 8; rot++)
                 {
-                    cache.Get(def.Sprite, def.Frame, rot);
+                    cache.WarmNative(def.Sprite, def.Frame, rot);
                     if (t.Type == 58)
-                        cache.GetSpectre(def.Sprite, def.Frame, rot);
+                        cache.WarmNative(def.Sprite, def.Frame, rot, spectre: true);
                 }
 
                 CapsuleCollider col = null;
@@ -104,7 +104,7 @@ namespace Doom.MapBuild
                             countKill: countKill, noBlood: t.Type == BarrelRules.DoomEdNum);
                     eh.SetMapThingIndex(thingIndex);
                     if (def.CorpseFrame >= 0)
-                        cache.Get(def.Sprite, def.CorpseFrame, 0); // pre-warm while the WAD is open
+                        cache.WarmNative(def.Sprite, def.CorpseFrame, 0);
 
                     if (t.Type == BarrelRules.DoomEdNum)
                     {
@@ -112,7 +112,7 @@ namespace Doom.MapBuild
                         be.Init(bb, col, cache, worldScale, sound);
                         eh.SetBarrel(be);
                         foreach (int f in BarrelRules.ExplodeFrames)
-                            cache.Get(BarrelRules.ExplodeSprite, f, 0);
+                            cache.WarmNative(BarrelRules.ExplodeSprite, f, 0);
                     }
                     else if (MonsterTable.TryGet(t.Type, out var mdef))
                     {
@@ -126,14 +126,17 @@ namespace Doom.MapBuild
                         {
                             if (seq == null) continue;
                             foreach (int f in seq.Frames)
-                                for (int rot = 0; rot < 8; rot++) cache.Get(def.Sprite, f, rot);
+                                for (int rot = 0; rot < 8; rot++)
+                                    cache.WarmNative(def.Sprite, f, rot);
                         }
                         if (mdef.XDeathCorpseFrame >= 0)
-                            cache.Get(def.Sprite, mdef.XDeathCorpseFrame, 0);
+                            cache.WarmNative(def.Sprite, mdef.XDeathCorpseFrame, 0);
                         if (mdef.HasMissile)
                         {
-                            foreach (int f in mdef.MissileFlyFrames) cache.Get(mdef.MissileSprite, f, 0);
-                            foreach (int f in mdef.MissileExplodeFrames) cache.Get(mdef.MissileSprite, f, 0);
+                            foreach (int f in mdef.MissileFlyFrames)
+                                cache.WarmNative(mdef.MissileSprite, f, 0);
+                            foreach (int f in mdef.MissileExplodeFrames)
+                                cache.WarmNative(mdef.MissileSprite, f, 0);
                         }
                     }
                 }
@@ -146,7 +149,7 @@ namespace Doom.MapBuild
                     {
                         foreach (int frame in pickupAnimation.Frames)
                             for (int rot = 0; rot < 8; rot++)
-                                cache.Get(def.Sprite, frame, rot);
+                                cache.WarmNative(def.Sprite, frame, rot);
                         go.AddComponent<PickupAnimator>().Init(bb, pickupAnimation);
                     }
                 }
@@ -172,7 +175,7 @@ namespace Doom.MapBuild
                 // Pre-warm death-drop sprites while the WAD is still open.
                 if (DeathDropTable.TryGet(t.Type, out int dropNum) &&
                     ThingTable.TryGet(dropNum, out var dropDef))
-                    cache.Get(dropDef.Sprite, dropDef.Frame, 0);
+                    cache.WarmNative(dropDef.Sprite, dropDef.Frame, 0);
 
                 count++;
             }

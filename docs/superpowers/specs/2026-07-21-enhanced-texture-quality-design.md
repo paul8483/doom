@@ -1,7 +1,8 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 4 done (`TextureCache` Enhanced4X + yielded load warm). **Reprioritized 2026-07-22:** после первого eyeball (мир лучше, спрайты/оружие/HUD выбиваются) добавлен слой 5 «sprites/weapon/HUD 4×» — идёт до texel-AA/POM. Next: Task 5 (sprites 4×)
+**Статус:** in progress — Task 5 done (`SpriteCache` Enhanced4X + yielded
+`ENHANCED SPRITES` warm). Next: Task 6 (weapon/HUD 4×)
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.
