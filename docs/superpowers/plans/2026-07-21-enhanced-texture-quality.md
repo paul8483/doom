@@ -433,6 +433,20 @@ eyeball — с послойным sign-off Task 10.
 
 **Commit checkpoint:** `ui: enhanced 4x weapon and hud patches`
 
+**Post-Task 5/6 (2026-07-22): sharpen для спрайтов/UI.** Интерактивный
+вердикт по standalone: оружие и предметы после Super-xBR 4× «немного
+замылены» (фильтрация ни при чём — спрайты/HUD идут Point; это характер
+Super-xBR на иконочном арте). Добавлен pure `SharpenFilter` (unsharp 3×3;
+alpha untouched; прозрачные вне blur) c amount **0.5**, выбранным по
+превью `Tools > Doom > Dump Sprite Preview` (панели native / 4× / +0.5 /
++1.0). Применяется в `SpriteCache.CreateEnhancedTexture` и
+`HudTextureCache.GetOrCreateEnhanced`; мир не затронут. Тесты:
+`SharpenFilterTests` ×9; Graphics EditMode **111/111**
+(`Logs/texquality-sharpen-edit.xml`); Sprite+Ui PlayMode **12/12**
+(`Logs/texquality-sharpen-play.xml`).
+
+**Commit checkpoint:** `sprites: sharpen upscaled sprite and hud art`
+
 ---
 
 ## Task 7: Texel-AA sampling в Enhanced shaders

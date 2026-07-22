@@ -227,6 +227,8 @@ namespace Doom.MapBuild
                     PixelWrapMode.Clamp,
                     applyDedither: profile.WorldDedither,
                     applyAlphaBleed: true);
+                // Iconic sprite art reads as mush after Super-xBR; restore crunch.
+                enhancedImg = SharpenFilter.Apply(enhancedImg);
 
                 var tex = ToTexture2D(enhancedImg);
                 texByLumpVariant[key] = tex;

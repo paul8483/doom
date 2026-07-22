@@ -212,6 +212,8 @@ namespace Doom.MapBuild
                     PixelWrapMode.Clamp,
                     applyDedither: active.WorldDedither,
                     applyAlphaBleed: true);
+                // Same crunch restore as sprites: HUD art is iconic pixel art.
+                enhancedImg = SharpenFilter.Apply(enhancedImg);
 
                 var tex = ToTexture2D(enhancedImg);
                 slot.EnhancedTex = tex;
