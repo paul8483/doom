@@ -11,6 +11,7 @@ namespace Doom.Graphics.Tests
             var src = Solid(4, 4, 120, 80, 40, 255);
             var n = NormalMapGenerator.Generate(src, strength: 2f, NormalWrapMode.Repeat);
 
+            byte expectedHeight = HeightByte(120, 80, 40);
             Assert.AreEqual(4, n.Width);
             Assert.AreEqual(4, n.Height);
             for (int y = 0; y < 4; y++)
@@ -20,7 +21,7 @@ namespace Doom.Graphics.Tests
                 Assert.AreEqual(NormalMapGenerator.NeutralR, p.r);
                 Assert.AreEqual(NormalMapGenerator.NeutralG, p.g);
                 Assert.AreEqual(NormalMapGenerator.NeutralB, p.b);
-                Assert.AreEqual(NormalMapGenerator.NeutralA, p.a);
+                Assert.AreEqual(expectedHeight, p.a);
             }
         }
 
@@ -78,6 +79,36 @@ namespace Doom.Graphics.Tests
             Assert.AreEqual(NormalMapGenerator.NeutralR, t.r);
             Assert.AreEqual(NormalMapGenerator.NeutralG, t.g);
             Assert.AreEqual(NormalMapGenerator.NeutralB, t.b);
+            Assert.AreEqual(0, t.a);
+        }
+
+        [Test]
+        public void Height_is_packed_into_alpha_non_constant_on_gradient()
+        {
+            var src = HorizontalGradient(8, 4, dark: 0, bright: 255);
+            var n = NormalMapGenerator.Generate(src, strength: 4f, NormalWrapMode.Clamp);
+
+            Assert.That(n.GetPixel(1, 2).a, Is.LessThan(n.GetPixel(6, 2).a));
+        }
+
+        [Test]
+        public void Multi_scale_height_source_yields_non_constant_alpha()
+        {
+            var albedo = HorizontalGradient(16, 8, dark: 20, bright: 220);
+            var height = HeightMapGenerator.Generate(
+                albedo, MaterialSurfaceCategory.Wall, PixelWrapMode.Clamp);
+            var n = NormalMapGenerator.Generate(height, strength: 2f, NormalWrapMode.Clamp);
+
+            byte minA = 255, maxA = 0;
+            for (int y = 0; y < n.Height; y++)
+            for (int x = 0; x < n.Width; x++)
+            {
+                byte a = n.GetPixel(x, y).a;
+                if (a < minA) minA = a;
+                if (a > maxA) maxA = a;
+            }
+            Assert.That(maxA - minA, Is.GreaterThan(20),
+                "Solid materials must pack varying height into normal alpha");
         }
 
         [Test]
@@ -166,6 +197,9 @@ namespace Doom.Graphics.Tests
             int i = (y * w + x) * 4;
             rgba[i] = r; rgba[i + 1] = g; rgba[i + 2] = b; rgba[i + 3] = a;
         }
+
+        static byte HeightByte(byte r, byte g, byte b) =>
+            (byte)((0.299f * r + 0.587f * g + 0.114f * b) + 0.5f);
 
         static bool BytesEqual(byte[] a, byte[] b)
         {

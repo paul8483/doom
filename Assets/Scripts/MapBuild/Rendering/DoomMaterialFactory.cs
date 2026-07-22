@@ -26,6 +26,9 @@ namespace Doom.MapBuild.Rendering
         public const string CrossTexProperty = "_CrossTex";
         /// Fat-pixel texel-AA sampling in Enhanced world shaders (opaque/cutout).
         public const string TexelAaKeyword = "DOOM_TEXEL_AA";
+        /// Parallax occlusion from height in _BumpMap.a (solid opaque only).
+        public const string ParallaxKeyword = "DOOM_PARALLAX";
+        public const string ParallaxAmplitudeProperty = "_ParallaxAmplitude";
         public const float SoftFloorFadeAmount = 0.08f;
 
         Shader classicOpaque;
@@ -182,9 +185,10 @@ namespace Doom.MapBuild.Rendering
                 material.DisableKeyword(TexelAaKeyword);
 
             bool enhanced = active.UseLitMaterials && active.ProceduralNormals;
+            MaterialSurfaceProfile profile = default;
             if (enhanced)
             {
-                var profile = surfaceLookup?.Invoke(albedo)
+                profile = surfaceLookup?.Invoke(albedo)
                     ?? MaterialSurfaceProfile.For(MaterialSurfaceCategory.Unknown);
                 if (material.HasProperty(BumpMapProperty))
                 {
@@ -210,6 +214,22 @@ namespace Doom.MapBuild.Rendering
                     material.SetFloat(RoughnessProperty, 0.75f);
                 if (material.HasProperty(EmissionProperty))
                     material.SetFloat(EmissionProperty, 0f);
+            }
+
+            // POM: solid opaque Enhanced only (not cutout/masked; amplitude 0 for fluid).
+            bool parallax = enhanced && !masked && active.WorldParallax
+                && profile.ParallaxAmplitude > 0f;
+            if (parallax)
+            {
+                material.EnableKeyword(ParallaxKeyword);
+                if (material.HasProperty(ParallaxAmplitudeProperty))
+                    material.SetFloat(ParallaxAmplitudeProperty, profile.ParallaxAmplitude);
+            }
+            else
+            {
+                material.DisableKeyword(ParallaxKeyword);
+                if (material.HasProperty(ParallaxAmplitudeProperty))
+                    material.SetFloat(ParallaxAmplitudeProperty, 0f);
             }
         }
 

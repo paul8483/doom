@@ -5,6 +5,7 @@ Shader "Doom/EnhancedWorld"
         _MainTex ("Albedo", 2D) = "white" {}
         _BumpMap ("Normal Map", 2D) = "bump" {}
         _BumpScale ("Bump Scale", Float) = 1
+        _ParallaxAmplitude ("Parallax Amplitude", Float) = 0
         _Roughness ("Roughness", Range(0,1)) = 0.75
         _EmissionStrength ("Emission", Range(0,2)) = 0
         _SectorAmbient ("Sector Ambient", Color) = (1,1,1,1)
@@ -36,6 +37,7 @@ Shader "Doom/EnhancedWorld"
             #pragma fragment Frag
             #pragma multi_compile_instancing
             #pragma multi_compile_local _ DOOM_TEXEL_AA
+            #pragma multi_compile_local _ DOOM_PARALLAX
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -54,6 +56,7 @@ Shader "Doom/EnhancedWorld"
                 float4 _MainTex_ST;
                 float4 _BumpMap_ST;
                 half _BumpScale;
+                half _ParallaxAmplitude;
                 half _Roughness;
                 half _EmissionStrength;
                 half4 _SectorAmbient;
@@ -148,17 +151,27 @@ Shader "Doom/EnhancedWorld"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                float3 bitangent = input.tangentWS.w * cross(input.normalWS, input.tangentWS.xyz);
+                float3x3 tbn = float3x3(input.tangentWS.xyz, bitangent, input.normalWS);
+
+                float2 uv = input.uv;
+                #if defined(DOOM_PARALLAX)
+                float3 viewDirWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
+                float3 viewDirTS = mul(tbn, viewDirWS);
+                uv = DoomParallaxOcclusionUV(
+                    TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
+                    uv, viewDirTS, _ParallaxAmplitude);
+                #endif
+
                 // Albedo: texel-AA when DOOM_TEXEL_AA; normals stay controlled.
                 half4 albedoSample = DoomSampleAlbedo(
-                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), uv, _MainTex_TexelSize);
                 half3 albedo = albedoSample.rgb;
 
                 half3 normalTS = UnpackNormalScale(
                     DoomSampleControlled(
                         TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap),
-                        input.uv, _BumpMap_TexelSize), _BumpScale);
-                float3 bitangent = input.tangentWS.w * cross(input.normalWS, input.tangentWS.xyz);
-                float3x3 tbn = float3x3(input.tangentWS.xyz, bitangent, input.normalWS);
+                        uv, _BumpMap_TexelSize), _BumpScale);
                 float3 normalWS = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tbn));
 
                 half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);

@@ -125,7 +125,7 @@ namespace Doom.MapBuild
                 category = MaterialSurfaceCategory.Unknown;
 
             var profile = MaterialSurfaceProfile.For(category);
-            var tex = ToNormalTexture2D(enhancedMips, profile, name, entry);
+            var tex = ToNormalTexture2D(enhancedMips, profile, category, name, entry);
             normalCache[key] = tex;
             RegisterTextureOnce(tex);
             context?.RegisterOwned(tex);
@@ -365,6 +365,7 @@ namespace Doom.MapBuild
         private Texture2D ToNormalTexture2D(
             PaletteMipChain albedoChain,
             MaterialSurfaceProfile profile,
+            MaterialSurfaceCategory category,
             string name,
             SourceEntry entry)
         {
@@ -378,10 +379,15 @@ namespace Doom.MapBuild
             tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Bilinear;
             tex.anisoLevel = hasMips ? anisoLevel : 1;
 
+            var wrap = WrapFor(entry);
             for (int level = 0; level < albedoChain.Count; level++)
             {
+                // Multi-scale height from processed albedo; normals from height;
+                // height packed into alpha for POM.
+                var height = HeightMapGenerator.Generate(
+                    albedoChain[level], category, wrap);
                 var normal = NormalMapGenerator.Generate(
-                    albedoChain[level], profile.Strength, profile.Wrap);
+                    height, profile.Strength, profile.Wrap);
                 UploadFlipped(tex, normal, level);
             }
             tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);

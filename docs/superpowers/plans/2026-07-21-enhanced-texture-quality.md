@@ -18,8 +18,9 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 7 done (fat-pixel texel-AA + `DOOM_TEXEL_AA` keyword on
-Enhanced opaque/cutout). Next: Task 8 (height / multi-scale normals / POM).
+**Статус:** Task 8 done (HeightMapGenerator + multi-scale normals with height
+in alpha + `DOOM_PARALLAX` on solid opaque). Next: Task 9 (lifetime /
+performance gate).
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -517,7 +518,7 @@ lazy-создают Enhanced rotation frames и ложно растят `Texture
 - Modify: Enhanced lit world shader (POM-ветка)
 - Modify: `Assets/Tests/PlayMode/EnhancedMaterialPlayTests.cs`
 
-- [ ] **Step 1: Написать failing height fixtures.**
+- [x] **Step 1: Написать failing height fixtures.**
 
 - uniform input → uniform height;
 - яркостная ступень → монотонный градиент height;
@@ -526,40 +527,44 @@ lazy-создают Enhanced rotation frames и ложно растят `Texture
 - fine + coarse веса per surface category применяются (metal ≠ stone);
 - вход не мутирует, dimensions сохраняются.
 
-- [ ] **Step 2: Реализовать `HeightMapGenerator`.**
+- [x] **Step 2: Реализовать `HeightMapGenerator`.**
 
 Height = w_fine × fine luminance + w_coarse × blurred coarse luminance
-(box/gauss несколько проходов; wrap policy как у источника). Веса —
-константы per surface category.
+(box blur radius 2, two passes; wrap policy как у источника). Веса —
+константы per surface category в `MaterialSurfaceProfile`.
 
-- [ ] **Step 3: Перевести normals на height-источник.**
+- [x] **Step 3: Перевести normals на height-источник.**
 
-`NormalMapGenerator` считает нормали (Sobel) из heightmap; height
-пакуется в alpha той же RGBA32 linear texture. Обновить существующие
-normal-тесты; regression: normal texture alpha не константа для solid
-материалов.
+`NormalMapGenerator` считает нормали (central differences) из heightmap;
+height пакуется в alpha той же RGBA32 linear texture. Обновлены
+normal-тесты; regression: alpha не константа на градиенте / multi-scale.
 
-- [ ] **Step 4: Включить пайплайн в cache/factory.**
+- [x] **Step 4: Включить пайплайн в cache/factory.**
 
-Height/normal генерируются из 4× обработанного albedo (или из 2×
-промежуточного — см. mitigation ladder, только по результатам Task 9).
-Factory: POM keyword + амплитуда per surface category **только** для
-solid opaque walls/flats; masked, fluids, sky — без POM.
+Height/normal из 4× albedo mip chain в `TextureCache.ToNormalTexture2D`.
+Factory: `DOOM_PARALLAX` + `_ParallaxAmplitude` только для solid opaque
+с `ParallaxAmplitude > 0` (Wall/Flat/Metal); cutout/masked и Fluid — без
+POM. Sky использует отдельный `Doom/Sky` шейдер.
 
-- [ ] **Step 5: Реализовать POM-ветку шейдера.**
+- [x] **Step 5: Реализовать POM-ветку шейдера.**
 
-Фиксированные шаги (например 8–16), высота из `_BumpMap.a`,
-консервативная амплитуда. shader_feature/multi_compile так, чтобы masked
-вариант не компилировал POM-код. Проверить на остром угле отсутствие
-swim/step артефактов сверх приемлемого.
+`DoomParallaxOcclusionUV` в `DoomControlledSampling.hlsl` (8 шагов,
+height из `_BumpMap.a`). `multi_compile_local _ DOOM_PARALLAX` только в
+`Doom/EnhancedWorld` (не cutout).
 
-- [ ] **Step 6: Запустить normal/material tests.**
+- [x] **Step 6: Запустить normal/material tests.**
 
 ```text
 Doom.Graphics.Tests.HeightMapGeneratorTests
 Doom.Graphics.Tests
 Doom.Stage3.PlayTests.EnhancedMaterialPlayTests
+Doom.Stage3.PlayTests.TextureUpscalePlayTests
 ```
+
+**8 HeightMap + 10 NormalMap = 18/18** (`Logs/texquality-t8-height-edit.xml`);
+**121/121 Graphics** (`Logs/texquality-t8-graphics-edit.xml`);
+**4/4 EnhancedMaterial + 5/5 TextureUpscale = 9/9**
+(`Logs/texquality-t8-play.xml`).
 
 **Commit checkpoint:** `rendering: multiscale normals and parallax from height`
 

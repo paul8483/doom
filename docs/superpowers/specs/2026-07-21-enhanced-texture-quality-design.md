@@ -1,8 +1,9 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 7 done (fat-pixel texel-AA + `DOOM_TEXEL_AA` on
-Enhanced opaque/cutout). Next: Task 8 (height / normals / POM)
+**Статус:** in progress — Task 8 done (multi-scale height → normals with
+height in `_BumpMap.a` + POM on solid opaque). Next: Task 9 (lifetime /
+performance gate)
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.

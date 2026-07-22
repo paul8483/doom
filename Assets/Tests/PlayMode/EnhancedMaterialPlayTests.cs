@@ -67,6 +67,16 @@ namespace Doom.Stage3.PlayTests
                 Assert.That(name, Does.Not.Contain("Hidden/InternalErrorShader"));
                 Assert.IsTrue(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword),
                     "Enhanced world materials must enable DOOM_TEXEL_AA");
+                if (name == DoomMaterialFactory.EnhancedOpaqueName)
+                {
+                    // Most solid walls/flats enable POM; fluid-category amplitude is 0.
+                    // At least one opaque with parallax is asserted after the loop.
+                }
+                else
+                {
+                    Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.ParallaxKeyword),
+                        "Cutout must not enable DOOM_PARALLAX");
+                }
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.BumpMapProperty));
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.RoughnessProperty));
                 Assert.IsTrue(mat.HasProperty(DoomMaterialFactory.EmissionProperty));
@@ -116,12 +126,79 @@ namespace Doom.Stage3.PlayTests
                 classic++;
                 Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.TexelAaKeyword),
                     "Classic materials must not keep DOOM_TEXEL_AA");
+                Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.ParallaxKeyword),
+                    "Classic materials must not keep DOOM_PARALLAX");
                 if (mat.mainTexture is Texture2D classicAlbedo)
                     Assert.AreEqual(FilterMode.Point, classicAlbedo.filterMode);
                 if (mat.HasProperty(DoomMaterialFactory.BumpMapProperty))
                     Assert.IsNull(mat.GetTexture(DoomMaterialFactory.BumpMapProperty));
             }
             Assert.That(classic, Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator Parallax_keyword_only_on_solid_opaque_when_WorldParallax()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            Time.captureDeltaTime = 1f / 60f;
+
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForMapBuild();
+
+            var gfx = GraphicsModeController.Ensure();
+            gfx.Apply(GraphicsMode.Enhanced);
+            Assert.IsNull(gfx.LastError, gfx.LastError);
+            Assert.IsTrue(gfx.ActiveProfile.WorldParallax);
+            yield return null;
+
+            int opaqueWithPom = 0;
+            int cutoutChecked = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var mat = r.sharedMaterial;
+                if (mat == null || mat.shader == null) continue;
+                string name = mat.shader.name;
+                if (name == DoomMaterialFactory.EnhancedOpaqueName)
+                {
+                    if (mat.IsKeywordEnabled(DoomMaterialFactory.ParallaxKeyword))
+                    {
+                        opaqueWithPom++;
+                        Assert.That(
+                            mat.GetFloat(DoomMaterialFactory.ParallaxAmplitudeProperty),
+                            Is.GreaterThan(0f));
+                    }
+                }
+                else if (name == DoomMaterialFactory.EnhancedCutoutName)
+                {
+                    cutoutChecked++;
+                    Assert.IsFalse(mat.IsKeywordEnabled(DoomMaterialFactory.ParallaxKeyword),
+                        "Cutout/masked must not enable DOOM_PARALLAX");
+                }
+            }
+
+            Assert.That(opaqueWithPom, Is.GreaterThan(0),
+                "expected solid opaque materials with POM");
+            Assert.That(cutoutChecked, Is.GreaterThan(0),
+                "expected cutout materials to assert POM-off");
+
+            // Layered profile without parallax: keyword off.
+            var noPom = GraphicsProfile.EnhancedWithLayers(worldParallax: false);
+            gfx.Context.ApplyProfile(noPom, gfx.Factory);
+            yield return null;
+            int stillOn = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var mat = r.sharedMaterial;
+                if (mat == null || mat.shader == null) continue;
+                if (mat.shader.name != DoomMaterialFactory.EnhancedOpaqueName) continue;
+                if (mat.IsKeywordEnabled(DoomMaterialFactory.ParallaxKeyword))
+                    stillOn++;
+            }
+            Assert.AreEqual(0, stillOn, "WorldParallax=false must clear DOOM_PARALLAX");
+
+            // Restore full Enhanced.
+            gfx.Context.ApplyProfile(GraphicsProfile.Enhanced, gfx.Factory);
+            yield return null;
         }
 
         [UnityTest]

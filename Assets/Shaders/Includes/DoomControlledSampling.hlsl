@@ -70,4 +70,45 @@ half4 DoomSampleAlbedo(
 #endif
 }
 
+// Conservative POM from height in _BumpMap.a (white = raised). Fixed step
+// count; amplitude is small (relief, not stereogram). Used only when
+// DOOM_PARALLAX is enabled on solid opaque Enhanced materials.
+float2 DoomParallaxOcclusionUV(
+    TEXTURE2D_PARAM(bumpMap, bumpSampler),
+    float2 uv,
+    float3 viewDirTS,
+    float amplitude)
+{
+    if (amplitude < 1e-5)
+        return uv;
+
+    viewDirTS = normalize(viewDirTS);
+    // Soften grazing angles so offsets stay bounded.
+    float z = max(abs(viewDirTS.z), 0.35);
+    float2 maxOffset = -viewDirTS.xy / z * amplitude;
+
+    const int steps = 8;
+    float2 deltaUv = maxOffset / steps;
+    float layerDepth = 1.0 / steps;
+
+    float2 currentUv = uv;
+    float currentLayer = 0.0;
+    // Depth = 1 - height (white height = surface top).
+    float currentDepth = 1.0 - SAMPLE_TEXTURE2D_LOD(
+        bumpMap, bumpSampler, currentUv, 0.0).a;
+
+    [unroll]
+    for (int i = 0; i < steps; i++)
+    {
+        if (currentLayer >= currentDepth)
+            break;
+        currentUv += deltaUv;
+        currentDepth = 1.0 - SAMPLE_TEXTURE2D_LOD(
+            bumpMap, bumpSampler, currentUv, 0.0).a;
+        currentLayer += layerDepth;
+    }
+
+    return currentUv;
+}
+
 #endif
