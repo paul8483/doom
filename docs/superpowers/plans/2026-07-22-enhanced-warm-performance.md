@@ -267,6 +267,25 @@ EditMode codec+disk **10/10** (`Logs/warmperf-t4-edit.xml`); Graphics+disk
 
 **Commit checkpoint:** `rendering: wad-hash disk cache for enhanced variants`
 
+**Task 4 review fixes (2026-07-23):** (1) flush больше не держит `ioLock`
+на время encode/записи — lock только вокруг управления `flushTask`,
+поэтому `ScheduleFlush` с главного потока не блокируется фоновой записью;
+(2) flush-воркер крутится, пока есть `dirty` (публикации, пришедшие во
+время записи, не теряются; `dirty` сбрасывается до снапшота, при ошибке
+записи возвращается), `FlushBlocking` дописывает остаток; (3) при
+`BindWad` удаляются pack-файлы того же WAD со старыми версиями пайплайна
+и осиротевшие `.tmp`/`.bak` (packи других WAD не трогаются); (4)
+потоковый `EnhancedCacheCodec.EncodeTo(Stream)` — без второй полной копии
+пака в памяти при flush; guard `entry.Kind == result.Kind` в Encode; (5)
+интеграция store/disk-хитов в шедулере уступает кадр по `frameBudgetMs`
+(loading plate не замирает на all-hits warm); (6) ленивые пути
+TextureCache/SpriteCache/HudTextureCache читают диск после store (хит
+поднимается в store) и публикуют результат на диск. Тестовая изоляция:
+E1M1 disk-тест возвращает контроллер в Classic; `Classic_load` сам
+устанавливает предусловие Classic. EditMode полный **601/601** (codec
+**9**, disk **5**); PlayMode warm/disk regress **40/40** одним прогоном
+(вкл. `Hot_switch` и `Classic_load`).
+
 ---
 
 ## Task 5: Полные сьюты, build, закрытие

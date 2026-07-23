@@ -222,6 +222,7 @@ namespace Doom.MapBuild.Rendering
             }
 
             // Wave 1: albedo jobs (normals need integrated mips).
+            float frameStart = Time.realtimeSinceStartup;
             var albedoItems = new List<JobItem>(names.Count);
             for (int i = 0; i < names.Count; i++)
             {
@@ -242,6 +243,15 @@ namespace Doom.MapBuild.Rendering
                     else
                     {
                         LastStoreHits++;
+                    }
+
+                    // Cached-hit integration is a GPU upload — keep the loading
+                    // plate responsive on an all-hits (disk/store) warm too.
+                    if ((Time.realtimeSinceStartup - frameStart) * 1000f >= frameBudgetMs)
+                    {
+                        yield return null;
+                        if (cts.IsCancellationRequested) yield break;
+                        frameStart = Time.realtimeSinceStartup;
                     }
 
                     continue;
@@ -274,6 +284,7 @@ namespace Doom.MapBuild.Rendering
             if (cts.IsCancellationRequested) yield break;
 
             // Wave 2: normals; each logical texture completes exactly once here.
+            frameStart = Time.realtimeSinceStartup;
             var normalItems = new List<JobItem>(names.Count);
             for (int i = 0; i < names.Count; i++)
             {
@@ -300,6 +311,14 @@ namespace Doom.MapBuild.Rendering
                     }
 
                     onItemDone?.Invoke();
+
+                    if ((Time.realtimeSinceStartup - frameStart) * 1000f >= frameBudgetMs)
+                    {
+                        yield return null;
+                        if (cts.IsCancellationRequested) yield break;
+                        frameStart = Time.realtimeSinceStartup;
+                    }
+
                     continue;
                 }
 
@@ -340,6 +359,7 @@ namespace Doom.MapBuild.Rendering
             Action onItemDone)
         {
             var lumps = sprites.CachedNativeLumps;
+            float frameStart = Time.realtimeSinceStartup;
             var items = new List<JobItem>(lumps.Count);
             for (int i = 0; i < lumps.Count; i++)
             {
@@ -367,6 +387,14 @@ namespace Doom.MapBuild.Rendering
                     }
 
                     onItemDone?.Invoke();
+
+                    if ((Time.realtimeSinceStartup - frameStart) * 1000f >= frameBudgetMs)
+                    {
+                        yield return null;
+                        if (cts.IsCancellationRequested) yield break;
+                        frameStart = Time.realtimeSinceStartup;
+                    }
+
                     continue;
                 }
 
@@ -408,6 +436,7 @@ namespace Doom.MapBuild.Rendering
             foreach (string name in hud.HudPatchNames)
                 names.Add(name);
 
+            float frameStart = Time.realtimeSinceStartup;
             var items = new List<JobItem>(names.Count);
             for (int i = 0; i < names.Count; i++)
             {
@@ -434,6 +463,14 @@ namespace Doom.MapBuild.Rendering
                     }
 
                     onItemDone?.Invoke();
+
+                    if ((Time.realtimeSinceStartup - frameStart) * 1000f >= frameBudgetMs)
+                    {
+                        yield return null;
+                        if (cts.IsCancellationRequested) yield break;
+                        frameStart = Time.realtimeSinceStartup;
+                    }
+
                     continue;
                 }
 

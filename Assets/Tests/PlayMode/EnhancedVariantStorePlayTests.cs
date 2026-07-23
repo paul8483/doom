@@ -292,6 +292,14 @@ namespace Doom.Stage3.PlayTests
         {
             LogAssert.ignoreFailingMessages = true;
             Time.captureDeltaTime = 1f / 60f;
+
+            // Cold-boot precondition: the persistent controller may be left in
+            // Enhanced by an earlier fixture — MapLoader would then warm (and
+            // correctly publish) during Build. Force Classic first.
+            var gfxPre = GraphicsModeController.Ensure();
+            if (gfxPre.Current != GraphicsMode.Classic)
+                yield return GraphicsApplyWait.Apply(gfxPre, GraphicsMode.Classic);
+
             EnhancedVariantStore.ResetForTests();
 
             // Pin Classic in PlayerPrefs so ApplyLoadedSettings cannot warm Enhanced.

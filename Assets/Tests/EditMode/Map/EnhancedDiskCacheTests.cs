@@ -43,6 +43,14 @@ namespace Doom.Map.Tests
                 EnhancedJobKind.Sprite, new DecodedImage(4, 4, rgba));
         }
 
+        static EnhancedJobResult OkHud()
+        {
+            var rgba = new byte[4 * 4 * 4];
+            for (int i = 0; i < rgba.Length; i++) rgba[i] = (byte)(255 - (i & 0xff));
+            return EnhancedJobResult.OkRgba(
+                EnhancedJobKind.Hud, new DecodedImage(4, 4, rgba));
+        }
+
         static EnhancedLayerConfig Layers() =>
             new EnhancedLayerConfig(true, true, true, true);
 
@@ -94,7 +102,7 @@ namespace Doom.Map.Tests
             while (!disk.IsLoaded)
                 System.Threading.Thread.Sleep(1);
 
-            disk.Publish(EnhancedJobKind.Hud, "STBAR", Layers(), OkSprite());
+            disk.Publish(EnhancedJobKind.Hud, "STBAR", Layers(), OkHud());
             disk.FlushBlocking();
 
             // Truncate the pack on disk.
@@ -110,6 +118,79 @@ namespace Doom.Map.Tests
 
             Assert.AreEqual(0, disk.Count);
             Assert.IsFalse(disk.TryGet(EnhancedJobKind.Hud, "STBAR", Layers(), out _));
+        }
+
+        [Test]
+        public void Stale_version_packs_and_leftovers_are_cleaned_on_bind()
+        {
+            string wadPath = FreedoomPath();
+            if (!File.Exists(wadPath))
+                Assert.Ignore("freedoom1.wad missing");
+
+            byte[] hash = EnhancedDiskCache.ComputeWadSha256(wadPath);
+            string current = Path.Combine(
+                tempRoot,
+                EnhancedDiskCache.BuildPackFileName(hash, EnhancedPipelineVersion.Value));
+            string staleOld = Path.Combine(
+                tempRoot,
+                EnhancedDiskCache.BuildPackFileName(hash, EnhancedPipelineVersion.Value - 1));
+            string leftoverTmp = current + ".tmp";
+            string leftoverBak = current + ".bak";
+            string otherWad = Path.Combine(
+                tempRoot,
+                EnhancedDiskCache.BuildPackFileName(
+                    new byte[EnhancedCacheCodec.Sha256Length],
+                    EnhancedPipelineVersion.Value));
+
+            File.WriteAllBytes(staleOld, new byte[] { 1, 2, 3 });
+            File.WriteAllBytes(leftoverTmp, new byte[] { 4, 5, 6 });
+            File.WriteAllBytes(leftoverBak, new byte[] { 7, 8, 9 });
+            File.WriteAllBytes(otherWad, new byte[] { 10, 11, 12 });
+
+            var disk = EnhancedDiskCache.Instance;
+            disk.BindWad(wadPath);
+            while (!disk.IsLoaded)
+                System.Threading.Thread.Sleep(1);
+
+            Assert.IsFalse(File.Exists(staleOld), "old-version pack must be deleted");
+            Assert.IsFalse(File.Exists(leftoverTmp), "orphaned .tmp must be deleted");
+            Assert.IsFalse(File.Exists(leftoverBak), "orphaned .bak must be deleted");
+            Assert.IsTrue(File.Exists(otherWad), "another WAD's pack must survive");
+        }
+
+        [Test]
+        public void Publishes_after_schedule_are_flushed_by_worker_loop()
+        {
+            string wadPath = FreedoomPath();
+            if (!File.Exists(wadPath))
+                Assert.Ignore("freedoom1.wad missing");
+
+            var disk = EnhancedDiskCache.Instance;
+            disk.BindWad(wadPath);
+            while (!disk.IsLoaded)
+                System.Threading.Thread.Sleep(1);
+
+            var layers = Layers();
+            disk.Publish(EnhancedJobKind.Sprite, "10", layers, OkSprite());
+            disk.ScheduleFlush();
+            // Lands while the first write may still be in flight — the worker
+            // must loop, not silently skip it.
+            disk.Publish(EnhancedJobKind.Sprite, "11", layers, OkSprite());
+            disk.ScheduleFlush();
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (!disk.IsFlushIdle && sw.ElapsedMilliseconds < 30000)
+                System.Threading.Thread.Sleep(1);
+            Assert.IsTrue(disk.IsFlushIdle, "flush worker must drain and stop");
+
+            byte[] hash = EnhancedDiskCache.ComputeWadSha256(wadPath);
+            Assert.IsTrue(
+                EnhancedCacheCodec.TryDecode(
+                    File.ReadAllBytes(disk.PackPath), hash, EnhancedPipelineVersion.Value,
+                    out var decoded, out string error),
+                error);
+            Assert.AreEqual(2, decoded.Count,
+                "both publishes must reach the pack without FlushBlocking");
         }
 
         [Test]

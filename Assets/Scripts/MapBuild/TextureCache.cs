@@ -325,9 +325,7 @@ namespace Doom.MapBuild
 
         bool TryIntegrateAlbedoFromStore(string name)
         {
-            var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
-            if (!store.TryGet(EnhancedJobKind.WorldAlbedo, name, StoreLayers, out var stored))
+            if (!TryTakeShared(EnhancedJobKind.WorldAlbedo, name, out var stored))
                 return false;
             Integrate(name, stored);
             return texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
@@ -335,19 +333,41 @@ namespace Doom.MapBuild
 
         bool TryIntegrateNormalFromStore(string name)
         {
-            var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
-            if (!store.TryGet(EnhancedJobKind.WorldNormal, name, StoreLayers, out var stored))
+            if (!TryTakeShared(EnhancedJobKind.WorldNormal, name, out var stored))
                 return false;
             Integrate(name, stored);
             return normalCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
         }
 
+        /// Lazy-build resolution: session store first, then the disk pack (a
+        /// disk hit is promoted into the store so later lookups stay cheap).
+        bool TryTakeShared(EnhancedJobKind kind, string name, out EnhancedJobResult stored)
+        {
+            stored = null;
+            var store = EnhancedVariantStore.Instance;
+            bool storeBound = !string.IsNullOrEmpty(store.BoundWadIdentity);
+            if (storeBound && store.TryGet(kind, name, StoreLayers, out stored))
+                return true;
+
+            if (EnhancedDiskCache.Enabled &&
+                EnhancedDiskCache.Instance.TryGet(kind, name, StoreLayers, out stored))
+            {
+                if (storeBound)
+                    store.Publish(kind, name, StoreLayers, stored);
+                return true;
+            }
+
+            stored = null;
+            return false;
+        }
+
         void PublishToStore(EnhancedJobKind kind, string name, EnhancedJobResult result)
         {
             var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
-            store.Publish(kind, name, StoreLayers, result);
+            if (!string.IsNullOrEmpty(store.BoundWadIdentity))
+                store.Publish(kind, name, StoreLayers, result);
+            if (EnhancedDiskCache.Enabled)
+                EnhancedDiskCache.Instance.Publish(kind, name, StoreLayers, result);
         }
 
         void IntegrateAlbedo(string name, EnhancedJobResult result)

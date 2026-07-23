@@ -309,9 +309,23 @@ namespace Doom.MapBuild
         bool TryIntegrateFromStore(string name)
         {
             var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
-            if (!store.TryGet(EnhancedJobKind.Hud, name, StoreLayers, out var stored))
-                return false;
+            bool storeBound = !string.IsNullOrEmpty(store.BoundWadIdentity);
+            EnhancedJobResult stored = null;
+
+            // Lazy-build resolution: session store first, then the disk pack (a
+            // disk hit is promoted into the store so later lookups stay cheap).
+            bool hit = storeBound &&
+                store.TryGet(EnhancedJobKind.Hud, name, StoreLayers, out stored);
+            if (!hit && EnhancedDiskCache.Enabled &&
+                EnhancedDiskCache.Instance.TryGet(
+                    EnhancedJobKind.Hud, name, StoreLayers, out stored))
+            {
+                hit = true;
+                if (storeBound)
+                    store.Publish(EnhancedJobKind.Hud, name, StoreLayers, stored);
+            }
+
+            if (!hit) return false;
             Integrate(name, stored);
             return HasEnhanced(name);
         }
@@ -319,8 +333,11 @@ namespace Doom.MapBuild
         void PublishToStore(string name, EnhancedJobResult result)
         {
             var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
-            store.Publish(EnhancedJobKind.Hud, name, StoreLayers, result);
+            if (!string.IsNullOrEmpty(store.BoundWadIdentity))
+                store.Publish(EnhancedJobKind.Hud, name, StoreLayers, result);
+            if (EnhancedDiskCache.Enabled)
+                EnhancedDiskCache.Instance.Publish(
+                    EnhancedJobKind.Hud, name, StoreLayers, result);
         }
 
         /// Paint over Freedoom Phase 1 TITLEPIC bottom-left copyright

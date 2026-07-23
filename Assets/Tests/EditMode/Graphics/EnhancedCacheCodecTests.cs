@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
@@ -23,6 +23,14 @@ namespace Doom.Graphics.Tests
             for (int i = 0; i < rgba.Length; i++) rgba[i] = (byte)(i & 0xff);
             return EnhancedJobResult.OkRgba(
                 EnhancedJobKind.Sprite, new DecodedImage(4, 4, rgba));
+        }
+
+        static EnhancedJobResult OkHud()
+        {
+            var rgba = new byte[4 * 4 * 4];
+            for (int i = 0; i < rgba.Length; i++) rgba[i] = (byte)(255 - (i & 0xff));
+            return EnhancedJobResult.OkRgba(
+                EnhancedJobKind.Hud, new DecodedImage(4, 4, rgba));
         }
 
         static EnhancedJobResult OkAlbedo()
@@ -74,7 +82,7 @@ namespace Doom.Graphics.Tests
                 Entry(EnhancedJobKind.WorldAlbedo, "FLOOR0_1", flags, OkAlbedo()),
                 Entry(EnhancedJobKind.WorldNormal, "FLOOR0_1", flags, OkNormal()),
                 Entry(EnhancedJobKind.Sprite, "42", flags, OkSprite()),
-                Entry(EnhancedJobKind.Hud, "STBAR", flags, OkSprite()),
+                Entry(EnhancedJobKind.Hud, "STBAR", flags, OkHud()),
             };
 
             byte[] bytes = EnhancedCacheCodec.Encode(
@@ -108,6 +116,40 @@ namespace Doom.Graphics.Tests
         }
 
         [Test]
+        public void Kind_mismatch_between_entry_and_result_throws()
+        {
+            var entries = new List<EnhancedCacheCodec.PackEntry>
+            {
+                // Header claims WorldAlbedo, payload result is a Sprite.
+                Entry(EnhancedJobKind.WorldAlbedo, "STBAR", 0x0f, OkSprite()),
+            };
+
+            Assert.Throws<ArgumentException>(() =>
+                EnhancedCacheCodec.Encode(
+                    TestHash, EnhancedPipelineVersion.Value, entries));
+        }
+
+        [Test]
+        public void EncodeTo_stream_matches_byte_array_encode()
+        {
+            byte flags = EnhancedCacheCodec.PackLayerFlags(true, false, true, false);
+            var entries = new List<EnhancedCacheCodec.PackEntry>
+            {
+                Entry(EnhancedJobKind.Sprite, "42", flags, OkSprite()),
+                Entry(EnhancedJobKind.WorldAlbedo, "FLOOR0_1", flags, OkAlbedo()),
+            };
+
+            byte[] viaArray = EnhancedCacheCodec.Encode(
+                TestHash, EnhancedPipelineVersion.Value, entries);
+
+            using var ms = new MemoryStream();
+            EnhancedCacheCodec.EncodeTo(
+                ms, TestHash, EnhancedPipelineVersion.Value, entries);
+
+            Assert.AreEqual(viaArray, ms.ToArray());
+        }
+
+        [Test]
         public void Truncated_pack_is_a_miss()
         {
             var entries = new List<EnhancedCacheCodec.PackEntry>
@@ -131,7 +173,7 @@ namespace Doom.Graphics.Tests
         {
             var entries = new List<EnhancedCacheCodec.PackEntry>
             {
-                Entry(EnhancedJobKind.Hud, "STBAR", 0x0f, OkSprite()),
+                Entry(EnhancedJobKind.Hud, "STBAR", 0x0f, OkHud()),
             };
             byte[] bytes = EnhancedCacheCodec.Encode(
                 TestHash, EnhancedPipelineVersion.Value, entries);
@@ -199,7 +241,7 @@ namespace Doom.Graphics.Tests
                 // Simulate crash after writing temp but before replace.
                 var v2 = new List<EnhancedCacheCodec.PackEntry>
                 {
-                    Entry(EnhancedJobKind.Hud, "new", 0x0f, OkSprite()),
+                    Entry(EnhancedJobKind.Hud, "new", 0x0f, OkHud()),
                 };
                 byte[] v2Bytes = EnhancedCacheCodec.Encode(
                     hash, EnhancedPipelineVersion.Value, v2);

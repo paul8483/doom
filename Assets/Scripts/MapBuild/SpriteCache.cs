@@ -331,20 +331,38 @@ namespace Doom.MapBuild
 
         bool TryIntegrateFromStore(int lumpIndex)
         {
+            string itemId = lumpIndex.ToString();
             var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return false;
-            if (!store.TryGet(
-                    EnhancedJobKind.Sprite, lumpIndex.ToString(), StoreLayers, out var stored))
-                return false;
+            bool storeBound = !string.IsNullOrEmpty(store.BoundWadIdentity);
+            EnhancedJobResult stored = null;
+
+            // Lazy-build resolution: session store first, then the disk pack (a
+            // disk hit is promoted into the store so later lookups stay cheap).
+            bool hit = storeBound &&
+                store.TryGet(EnhancedJobKind.Sprite, itemId, StoreLayers, out stored);
+            if (!hit && EnhancedDiskCache.Enabled &&
+                EnhancedDiskCache.Instance.TryGet(
+                    EnhancedJobKind.Sprite, itemId, StoreLayers, out stored))
+            {
+                hit = true;
+                if (storeBound)
+                    store.Publish(EnhancedJobKind.Sprite, itemId, StoreLayers, stored);
+            }
+
+            if (!hit) return false;
             Integrate(lumpIndex, stored);
             return HasEnhanced(lumpIndex);
         }
 
         void PublishToStore(int lumpIndex, EnhancedJobResult result)
         {
+            string itemId = lumpIndex.ToString();
             var store = EnhancedVariantStore.Instance;
-            if (string.IsNullOrEmpty(store.BoundWadIdentity)) return;
-            store.Publish(EnhancedJobKind.Sprite, lumpIndex.ToString(), StoreLayers, result);
+            if (!string.IsNullOrEmpty(store.BoundWadIdentity))
+                store.Publish(EnhancedJobKind.Sprite, itemId, StoreLayers, result);
+            if (EnhancedDiskCache.Enabled)
+                EnhancedDiskCache.Instance.Publish(
+                    EnhancedJobKind.Sprite, itemId, StoreLayers, result);
         }
 
         DecodedImage DecodeLump(int lumpIndex)

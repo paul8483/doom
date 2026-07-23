@@ -316,6 +316,10 @@ namespace Doom.Stage3.PlayTests
                 // Gate ≤ ~5 s on desktop SSD; generous CI margin.
                 Assert.That(coldSeconds, Is.LessThan(30f),
                     $"cold disk warm {coldSeconds:F2}s exceeds 30s CI margin (gate ~5s)");
+
+                // Isolation: leave the persistent controller in Classic so later
+                // fixtures don't inherit an Enhanced mode and warm on scene load.
+                yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Classic);
             }
             finally
             {

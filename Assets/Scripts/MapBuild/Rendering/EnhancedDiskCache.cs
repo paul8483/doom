@@ -34,7 +34,12 @@ namespace Doom.MapBuild.Rendering
         readonly ConcurrentDictionary<DiskKey, EnhancedJobResult> entries =
             new ConcurrentDictionary<DiskKey, EnhancedJobResult>();
 
+        /// Guards flush task management only — never held during encode / IO,
+        /// so the main thread can always schedule without blocking on a write.
         readonly object ioLock = new object();
+
+        /// Serializes actual pack writes (background worker vs FlushBlocking).
+        readonly object writeLock = new object();
 
         byte[] wadHash;
         string packPath;
@@ -42,6 +47,8 @@ namespace Doom.MapBuild.Rendering
         volatile bool loaded;
         volatile bool dirty;
         volatile bool loadFailed;
+        bool flushRequested;
+        bool flushWorkerActive;
         Task loadTask;
         Task flushTask;
         long packFileBytes;
@@ -207,6 +214,8 @@ namespace Doom.MapBuild.Rendering
         }
 
         /// Fire-and-forget rewrite of the pack file (temp + atomic replace).
+        /// Requests made while a write is in flight are queued: the worker loops
+        /// until no dirty data remains, so no publish is silently dropped.
         public void ScheduleFlush()
         {
             if (!enabled || !dirty || wadHash == null || string.IsNullOrEmpty(packPath))
@@ -214,9 +223,25 @@ namespace Doom.MapBuild.Rendering
 
             lock (ioLock)
             {
-                if (flushTask != null && !flushTask.IsCompleted)
-                    return;
-                flushTask = Task.Run(FlushSafe);
+                flushRequested = true;
+                if (!flushWorkerActive)
+                {
+                    flushWorkerActive = true;
+                    flushTask = Task.Run(FlushWorker);
+                }
+            }
+        }
+
+        /// True when no flush worker is running or pending (tests).
+        public bool IsFlushIdle
+        {
+            get
+            {
+                lock (ioLock)
+                {
+                    return !flushWorkerActive
+                        && (flushTask == null || flushTask.IsCompleted);
+                }
             }
         }
 
@@ -234,16 +259,18 @@ namespace Doom.MapBuild.Rendering
                 catch { /* flush logged its own failure */ }
             }
 
-            FlushSafe();
+            if (dirty)
+            {
+                dirty = false;
+                if (!FlushOnce())
+                    dirty = true;
+            }
         }
 
         /// Wait until any scheduled flush completes (tests).
         public IEnumerator WaitUntilFlushCompletes()
         {
-            Task task;
-            lock (ioLock) task = flushTask;
-            if (task == null) yield break;
-            while (!task.IsCompleted)
+            while (!IsFlushIdle)
                 yield return null;
         }
 
@@ -258,13 +285,20 @@ namespace Doom.MapBuild.Rendering
             loadFailed = false;
             packFileBytes = 0;
             loadTask = null;
-            flushTask = null;
+            lock (ioLock)
+            {
+                flushRequested = false;
+                flushWorkerActive = false;
+                flushTask = null;
+            }
         }
 
         void LoadPackSafe()
         {
             try
             {
+                CleanupStalePacks();
+
                 if (string.IsNullOrEmpty(packPath) || !File.Exists(packPath))
                 {
                     loaded = true;
@@ -313,12 +347,45 @@ namespace Doom.MapBuild.Rendering
             }
         }
 
-        void FlushSafe()
+        /// Background flush loop: claims dirty data, writes, and repeats until
+        /// no publishes landed during the write. Exits on a failed write so a
+        /// broken disk is retried only on the next ScheduleFlush, not spun on.
+        void FlushWorker()
         {
-            lock (ioLock)
+            while (true)
             {
-                if (!dirty || wadHash == null || string.IsNullOrEmpty(packPath))
+                lock (ioLock)
+                {
+                    if (!flushRequested && !dirty)
+                    {
+                        flushWorkerActive = false;
+                        return;
+                    }
+
+                    flushRequested = false;
+                }
+
+                dirty = false;
+                if (!FlushOnce())
+                {
+                    dirty = true;
+                    lock (ioLock) flushWorkerActive = false;
                     return;
+                }
+            }
+        }
+
+        /// One snapshot → temp file → atomic replace. Streams the encode so the
+        /// pack never needs a full second copy in memory. Returns false on any
+        /// IO failure (logged, never thrown).
+        bool FlushOnce()
+        {
+            lock (writeLock)
+            {
+                byte[] hash = wadHash;
+                string path = packPath;
+                if (hash == null || string.IsNullOrEmpty(path))
+                    return true;
 
                 try
                 {
@@ -335,31 +402,81 @@ namespace Doom.MapBuild.Rendering
                         });
                     }
 
-                    byte[] bytes = EnhancedCacheCodec.Encode(
-                        wadHash, EnhancedPipelineVersion.Value, list);
-
-                    string root = Path.GetDirectoryName(packPath);
+                    string root = Path.GetDirectoryName(path);
                     if (!string.IsNullOrEmpty(root) && !Directory.Exists(root))
                         Directory.CreateDirectory(root);
 
-                    string tempPath = packPath + ".tmp";
+                    string tempPath = path + ".tmp";
                     try
                     {
-                        WriteAllBytesFlushed(tempPath, bytes);
-                        ReplaceFile(tempPath, packPath);
-                        packFileBytes = bytes.LongLength;
-                        dirty = false;
+                        long written;
+                        using (var fs = new FileStream(
+                            tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                            bufferSize: 1 << 16, options: FileOptions.None))
+                        {
+                            EnhancedCacheCodec.EncodeTo(
+                                fs, hash, EnhancedPipelineVersion.Value, list);
+                            fs.Flush(flushToDisk: true);
+                            written = fs.Length;
+                        }
+
+                        ReplaceFile(tempPath, path);
+                        packFileBytes = written;
+                        return true;
                     }
                     catch (Exception e)
                     {
                         TryDelete(tempPath);
                         Debug.LogWarning($"EnhancedDiskCache: write failed: {e.Message}");
+                        return false;
                     }
                 }
                 catch (Exception e)
                 {
                     Debug.LogWarning($"EnhancedDiskCache: flush faulted: {e.Message}");
+                    return false;
                 }
+            }
+        }
+
+        /// Best-effort: drop packs for this WAD left by older pipeline versions
+        /// (a version bump would otherwise leak a multi-hundred-MB file forever)
+        /// plus our own orphaned .tmp/.bak files. Other WADs' packs are kept.
+        void CleanupStalePacks()
+        {
+            try
+            {
+                byte[] hash = wadHash;
+                string path = packPath;
+                if (hash == null || string.IsNullOrEmpty(path))
+                    return;
+
+                string root = Path.GetDirectoryName(path);
+                if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+                    return;
+
+                string keep = Path.GetFileName(path);
+                string prefix = ToHex(hash) + "-v";
+                foreach (string file in Directory.GetFiles(root))
+                {
+                    string name = Path.GetFileName(file);
+                    if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (string.Equals(name, keep, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    bool stalePack = name.EndsWith(
+                        FileExtension, StringComparison.OrdinalIgnoreCase);
+                    bool leftover =
+                        name.EndsWith(TempExtension, StringComparison.OrdinalIgnoreCase)
+                        || name.EndsWith(".bak", StringComparison.OrdinalIgnoreCase);
+                    if (stalePack || leftover)
+                        TryDelete(file);
+                }
+            }
+            catch
+            {
+                // Best effort — never fail the load over cleanup.
             }
         }
 
@@ -382,15 +499,6 @@ namespace Doom.MapBuild.Rendering
                 layers.WorldUpscale4X,
                 layers.SpritesUpscale4X,
                 layers.UiUpscale4X);
-
-        static void WriteAllBytesFlushed(string path, byte[] data)
-        {
-            using var fs = new FileStream(
-                path, FileMode.Create, FileAccess.Write, FileShare.None,
-                bufferSize: 4096, options: FileOptions.None);
-            fs.Write(data, 0, data.Length);
-            fs.Flush(flushToDisk: true);
-        }
 
         static void ReplaceFile(string source, string destination)
         {

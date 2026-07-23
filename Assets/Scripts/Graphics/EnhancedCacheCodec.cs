@@ -60,39 +60,53 @@ namespace Doom.Graphics
             int pipelineVersion,
             IReadOnlyList<PackEntry> entries)
         {
+            using var ms = new MemoryStream();
+            EncodeTo(ms, wadHash, pipelineVersion, entries);
+            return ms.ToArray();
+        }
+
+        /// Streaming encode — writes straight to <paramref name="stream"/> so a
+        /// multi-hundred-MB pack never needs a second in-memory copy.
+        public static void EncodeTo(
+            Stream stream,
+            byte[] wadHash,
+            int pipelineVersion,
+            IReadOnlyList<PackEntry> entries)
+        {
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream));
             if (wadHash == null || wadHash.Length != Sha256Length)
                 throw new ArgumentException("WAD hash must be 32 bytes.", nameof(wadHash));
             if (entries == null)
                 throw new ArgumentNullException(nameof(entries));
 
-            using var ms = new MemoryStream();
-            using (var w = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
+            using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+            w.Write(Magic);
+            w.Write(FormatVersion);
+            w.Write(wadHash);
+            w.Write(pipelineVersion);
+            w.Write(entries.Count);
+
+            for (int i = 0; i < entries.Count; i++)
             {
-                w.Write(Magic);
-                w.Write(FormatVersion);
-                w.Write(wadHash);
-                w.Write(pipelineVersion);
-                w.Write(entries.Count);
+                var entry = entries[i] ?? throw new ArgumentException(
+                    $"Pack entry {i} is null.", nameof(entries));
+                if (entry.Result == null || !entry.Result.Success)
+                    throw new ArgumentException(
+                        $"Pack entry {i} requires a successful result.", nameof(entries));
+                if (entry.Kind != entry.Result.Kind)
+                    throw new ArgumentException(
+                        $"Pack entry {i} kind {entry.Kind} does not match its " +
+                        $"result kind {entry.Result.Kind}.", nameof(entries));
+                if (string.IsNullOrEmpty(entry.ItemId))
+                    throw new ArgumentException(
+                        $"Pack entry {i} requires an item id.", nameof(entries));
 
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    var entry = entries[i] ?? throw new ArgumentException(
-                        $"Pack entry {i} is null.", nameof(entries));
-                    if (entry.Result == null || !entry.Result.Success)
-                        throw new ArgumentException(
-                            $"Pack entry {i} requires a successful result.", nameof(entries));
-                    if (string.IsNullOrEmpty(entry.ItemId))
-                        throw new ArgumentException(
-                            $"Pack entry {i} requires an item id.", nameof(entries));
-
-                    w.Write((int)entry.Kind);
-                    w.Write(entry.LayerFlags);
-                    WriteString(w, entry.ItemId);
-                    WriteResultPayload(w, entry.Result);
-                }
+                w.Write((int)entry.Kind);
+                w.Write(entry.LayerFlags);
+                WriteString(w, entry.ItemId);
+                WriteResultPayload(w, entry.Result);
             }
-
-            return ms.ToArray();
         }
 
         public static bool TryDecode(
