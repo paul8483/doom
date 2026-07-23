@@ -10,12 +10,28 @@ namespace Doom.Stage3.PlayTests
 {
     public class SpriteSpawnPlayTests
     {
+        /// BuildRoutine is a yielding coroutine (loading plate, warm phases) —
+        /// wait for it to finish instead of assuming a fixed frame count.
+        static IEnumerator WaitForMapBuild()
+        {
+            for (int i = 0; i < 30000; i++)
+            {
+                var loader = Object.FindAnyObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+                yield return null;
+            }
+
+            Assert.Fail("MapLoader build did not finish in time");
+        }
+
         [UnityTest]
         public IEnumerator E1M1_spawns_sprite_things_with_renderers()
         {
             SceneManager.LoadScene("Stage2_MapPreview");
             yield return null;            // let AfterSceneLoad bootstrap run
-            yield return null;            // let MapLoader.Start build + spawn
+            yield return null;            // let the scene swap land
+            yield return WaitForMapBuild();
             // Give physics/colliders + a billboard LateUpdate a couple of frames.
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
 
@@ -40,6 +56,7 @@ namespace Doom.Stage3.PlayTests
             SceneManager.LoadScene("Stage2_MapPreview");
             yield return null;
             yield return null;
+            yield return WaitForMapBuild();
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
 
             // No billboard should sit exactly on the player's start type. We assert

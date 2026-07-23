@@ -76,7 +76,9 @@ namespace Doom.Stage3.PlayTests
             // Enhanced boot warms 4x textures/sprites/HUD one per frame under the
             // load plaque, so a fixed 90-frame wait is not enough — wait for the
             // build to actually finish (same pattern as the upscale suites).
-            for (int i = 0; i < 3600; i++)
+            // 3600 frames undershoots a cold-store compute warm (~20-25s) at
+            // batchmode frame rates; give it real headroom.
+            for (int i = 0; i < 30000; i++)
             {
                 yield return null;
                 var loader = Object.FindFirstObjectByType<MapLoader>();

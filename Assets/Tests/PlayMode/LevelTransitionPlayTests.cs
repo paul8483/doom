@@ -30,6 +30,9 @@ namespace Doom.Stage3.PlayTests
             LevelTransitionController.ResetForTests();
             LevelTransitionController.ImmediateConfirmForTests = true;
 
+            // Deferred host destroy must settle before the scene load (see
+            // Duplicate_exit note).
+            yield return null;
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlayer("E1M1");
 
@@ -86,6 +89,9 @@ namespace Doom.Stage3.PlayTests
             LevelTransitionController.ResetForTests();
             LevelTransitionController.ImmediateConfirmForTests = true;
 
+            // Deferred host destroy must settle before Ensure re-creates it
+            // (see Duplicate_exit note).
+            yield return null;
             var host = GameSessionHost.Ensure();
             host.Session.BeginNewGame("E1M3", new[]
             {
@@ -132,6 +138,10 @@ namespace Doom.Stage3.PlayTests
             // Force a confirm wait so we can fire a second request mid-transition.
             LevelTransitionController.ImmediateConfirmForTests = false;
 
+            // ResetForTests defers the host destroy to end of frame — let it
+            // settle before LoadScene, or the new scene's boot chain can attach
+            // to the doomed host and die with it (build never starts).
+            yield return null;
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlayer("E1M1");
 
@@ -170,6 +180,9 @@ namespace Doom.Stage3.PlayTests
             LevelTransitionController.ResetForTests();
             LevelTransitionController.ImmediateConfirmForTests = false;
 
+            // Deferred host destroy must settle before the scene load (see
+            // Duplicate_exit note).
+            yield return null;
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlayer("E1M1");
 
@@ -213,13 +226,21 @@ namespace Doom.Stage3.PlayTests
 
         static IEnumerator WaitForPlayer(string expectedMap)
         {
-            for (int i = 0; i < 180; i++)
+            // LoadedMapName/Player appear mid-build; stats tracker, activators
+            // and monsters land later — wait for BuildRoutine to finish
+            // (LastBuildSeconds is only set at its end) so tests never race it.
+            for (int i = 0; i < 30000; i++)
             {
+                // Yield FIRST: a pending Single-mode LoadScene swaps at the
+                // next frame boundary — checking before it lands can match a
+                // completed previous/init scene running the same map, and every
+                // reference dies with that scene one frame later.
+                yield return null;
                 var loader = Object.FindAnyObjectByType<MapLoader>();
                 if (loader != null && loader.LoadedMapName == expectedMap &&
+                    loader.LastBuildSeconds > 0f &&
                     GameObject.Find("Player") != null)
                     yield break;
-                yield return null;
             }
             Assert.Fail($"Timed out waiting for player on {expectedMap}");
         }

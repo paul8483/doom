@@ -50,11 +50,20 @@ namespace Doom.Stage3.PlayTests
                 MapLoader.MapNameOverride = map;
                 SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
 
+                // ResetForTests defers the host destroy and LoadScene swaps at
+                // end of frame: without these yields the loop below can latch
+                // onto the PREVIOUS scene's loader/player (same default map on
+                // iteration 1) and Apply Enhanced on a controller that dies
+                // with the old host — freezing IsApplying forever.
+                yield return null;
+                yield return null;
+
                 MapLoader loader = null;
-                for (int i = 0; i < 180; i++)
+                for (int i = 0; i < 6000; i++)
                 {
                     loader = UnityEngine.Object.FindAnyObjectByType<MapLoader>();
                     if (loader != null && loader.LoadedMapName == map &&
+                        loader.LastBuildSeconds > 0f &&
                         GameObject.Find("Player") != null)
                         break;
                     yield return null;
@@ -67,7 +76,11 @@ namespace Doom.Stage3.PlayTests
                 if (controller != null) controller.enabled = false;
 
                 var graphics = GraphicsModeController.Ensure();
-                yield return GraphicsApplyWait.Apply(graphics, GraphicsMode.Enhanced);
+                // 20000 frames was calibrated for the Scale2x-era warm; the
+                // Super-xBR 4x compute warm takes ~20-25s in batchmode while
+                // frames spin fast — give the first (cold) apply real headroom.
+                yield return GraphicsApplyWait.Apply(
+                    graphics, GraphicsMode.Enhanced, maxFrames: 120000);
                 Assert.IsNull(graphics.LastError, graphics.LastError);
 
                 // Apply can run pending session/profile callbacks; reacquire scene objects.

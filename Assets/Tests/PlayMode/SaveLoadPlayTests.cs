@@ -257,6 +257,10 @@ namespace Doom.Stage3.PlayTests
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
             settings.ApplyAndSave();
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            // Classic→Enhanced is a yielded warm since the 4x stack — Current
+            // flips only after the warm coroutine finishes.
+            for (int i = 0; i < 120000 && gfx.IsApplying; i++)
+                yield return null;
             Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
 
             var flow = GameFlowController.Ensure();
@@ -270,6 +274,9 @@ namespace Doom.Stage3.PlayTests
 
             settings = SettingsController.Ensure();
             gfx = GraphicsModeController.Ensure();
+            // The reload's ApplyLoadedSettings may still be warming Enhanced.
+            for (int i = 0; i < 120000 && gfx.IsApplying; i++)
+                yield return null;
             Assert.That(new SettingsStore(memory).Load().GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced),
                 "Save/load must not rewrite SettingsStore GraphicsMode");
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));

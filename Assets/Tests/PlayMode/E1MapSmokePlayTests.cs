@@ -53,11 +53,15 @@ namespace Doom.Stage3.PlayTests
                     SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
                     yield return null; yield return null;
 
+                    // LineActivator spawns mid-build; LastBuildSeconds is only
+                    // set when BuildRoutine finishes — wait for the latter so
+                    // the asserts below never race the tail of the build.
                     MapLoader loader = null;
-                    for (int i = 0; i < 180; i++)
+                    for (int i = 0; i < 30000; i++)
                     {
                         loader = Object.FindAnyObjectByType<MapLoader>();
                         if (loader != null && loader.LoadedMapName == map &&
+                            loader.LastBuildSeconds > 0f &&
                             Object.FindAnyObjectByType<LineActivator>() != null)
                             break;
                         yield return null;

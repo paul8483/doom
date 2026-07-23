@@ -17,11 +17,13 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 `GraphicsModeController` (дублирующиеся warm-циклы удаляются).
 Спека: `docs/superpowers/specs/2026-07-22-enhanced-warm-performance-design.md`.
 
-**Статус:** Task 4 done (`EnhancedCacheCodec` + `EnhancedDiskCache`; scheduler
-store→disk→compute; E1M1 cold disk warm **~2.8–3.7 с** / pack **367 MB** /
-diskHits **805** / residual compute **29**; isolated cold pack upload-only
-**0** compute; EditMode codec+disk **10** + Graphics **139**; PlayMode disk
-**4/4**, Task4 regress **35/35**). Next: Task 5 full suites / build / close.
+**Статус: ✅ ЗАКРЫТ (2026-07-24).** Tasks 1–5 done. Итог: E1M1 первый
+Enhanced warm ~85 с → **~14 с** (compute) / **~2.8–3.7 с** (холодный
+старт с диском) / **0 compute** на переходах уровней (session store).
+Полные сьюты на закрытии: EditMode **601/601**, PlayMode **144/144**
+(полный PlayMode зелёный впервые с texquality Task 1). Windows build
+OK. Интерактивные standalone-замеры совместить с texquality Task 10
+sign-off.
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).
@@ -294,13 +296,44 @@ E1M1 disk-тест возвращает контроллер в Classic; `Classi
 - Modify: `Logs/enhanced-texture-quality-baseline-notes.md` (до/после)
 - Modify: оба plan/spec (этот и texquality), `CLAUDE.md`
 
-- [ ] **Step 1:** Полные EditMode+PlayMode без фильтра, новые XML;
-  разобрать все failures (pre-existing `Hot_switch` +1 материал — по
-  прежней записи).
-- [ ] **Step 2:** Windows build; запуск standalone: первая загрузка,
-  переход уровня, холодный/тёплый старт с диском — числа в notes.
-- [ ] **Step 3:** Обновить статусы spec/plan, `CLAUDE.md`; texquality
-  Task 10 (sign-off) проводить уже с этим прогревом.
+- [x] **Step 1 (2026-07-24):** Полные сьюты: EditMode **601/601**
+  (`Logs/warmperf-t5-edit2.xml`), PlayMode **144/144**
+  (`Logs/warmperf-t5-play5.xml`) — полный PlayMode зелёный впервые с
+  Task 1 baseline (был 103/111), включая исторический `Hot_switch`.
+  Разбор: все 8–10 падений полного набора оказались детерминированными
+  гонками тестовой обвязки, обострёнными медленным 4×-прогревом:
+  (a) тесты матчились на достроенную карту init/предыдущей сцены за
+  кадр до Single-свапа и умирали вместе с ней (capture, E1MapSmoke,
+  SpriteSpawn, LevelTransition) — ожидания переведены на
+  `LastBuildSeconds > 0`, yield-first в WaitForPlayer, пропуск кадров
+  после `LoadScene`;
+  (b) отложенный `Destroy` DDOL-хоста убивает Unity-корутины БЕЗ
+  выполнения `finally`: вечный `isApplying` на мёртвом контроллере
+  (capture 180 s hang), утечка слота `ActiveWarmCount` (лечится
+  освобождением в `Dispose` шедулера + backstop в
+  `ResetCompletedStats`), тихий аборт `BootRoutine` в вечный Loading;
+  (c) `SaveLoad` не ждал асинхронный hot-switch-прогрев (стал yielded
+  с 4×-стека) — добавлены ожидания `IsApplying`;
+  (d) `Lifetime.ClearContext` переведён на дельта-подсчёт (DDOL-осколки
+  прежних фикстур ломали абсолютные счётчики);
+  (e) кадровые бюджеты подняты под холодный 4×-прогрев в batchmode
+  (capture 20000→120000, Atmosphere.Boot 3600→30000).
+  Продуктовые правки: (1) `SpriteCache` больше не запускает Super-xBR
+  синхронно на главном потоке, пока идёт scheduler-warm
+  (`EnhancedWarmScheduler.ActiveWarmCount`; ленивые вызовы отдают
+  native, биллборды сами перетаргетируются после интеграции прогрева);
+  (2) `MapLoader.BootRoutine` устойчив к пересозданию flow в первые
+  кадры сцены — переполучает его вместо тихого аборта.
+- [x] **Step 2 (2026-07-24):** Windows build OK
+  (`Builds/Windows/DoomUnity.exe`, ~128 MB,
+  `Logs/warmperf-t5-build.log`); standalone smoke — чистый boot в
+  main menu (Player.log без ошибок, `UI-only load`). Числа дискового
+  кэша: PlayMode-замеры записаны в Task 4 (cold disk warm
+  **2.8–3.7 s**, pack **367 MB**, diskHits 805); интерактивные
+  standalone-замеры (первая загрузка / переход уровня / холодный
+  старт) — совместить с интерактивным sign-off texquality Task 10.
+- [x] **Step 3 (2026-07-24):** Статусы обновлены (план, `CLAUDE.md`);
+  texquality Task 10 проводить уже с этим прогревом.
 
 **Commit checkpoint:** `rendering: close enhanced warm performance`
 

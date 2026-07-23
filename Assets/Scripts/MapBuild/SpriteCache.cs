@@ -174,6 +174,12 @@ namespace Doom.MapBuild
             if (TryIntegrateFromStore(lumpIndex))
                 return true;
 
+            // Never run Super-xBR synchronously while a scheduler warm is in
+            // flight: per-frame lazy builds starve the frame loop and stretch
+            // the warm itself. The warm integrates this lump; callers retry.
+            if (EnhancedWarmScheduler.ActiveWarmCount > 0)
+                return false;
+
             var job = TryCreateJob(lumpIndex);
             if (job == null)
                 return texByLumpVariant.ContainsKey(key);
@@ -307,6 +313,12 @@ namespace Doom.MapBuild
                     return existing;
                 return nativeTex;
             }
+
+            // Serve native while a scheduler warm runs (see EnsureEnhanced) —
+            // billboards re-Get every frame, so the material self-heals to the
+            // Enhanced texture right after the warm integrates it.
+            if (EnhancedWarmScheduler.ActiveWarmCount > 0)
+                return nativeTex;
 
             var job = TryCreateJob(lumpIndex);
             if (job == null)

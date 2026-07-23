@@ -151,10 +151,27 @@ namespace Doom.MapBuild
                     NeutralizeSceneCameras();
 
                     // Let OnGUI draw the loading plate over the cleared cameras.
+                    // A deferred host destroy (duplicate cleanup / test reset)
+                    // can land during these frames and take the flow with it —
+                    // Ensure at Start may have returned a component whose
+                    // GameObject was already queued for destruction. Re-ensure
+                    // instead of silently dying into an eternal loading screen;
+                    // bail only when this loader itself is gone.
                     yield return null;
-                    if (!StillValid(flow)) yield break;
+                    if (!this) yield break;
+                    if (!StillValid(flow))
+                    {
+                        flow = GameFlowController.Ensure();
+                        flow.EnsureLoadingShown(pendingMap);
+                    }
+
                     yield return null;
-                    if (!StillValid(flow)) yield break;
+                    if (!this) yield break;
+                    if (!StillValid(flow))
+                    {
+                        flow = GameFlowController.Ensure();
+                        flow.EnsureLoadingShown(pendingMap);
+                    }
 
                     yield return BuildRoutine(flow);
                     if (!StillValid(flow)) yield break;

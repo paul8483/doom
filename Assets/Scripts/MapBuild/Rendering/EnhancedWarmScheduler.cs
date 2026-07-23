@@ -51,11 +51,34 @@ namespace Doom.MapBuild.Rendering
         public IReadOnlyList<float> LastProgressSamples => progressSamples;
         readonly List<float> progressSamples = new List<float>(64);
 
+        /// Warm coroutines currently in flight (main thread only). Caches use
+        /// this to refuse synchronous main-thread Super-xBR while a warm runs —
+        /// per-frame lazy builds (sprite billboards) would starve the frame
+        /// loop and stretch the warm itself by an order of magnitude.
+        public static int ActiveWarmCount { get; private set; }
+
+        /// True while this scheduler's Warm holds an ActiveWarmCount slot.
+        /// Unity kills coroutines on GameObject destroy WITHOUT running their
+        /// finally blocks, so Dispose (always called by owners) must release
+        /// the slot too — otherwise the count leaks and lazy builds stay
+        /// native forever.
+        bool holdsWarmSlot;
+
+        void ReleaseWarmSlot()
+        {
+            if (!holdsWarmSlot) return;
+            holdsWarmSlot = false;
+            ActiveWarmCount = Math.Max(0, ActiveWarmCount - 1);
+        }
+
         public static void ResetCompletedStats()
         {
             LastCompletedComputeJobs = 0;
             LastCompletedStoreHits = 0;
             LastCompletedDiskHits = 0;
+            // Backstop for a slot leaked by a killed-without-Dispose scheduler:
+            // callers reset stats only between warms, never mid-warm.
+            ActiveWarmCount = 0;
         }
 
         public void Cancel()
@@ -67,6 +90,7 @@ namespace Doom.MapBuild.Rendering
         public void Dispose()
         {
             Cancel();
+            ReleaseWarmSlot();
             cts.Dispose();
         }
 
@@ -94,6 +118,40 @@ namespace Doom.MapBuild.Rendering
             LastDiskHits = 0;
             progressSamples.Clear();
 
+            // finally covers normal completion and enumerator Dispose; a
+            // coroutine killed by GameObject destroy skips finally — that
+            // path is covered by ReleaseWarmSlot in this scheduler's Dispose.
+            holdsWarmSlot = true;
+            ActiveWarmCount++;
+            try
+            {
+                yield return WarmBody(
+                    textures, sprites, hud, textureNames,
+                    warmWorld, warmSprites, warmHud,
+                    reportProgress, progressMin, progressMax, frameBudgetMs,
+                    wadIdentity, wadPath);
+            }
+            finally
+            {
+                ReleaseWarmSlot();
+            }
+        }
+
+        IEnumerator WarmBody(
+            TextureCache textures,
+            SpriteCache sprites,
+            HudTextureCache hud,
+            ICollection<string> textureNames,
+            bool warmWorld,
+            bool warmSprites,
+            bool warmHud,
+            Action<float, string> reportProgress,
+            float progressMin,
+            float progressMax,
+            float frameBudgetMs,
+            string wadIdentity,
+            string wadPath)
+        {
             var store = BindStore(wadIdentity);
             var disk = BindDisk(wadPath);
             if (disk != null)

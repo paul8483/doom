@@ -1,7 +1,7 @@
 # Enhanced Warm Performance — дизайн
 
 **Дата:** 2026-07-22
-**Статус:** in progress — Task 4 done (disk pack-cache; E1M1 cold disk warm ≤5 s)
+**Статус:** ✅ закрыт 2026-07-24 — Tasks 1–5 done (E1M1: compute warm ~14 с, холодный старт с диском ~2.8–3.7 с, переходы уровней 0 compute; EditMode 601/601, PlayMode 144/144, Windows build OK)
 **Контекст:** Enhanced Texture Quality (ветка `texquality`, Tasks 1–9)
 дал видимое улучшение картинки, но замер Task 9 зафиксировал цену:
 первый прогрев Enhanced — **~85 секунд** (E1M1 и E1M7), и её платит

@@ -259,28 +259,39 @@ namespace Doom.Stage3.PlayTests
             particles.Pulse(EffectKind.Explosion, Vector3.one, 1f / 32f);
             yield return null;
 
-            int normals = CollectLiveNormals();
-            int particleWhite = CountNamedTexture("DoomParticleWhite");
-            int particleMat = CountNamedMaterial("DoomParticleShared");
-            int decalWhite = CountNamedTexture("DoomDecalWhite");
-            Assert.That(normals, Is.GreaterThan(0));
-            Assert.That(particleWhite, Is.EqualTo(1));
-            Assert.That(particleMat, Is.EqualTo(1));
-            Assert.That(decalWhite, Is.EqualTo(1));
+            // Flush unreferenced leftovers from earlier fixtures' torn-down
+            // scenes, then assert DELTAS: in a full-suite run earlier fixtures
+            // can leave referenced orphans (e.g. a controller destroyed by a
+            // test reset without disposing its context), so absolute counts
+            // are not stable — the contract here is destroy-once + idempotent.
+            var unload = Resources.UnloadUnusedAssets();
+            while (!unload.isDone) yield return null;
+
+            int normalsBefore = CollectLiveNormals();
+            int particleWhiteBefore = CountNamedTexture("DoomParticleWhite");
+            int particleMatBefore = CountNamedMaterial("DoomParticleShared");
+            int decalWhiteBefore = CountNamedTexture("DoomDecalWhite");
+            Assert.That(normalsBefore, Is.GreaterThan(0));
+            Assert.That(particleWhiteBefore, Is.GreaterThanOrEqualTo(1));
+            Assert.That(particleMatBefore, Is.GreaterThanOrEqualTo(1));
+            Assert.That(decalWhiteBefore, Is.GreaterThanOrEqualTo(1));
 
             gfx.ClearContext();
             yield return null;
 
-            Assert.AreEqual(0, CollectLiveNormals(), "normals must be destroyed once");
-            Assert.AreEqual(0, CountNamedTexture("DoomParticleWhite"));
-            Assert.AreEqual(0, CountNamedMaterial("DoomParticleShared"));
-            Assert.AreEqual(0, CountNamedTexture("DoomDecalWhite"));
+            int normalsAfter = CollectLiveNormals();
+            Assert.That(normalsAfter, Is.LessThan(normalsBefore),
+                "normals must be destroyed once");
+            Assert.AreEqual(particleWhiteBefore - 1, CountNamedTexture("DoomParticleWhite"),
+                "own particle texture must be destroyed exactly once");
+            Assert.AreEqual(particleMatBefore - 1, CountNamedMaterial("DoomParticleShared"));
+            Assert.AreEqual(decalWhiteBefore - 1, CountNamedTexture("DoomDecalWhite"));
 
             // Second dispose must be a no-op (no throw / no second destroy path).
             gfx.ClearContext();
             yield return null;
-            Assert.AreEqual(0, CollectLiveNormals());
-            Assert.AreEqual(0, CountNamedTexture("DoomParticleWhite"));
+            Assert.AreEqual(normalsAfter, CollectLiveNormals());
+            Assert.AreEqual(particleWhiteBefore - 1, CountNamedTexture("DoomParticleWhite"));
         }
 
         [UnityTest]
