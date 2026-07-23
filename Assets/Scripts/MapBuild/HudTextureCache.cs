@@ -42,6 +42,7 @@ namespace Doom.MapBuild
             public int Width, Height, LeftOffset, TopOffset;
             public Texture2D NativeTex;
             public Texture2D EnhancedTex;
+            public Texture2D GrayTex;
             public bool IsHud;
             public bool EnhancedFailed;
         }
@@ -102,6 +103,7 @@ namespace Doom.MapBuild
                 if (string.Equals(info.Name, "TITLEPIC", StringComparison.OrdinalIgnoreCase))
                 {
                     ScrubFreedoomTitleCopyright(info.Image);
+                    ScrubFreedoomTitleVersion(info.Image);
                     ShiftFreedoomTitlePhase1(info.Image);
                 }
 
@@ -241,6 +243,40 @@ namespace Doom.MapBuild
             return entry.IsValid;
         }
 
+        /// Silver/gray recolor of a native patch (brightness = max channel).
+        /// Used for the title-screen version string so it matches the
+        /// silverish TITLEPIC "PHASE 1" instead of the red STCFN font.
+        public bool TryGetGray(string name, out Entry entry)
+        {
+            if (string.IsNullOrEmpty(name) || !slots.TryGetValue(name, out var slot))
+            {
+                entry = default;
+                return false;
+            }
+
+            if (slot.GrayTex == null && slot.NativeImage != null)
+            {
+                var src = slot.NativeImage.Rgba;
+                var dst = new byte[src.Length];
+                var gray = new DecodedImage(
+                    slot.NativeImage.Width, slot.NativeImage.Height, dst);
+                for (int o = 0; o < src.Length; o += 4)
+                {
+                    byte v = System.Math.Max(src[o], System.Math.Max(src[o + 1], src[o + 2]));
+                    dst[o] = v;
+                    dst[o + 1] = v;
+                    dst[o + 2] = v;
+                    dst[o + 3] = src[o + 3];
+                }
+                slot.GrayTex = ToTexture2D(gray);
+                context?.RegisterTexture(slot.GrayTex);
+            }
+
+            entry = new Entry(
+                slot.GrayTex, slot.Width, slot.Height, slot.LeftOffset, slot.TopOffset);
+            return entry.IsValid;
+        }
+
         public bool IsMiss(string name) =>
             !string.IsNullOrEmpty(name) && misses.Contains(name);
 
@@ -341,12 +377,23 @@ namespace Doom.MapBuild
         }
 
         /// Paint over Freedoom Phase 1 TITLEPIC bottom-left copyright
-        /// (y 186–192, x 5–70). Leaves the bottom-right version string alone.
+        /// (y 186–192, x 5–70).
         static void ScrubFreedoomTitleCopyright(DecodedImage img)
         {
-            if (img == null || img.Width < 71 || img.Height < 193) return;
+            ScrubTitleOrangeBand(img, 5, 70, 186, 192);
+        }
 
-            const int x0 = 5, x1 = 70, y0 = 186, y1 = 192;
+        /// Paint over the Freedoom version string baked into the TITLEPIC
+        /// bottom-right corner; MenuController draws Application.version there.
+        static void ScrubFreedoomTitleVersion(DecodedImage img)
+        {
+            ScrubTitleOrangeBand(img, 250, 315, 183, 193);
+        }
+
+        static void ScrubTitleOrangeBand(DecodedImage img, int x0, int x1, int y0, int y1)
+        {
+            if (img == null || img.Width < x1 + 1 || img.Height < y1 + 1) return;
+
             var rgba = img.Rgba;
             int w = img.Width;
             int sampleY = y0 - 1;

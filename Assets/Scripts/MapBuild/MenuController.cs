@@ -325,6 +325,12 @@ namespace Doom.MapBuild
                 var r = VirtualScreenRenderer.ToScreenSnapped(t, x, 12, logo.Width, logo.Height);
                 GUI.DrawTexture(r, logo.Texture);
             }
+
+            // Game version bottom-right (the WAD's own baked-in version string
+            // is scrubbed by HudTextureCache). Silver glyphs to match "PHASE 1".
+            string version = Application.version;
+            if (!string.IsNullOrEmpty(version))
+                DrawHuString(t, 308f - MeasureHuString(version), 186f, version, gray: true);
         }
 
         void DrawPauseDim(in VirtualScreenRenderer.Transform t)
@@ -404,7 +410,9 @@ namespace Doom.MapBuild
             return w;
         }
 
-        void DrawHuString(in VirtualScreenRenderer.Transform t, float x, float y, string text)
+        void DrawHuString(
+            in VirtualScreenRenderer.Transform t, float x, float y, string text,
+            bool gray = false)
         {
             if (string.IsNullOrEmpty(text)) return;
 
@@ -431,7 +439,11 @@ namespace Doom.MapBuild
                 }
 
                 string lump = "STCFN" + ((int)ch).ToString("000");
-                if (!textures.TryGet(lump, out var e))
+                HudTextureCache.Entry e;
+                bool got = gray
+                    ? textures.TryGetGray(lump, out e)
+                    : textures.TryGet(lump, out e);
+                if (!got)
                 {
                     cx += 4f;
                     continue;
