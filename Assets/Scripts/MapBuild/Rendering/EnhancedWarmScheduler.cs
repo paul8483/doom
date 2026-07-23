@@ -15,7 +15,7 @@ namespace Doom.MapBuild.Rendering
     /// uploads with a per-frame time budget. Used by MapLoader load phases and
     /// GraphicsModeController hot-switch warm (single source of warm loops).
     /// Resolution order per item: GPU cache → <see cref="EnhancedVariantStore"/>
-    /// → compute.
+    /// → <see cref="EnhancedDiskCache"/> → compute.
     public sealed class EnhancedWarmScheduler : IDisposable
     {
         public const float DefaultFrameBudgetMs = 7f;
@@ -28,11 +28,14 @@ namespace Doom.MapBuild.Rendering
         public int LastJobsStarted { get; private set; }
 
         /// Results integrated on the main thread during the last Warm call
-        /// (compute path only; store hits are counted separately).
+        /// (compute path only; store/disk hits are counted separately).
         public int LastJobsIntegrated { get; private set; }
 
         /// Session-store hits integrated during the last Warm call.
         public int LastStoreHits { get; private set; }
+
+        /// Disk-pack hits integrated during the last Warm call.
+        public int LastDiskHits { get; private set; }
 
         /// Cumulative compute jobs across Warm calls since the last
         /// <see cref="ResetCompletedStats"/> (MapLoader may Warm in two phases).
@@ -40,6 +43,9 @@ namespace Doom.MapBuild.Rendering
 
         /// Cumulative store hits across Warm calls since the last reset.
         public static int LastCompletedStoreHits { get; private set; }
+
+        /// Cumulative disk hits across Warm calls since the last reset.
+        public static int LastCompletedDiskHits { get; private set; }
 
         /// Monotonic progress samples recorded during the last Warm call.
         public IReadOnlyList<float> LastProgressSamples => progressSamples;
@@ -49,6 +55,7 @@ namespace Doom.MapBuild.Rendering
         {
             LastCompletedComputeJobs = 0;
             LastCompletedStoreHits = 0;
+            LastCompletedDiskHits = 0;
         }
 
         public void Cancel()
@@ -78,14 +85,23 @@ namespace Doom.MapBuild.Rendering
             float progressMin = 0f,
             float progressMax = 1f,
             float frameBudgetMs = DefaultFrameBudgetMs,
-            string wadIdentity = null)
+            string wadIdentity = null,
+            string wadPath = null)
         {
             LastJobsStarted = 0;
             LastJobsIntegrated = 0;
             LastStoreHits = 0;
+            LastDiskHits = 0;
             progressSamples.Clear();
 
             var store = BindStore(wadIdentity);
+            var disk = BindDisk(wadPath);
+            if (disk != null)
+            {
+                yield return disk.WaitUntilLoaded();
+                if (cts.IsCancellationRequested) yield break;
+            }
+
             // Store keys come from each cache's StoreLayers — derived from the
             // same active profile its TryCreateJob reads (hot-switch pins the
             // target profile before warm), so keys always match built content.
@@ -115,7 +131,7 @@ namespace Doom.MapBuild.Rendering
             if (warmWorld && textures != null && textureNames != null && textureNames.Count > 0)
             {
                 yield return WarmWorld(
-                    textures, textureNames, frameBudgetMs, store, textures.StoreLayers,
+                    textures, textureNames, frameBudgetMs, store, disk, textures.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -127,7 +143,7 @@ namespace Doom.MapBuild.Rendering
             if (warmSprites && sprites != null)
             {
                 yield return WarmSprites(
-                    sprites, frameBudgetMs, store, sprites.StoreLayers,
+                    sprites, frameBudgetMs, store, disk, sprites.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -139,7 +155,7 @@ namespace Doom.MapBuild.Rendering
             if (warmHud && hud != null)
             {
                 yield return WarmHud(
-                    hud, frameBudgetMs, store, hud.StoreLayers,
+                    hud, frameBudgetMs, store, disk, hud.StoreLayers,
                     onItemDone: () =>
                     {
                         done++;
@@ -147,8 +163,11 @@ namespace Doom.MapBuild.Rendering
                     });
             }
 
+            disk?.ScheduleFlush();
+
             LastCompletedComputeJobs += LastJobsStarted;
             LastCompletedStoreHits += LastStoreHits;
+            LastCompletedDiskHits += LastDiskHits;
         }
 
         static EnhancedVariantStore BindStore(string wadIdentity)
@@ -167,11 +186,31 @@ namespace Doom.MapBuild.Rendering
             return store;
         }
 
+        static EnhancedDiskCache BindDisk(string wadPath)
+        {
+            if (!EnhancedDiskCache.Enabled)
+                return null;
+
+            string path = wadPath;
+            if (string.IsNullOrEmpty(path))
+                path = GameSessionHost.Instance != null
+                    ? GameSessionHost.Instance.WadPath
+                    : null;
+
+            if (string.IsNullOrEmpty(path))
+                return null;
+
+            var disk = EnhancedDiskCache.Instance;
+            disk.BindWad(path);
+            return disk;
+        }
+
         IEnumerator WarmWorld(
             TextureCache textures,
             ICollection<string> textureNames,
             float frameBudgetMs,
             EnhancedVariantStore store,
+            EnhancedDiskCache disk,
             EnhancedLayerConfig layers,
             Action onItemDone)
         {
@@ -190,11 +229,21 @@ namespace Doom.MapBuild.Rendering
                 if (textures.HasEnhancedAlbedo(name))
                     continue;
 
-                if (store != null
-                    && store.TryGet(EnhancedJobKind.WorldAlbedo, name, layers, out var storedAlbedo))
+                if (TryTakeCached(
+                        store, disk, EnhancedJobKind.WorldAlbedo, name, layers,
+                        out var cachedAlbedo, out bool fromDisk))
                 {
-                    textures.Integrate(name, storedAlbedo);
-                    LastStoreHits++;
+                    textures.Integrate(name, cachedAlbedo);
+                    if (fromDisk)
+                    {
+                        store?.Publish(EnhancedJobKind.WorldAlbedo, name, layers, cachedAlbedo);
+                        LastDiskHits++;
+                    }
+                    else
+                    {
+                        LastStoreHits++;
+                    }
+
                     continue;
                 }
 
@@ -208,7 +257,10 @@ namespace Doom.MapBuild.Rendering
                         {
                             textures.Integrate(captured, r);
                             if (r != null && r.Success)
+                            {
                                 store?.Publish(EnhancedJobKind.WorldAlbedo, captured, layers, r);
+                                disk?.Publish(EnhancedJobKind.WorldAlbedo, captured, layers, r);
+                            }
                         }));
                 }
                 else
@@ -232,11 +284,21 @@ namespace Doom.MapBuild.Rendering
                     continue;
                 }
 
-                if (store != null
-                    && store.TryGet(EnhancedJobKind.WorldNormal, name, layers, out var storedNormal))
+                if (TryTakeCached(
+                        store, disk, EnhancedJobKind.WorldNormal, name, layers,
+                        out var cachedNormal, out bool fromDisk))
                 {
-                    textures.Integrate(name, storedNormal);
-                    LastStoreHits++;
+                    textures.Integrate(name, cachedNormal);
+                    if (fromDisk)
+                    {
+                        store?.Publish(EnhancedJobKind.WorldNormal, name, layers, cachedNormal);
+                        LastDiskHits++;
+                    }
+                    else
+                    {
+                        LastStoreHits++;
+                    }
+
                     onItemDone?.Invoke();
                     continue;
                 }
@@ -251,7 +313,11 @@ namespace Doom.MapBuild.Rendering
                         {
                             textures.Integrate(captured, r);
                             if (r != null && r.Success)
+                            {
                                 store?.Publish(EnhancedJobKind.WorldNormal, captured, layers, r);
+                                disk?.Publish(EnhancedJobKind.WorldNormal, captured, layers, r);
+                            }
+
                             onItemDone?.Invoke();
                         }));
                 }
@@ -269,6 +335,7 @@ namespace Doom.MapBuild.Rendering
             SpriteCache sprites,
             float frameBudgetMs,
             EnhancedVariantStore store,
+            EnhancedDiskCache disk,
             EnhancedLayerConfig layers,
             Action onItemDone)
         {
@@ -284,11 +351,21 @@ namespace Doom.MapBuild.Rendering
                 }
 
                 string itemId = lump.ToString();
-                if (store != null
-                    && store.TryGet(EnhancedJobKind.Sprite, itemId, layers, out var stored))
+                if (TryTakeCached(
+                        store, disk, EnhancedJobKind.Sprite, itemId, layers,
+                        out var cached, out bool fromDisk))
                 {
-                    sprites.Integrate(lump, stored);
-                    LastStoreHits++;
+                    sprites.Integrate(lump, cached);
+                    if (fromDisk)
+                    {
+                        store?.Publish(EnhancedJobKind.Sprite, itemId, layers, cached);
+                        LastDiskHits++;
+                    }
+                    else
+                    {
+                        LastStoreHits++;
+                    }
+
                     onItemDone?.Invoke();
                     continue;
                 }
@@ -307,7 +384,11 @@ namespace Doom.MapBuild.Rendering
                     {
                         sprites.Integrate(captured, r);
                         if (r != null && r.Success)
+                        {
                             store?.Publish(EnhancedJobKind.Sprite, itemId, layers, r);
+                            disk?.Publish(EnhancedJobKind.Sprite, itemId, layers, r);
+                        }
+
                         onItemDone?.Invoke();
                     }));
             }
@@ -319,6 +400,7 @@ namespace Doom.MapBuild.Rendering
             HudTextureCache hud,
             float frameBudgetMs,
             EnhancedVariantStore store,
+            EnhancedDiskCache disk,
             EnhancedLayerConfig layers,
             Action onItemDone)
         {
@@ -336,11 +418,21 @@ namespace Doom.MapBuild.Rendering
                     continue;
                 }
 
-                if (store != null
-                    && store.TryGet(EnhancedJobKind.Hud, name, layers, out var stored))
+                if (TryTakeCached(
+                        store, disk, EnhancedJobKind.Hud, name, layers,
+                        out var cached, out bool fromDisk))
                 {
-                    hud.Integrate(name, stored);
-                    LastStoreHits++;
+                    hud.Integrate(name, cached);
+                    if (fromDisk)
+                    {
+                        store?.Publish(EnhancedJobKind.Hud, name, layers, cached);
+                        LastDiskHits++;
+                    }
+                    else
+                    {
+                        LastStoreHits++;
+                    }
+
                     onItemDone?.Invoke();
                     continue;
                 }
@@ -359,12 +451,40 @@ namespace Doom.MapBuild.Rendering
                     {
                         hud.Integrate(captured, r);
                         if (r != null && r.Success)
+                        {
                             store?.Publish(EnhancedJobKind.Hud, captured, layers, r);
+                            disk?.Publish(EnhancedJobKind.Hud, captured, layers, r);
+                        }
+
                         onItemDone?.Invoke();
                     }));
             }
 
             yield return RunJobs(items, frameBudgetMs);
+        }
+
+        static bool TryTakeCached(
+            EnhancedVariantStore store,
+            EnhancedDiskCache disk,
+            EnhancedJobKind kind,
+            string itemId,
+            EnhancedLayerConfig layers,
+            out EnhancedJobResult result,
+            out bool fromDisk)
+        {
+            result = null;
+            fromDisk = false;
+
+            if (store != null && store.TryGet(kind, itemId, layers, out result))
+                return true;
+
+            if (disk != null && disk.TryGet(kind, itemId, layers, out result))
+            {
+                fromDisk = true;
+                return true;
+            }
+
+            return false;
         }
 
         IEnumerator RunJobs(List<JobItem> items, float frameBudgetMs)

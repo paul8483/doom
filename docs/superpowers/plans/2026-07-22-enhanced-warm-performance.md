@@ -17,20 +17,11 @@ job→result без Unity; кэши получают split `TryCreateJob`/`Integ
 `GraphicsModeController` (дублирующиеся warm-циклы удаляются).
 Спека: `docs/superpowers/specs/2026-07-22-enhanced-warm-performance-design.md`.
 
-**Статус:** Task 3 done (`EnhancedVariantStore`; E1M1 reload **0** compute /
-**889** store hits; store CPU **~375 MB**; E1M1→E1M2 compute **252** vs cold
-**805**, hits **692**; PlayMode Task3 filter **31/31**, EditMode store+Graphics
-**136**). **Review-фиксы 2026-07-23** (до Task 4): (1) MapLoader привязывает
-WAD identity до warm-фаз — холодный старт в Enhanced публикует первую карту в
-store (PlayMode `Fresh_session_enhanced_load_publishes_during_build_warm`);
-(2) ключи store выводятся из активного профиля кэша (per-cache `StoreLayers`;
-HUD учитывает пин при `IsApplying`), EditMode
-`Lazy_build_publishes_under_active_profile_layers`; (3) scheduler: worker ловит
-все исключения, integrate-цикл не зависает на faulted worker, MapLoader
-диспоузит warm в OnDestroy. EditMode **137**, PlayMode фильтр **31/32**
-(единственный фейл — pre-existing `Hot_switch` +1 материал; изолированно
-lifetime **5/5**×2). Интерактивно подтверждена быстрая загрузка в standalone
-(`Logs/warmperf-build.log`). Next: Task 4 disk pack-cache.
+**Статус:** Task 4 done (`EnhancedCacheCodec` + `EnhancedDiskCache`; scheduler
+store→disk→compute; E1M1 cold disk warm **~2.8–3.7 с** / pack **367 MB** /
+diskHits **805** / residual compute **29**; isolated cold pack upload-only
+**0** compute; EditMode codec+disk **10** + Graphics **139**; PlayMode disk
+**4/4**, Task4 regress **35/35**). Next: Task 5 full suites / build / close.
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).
@@ -240,13 +231,13 @@ EditMode store+Graphics **136** (`Logs/warmperf-t3-edit.xml`).
 - Modify: scheduler (store → disk → compute; фоновая запись)
 - Create/Modify: PlayMode тесты диска
 
-- [ ] **Step 1: Failing codec tests (EditMode, pure).**
+- [x] **Step 1: Failing codec tests (EditMode, pure).**
 
 Roundtrip заголовка/индекса/блобов; обрезанный файл, битый magic,
 чужой wadHash, чужой pipelineVersion → промах без исключений; запись
 temp+rename атомарна (симуляция прерывания — старый файл цел).
 
-- [ ] **Step 2: Реализовать codec + disk cache.**
+- [x] **Step 2: Реализовать codec + disk cache.**
 
 Один pack-файл `EnhancedCache/<wadHash>-v<N>.bin` в
 `persistentDataPath` (в тестах — временная директория через seam).
@@ -254,17 +245,25 @@ SHA-256 WAD один раз на сессию. Чтение фоновым по�
 инкрементальная фоновая запись новых результатов; ошибки диска — лог,
 не фатально.
 
-- [ ] **Step 3: Failing PlayMode tests.**
+- [x] **Step 3: Failing PlayMode tests.**
 
 - «холодный процесс» (store очищен) с pack-файлом → 0 compute-jobs;
 - несовпадение версии → полный пересчёт + перезапись файла;
 - повреждённый файл → пересчёт без ошибок игрока.
 
-- [ ] **Step 4: Замерить.**
+- [x] **Step 4: Замерить.**
 
 Старт с диска до конца warm (гейт ≤ ~5 с); размер pack-файла записать.
+E1M1 cold disk: **2.81–3.65 с** (PASS), pack **367.0 MB**, diskHits **805**,
+residual compute **29** (diskHits dominate; isolated small-set cold = 0 compute).
+Notes: `Logs/enhanced-texture-quality-baseline-notes.md` (Warm-perf Task 4).
 
-- [ ] **Step 5: Запустить suites** (Task 2 набор + codec).
+- [x] **Step 5: Запустить suites** (Task 2 набор + codec).
+
+EditMode codec+disk **10/10** (`Logs/warmperf-t4-edit.xml`); Graphics+disk
+**139/139** (`Logs/warmperf-t4-graphics-edit.xml`); PlayMode disk **4/4**
+(`Logs/warmperf-t4-disk-play.xml`); Task4 regress **35/35**
+(`Logs/warmperf-t4-regress-play.xml`).
 
 **Commit checkpoint:** `rendering: wad-hash disk cache for enhanced variants`
 
@@ -325,8 +324,9 @@ Task 5 suites/build/docs
 - [x] Первая Enhanced-загрузка ≤ 15 с (8C/16T), числа записаны — Task 2.
 - [x] Повторная загрузка той же карты в Enhanced: 0 compute-jobs (Task 3);
       переход уровня переиспользует store (только уникальные items).
-- [ ] Холодный старт с pack-файлом ≤ ~5 с; повреждение/версия
-      обрабатываются молча.
+- [x] Холодный старт с pack-файлом ≤ ~5 с; повреждение/версия
+      обрабатываются молча. (E1M1 cold **~2.8–3.7 с**; residual compute **29**
+      на полном map warm — diskHits **805** доминируют; isolated set = 0.)
 - [ ] Hot-switch, lifetime, upscale, E1 smoke сьюты зелёные; полные
       EditMode/PlayMode прогоны с новыми XML; Windows build.
 - [ ] Baseline notes: до/после по всем гейтам; spec/plan/CLAUDE.md

@@ -22,6 +22,9 @@ namespace Doom.MapBuild
         /// Stable WAD identity (length + content sample hash). Computed once per session.
         public string WadIdentity { get; private set; }
 
+        /// Absolute WAD path from the last <see cref="EnsureWadIdentity"/> (disk cache).
+        public string WadPath { get; private set; }
+
         /// Full-world save waiting to be applied after the next map Build.
         public SaveGame PendingRestore { get; private set; }
 
@@ -68,6 +71,8 @@ namespace Doom.MapBuild
         /// Computes and stores WAD identity if missing. Safe to call every Build.
         public void EnsureWadIdentity(string wadPath)
         {
+            if (!string.IsNullOrEmpty(wadPath))
+                WadPath = wadPath;
             if (string.IsNullOrEmpty(WadIdentity))
                 WadIdentity = ComputeWadIdentity(wadPath);
             // Re-bind every Build so a test Reset of the store still resolves.
@@ -132,6 +137,7 @@ namespace Doom.MapBuild
             Time.timeScale = 1f;
             EnhancedWarmScheduler.ResetCompletedStats();
             EnhancedVariantStore.ResetForTests();
+            EnhancedDiskCache.ResetForTests();
             if (Instance != null)
             {
                 var go = Instance.gameObject;
