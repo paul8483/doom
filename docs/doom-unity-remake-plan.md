@@ -218,6 +218,23 @@ albedo на типичных Freedoom E1 текстурах (ортогонал�
 `docs/superpowers/plans/2026-07-12-enhanced-texture-upscaling.md`  
 **Notes:** `Logs/enhanced-texture-upscale-baseline-notes.md`
 
+### Пост-Stage 8: Enhanced Texture Quality (Super-xBR 4×) ✅
+
+Ветка `texquality` (2026-07-21 → 2026-07-24): pattern-gated dedither →
+MIT Super-xBR 4× world + sprites/weapon/HUD (+Sharpen 0.5) → texel-AA →
+multi-scale normals + POM; warm-perf parallel/store/disk (cold ~2.8–3.7 s).
+
+**Интерактивный вывод:** **успех** — воспринимаемое качество Enhanced вблизи
+заметно выше Scale2x. Automation: **601 EditMode + 144 PlayMode**, Windows
+build OK (~128 MB). Ограничения: menus/intermission native; Freedoom
+dedither ≈ no-op; POM только solid opaque; нейроапскейл отложен.
+
+**Дизайн/план:**
+`docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`,
+`docs/superpowers/plans/2026-07-21-enhanced-texture-quality.md`  
+(+ warm-perf `2026-07-22-enhanced-warm-performance`)  
+**Notes:** `Logs/enhanced-texture-quality-baseline-notes.md`
+
 ---
 
 ## Этап 9. E1 compatibility polish 🚧

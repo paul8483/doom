@@ -22,8 +22,8 @@ Enhanced warm ~85 с → **~14 с** (compute) / **~2.8–3.7 с** (холодн�
 старт с диском) / **0 compute** на переходах уровней (session store).
 Полные сьюты на закрытии: EditMode **601/601**, PlayMode **144/144**
 (полный PlayMode зелёный впервые с texquality Task 1). Windows build
-OK. Интерактивные standalone-замеры совместить с texquality Task 10
-sign-off.
+OK. Интерактивный visual sign-off texquality Task 10 закрыт 2026-07-24
+(вердикт: успех).
 
 **Ветка:** `texquality` (продолжение итерации; выполняется до её
 Task 10 sign-off).

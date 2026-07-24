@@ -899,3 +899,44 @@ Date: 2026-07-24 00:45
 | HUD Enhanced bytes | 2,8 MB |
 | Managed (GC.GetTotalMemory) | 1028,3 MB |
 | Mitigation ladder | none applied |
+
+## Task 10 close — visual gate SUCCESS (2026-07-24)
+
+**Verdict: SUCCESS.** User interactive sign-off: graphics improved; iteration closed.
+
+### Automation evidence (reused from warm-perf Task 5, 2026-07-24)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| Full EditMode | **601/601** | First full green after Task 1 contracts growth |
+| Full PlayMode | **144/144** | First full PlayMode green since Task 1 baseline 103/111 |
+| Windows standalone | OK ~128 MB | Missing shaders / editor-only deps not observed |
+| E1 smoke Classic+Enhanced | covered by `E1MapSmokePlayTests` in full PlayMode | |
+
+### Warm performance (accepted for sign-off)
+
+| Path | E1M1 |
+|------|------|
+| Compute warm (parallel scheduler) | ~14 s (Task 2 gate ≤15 s PASS) |
+| Cold disk pack warm | ~2.8–3.7 s (Task 4 gate ≤~5 s PASS), pack ~367 MB |
+| Same-map reload / level transition store | 0 compute when session hit |
+
+### Layer contribution summary
+
+| Layer | Verdict on Freedoom E1 |
+|-------|------------------------|
+| Dedither (pattern-gate) | ≈ no-op (0.00–0.02% px); keep for retail DOOM.WAD |
+| Super-xBR 4× world | Primary visible win vs Scale2x reject |
+| Sprites / weapon / HUD 4× + Sharpen 0.5 | Removes mixed-resolution feel after world upgrade |
+| Texel-AA | Accepted part of Enhanced close-up sampling |
+| Normals + POM (solid opaque) | Accepted depth layer; no reject on seams/edges |
+| Warm-perf stack | Required for usable Enhanced loads |
+
+### Limits carried forward
+
+- Menus / intermission / title stay native
+- Texel-AA + POM are world-material concerns (POM solid opaque only)
+- Neural upscale (ESRGAN/Sentis) still deferred
+- Mitigation ladder unused (memory acceptable on Arc A750 class)
+
+Iteration closed. Next roadmap item remains Stage 9 E1 compatibility polish (separate).

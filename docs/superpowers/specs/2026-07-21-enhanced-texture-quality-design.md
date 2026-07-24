@@ -1,9 +1,9 @@
 # Enhanced Texture Quality — дизайн
 
 **Дата:** 2026-07-21
-**Статус:** in progress — Task 9 done (ownership, yielded Classic→Enhanced
-warm, E1M1/E1M7 metrics, lifetime 5/5). Next: Task 10 (E1 / build / visual
-sign-off)
+**Статус:** ✅ закрыт 2026-07-24 — Tasks 1–10 + warm-perf `2026-07-22`.
+Visual gate: **успех** (графика улучшилась). Suites: EditMode **601/601**,
+PlayMode **144/144**; Windows build OK; cold disk warm ~2.8–3.7 s.
 **Предыдущий этап:** Enhanced Texture Upscaling (Scale2x 2×) — automation
 green, interactive reject 2026-07-12; controlled palette-aware mipmaps
 влиты в `main`.

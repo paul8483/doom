@@ -202,7 +202,7 @@ worker pool: EnhancedJobRunner (чистый CPU)
 3. Hot-switch/ownership/fallback инварианты texquality не нарушены;
    полные сьюты + Windows build зелёные.
 4. Замеры до/после записаны в baseline notes; texquality Task 10
-   (sign-off) проводится уже с новым прогревом.
+   (sign-off) закрыт 2026-07-24 с вердиктом **успех**.
 
 ## Связанные документы
 

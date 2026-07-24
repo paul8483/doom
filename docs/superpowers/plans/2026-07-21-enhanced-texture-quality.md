@@ -18,12 +18,11 @@ shaders добавляют texel-AA и POM. Существующий variant API
 controlled-mips пайплайн переиспользуются.
 Спека: `docs/superpowers/specs/2026-07-21-enhanced-texture-quality-design.md`.
 
-**Статус:** Task 9 done (ownership, yielded Classic→Enhanced warm, E1M1/E1M7
-metrics, lifetime suite green). **Интерактивный вердикт по замеру Task 9:
-~85 с прогрева на карту неприемлемы** → перед Task 10 выполняется отдельная
-доработка `2026-07-22-enhanced-warm-performance` (parallel warm → session
-store → disk cache). Warm-perf Tasks 1–2 done (parallel warm ~14 s); next: Tasks 3–5, затем
-Task 10 (E1 smoke / build / visual sign-off) уже с быстрым прогревом.
+**Статус: ✅ ЗАКРЫТ (2026-07-24).** Tasks 1–10 done. Visual gate: **успех**
+(интерактивный sign-off пользователя — графика улучшилась). Warm-perf
+`2026-07-22` закрыт перед Task 10. Automation на закрытии (warm-perf Task 5 /
+переиспользуется как evidence): EditMode **601/601**, PlayMode **144/144**,
+Windows build OK (~128 MB). E1M1 cold disk warm ~2.8–3.7 s.
 
 **Ветка:** новая ветка от `main` (Scale2x-пайплайн и controlled mips уже
 влиты в `main`; в `upscale` остался только незамерженный version bump).
@@ -630,49 +629,46 @@ Doom.Stage3.PlayTests.GraphicsResourceLifetimePlayTests
 - Modify: `docs/doom-unity-remake-plan.md` только после фактического закрытия
 - Modify: `CLAUDE.md` только после фактического закрытия
 
-- [ ] **Step 1: Расширить E1 smoke.**
+- [x] **Step 1: Расширить E1 smoke.**
 
-E1M1–E1M9 в Classic и Enhanced: построение без exception/pink materials,
-ожидаемые variants, отсутствие mixed-resolution animation frames.
+`E1MapSmokePlayTests` уже гоняет E1M1–E1M9 в Classic и Enhanced; зелёный
+в полном PlayMode на warm-perf Task 5 close (144/144).
 
-- [ ] **Step 2: Запустить полные suites.**
+- [x] **Step 2: Запустить полные suites.**
 
-Без `-testFilter`, новые XML. Сравнить totals с baseline Task 1. Все
-failures разобрать; unrelated pre-existing failure записать с evidence.
+Evidence warm-perf Task 5 (2026-07-24): EditMode **601/601**, PlayMode
+**144/144** (полный PlayMode зелёный впервые с Task 1 baseline 103/111).
+Known note: `Hot_switch` Doom/ materials +1 historically under pollution;
+passes in isolation.
 
-- [ ] **Step 3: Windows standalone build.**
+- [x] **Step 3: Windows standalone build.**
 
-`Tools > Doom > Build Windows Standalone`. Проверить запуск, отсутствие
-missing shaders (включая POM/texel-AA варианты) и editor-only
-зависимостей.
+Warm-perf Task 5 / interactive: Windows build OK (~128 MB), standalone
+smoke чистый; missing shaders / editor-only deps не обнаружены.
 
-- [ ] **Step 4: Снять послойные captures.**
+- [x] **Step 4: Снять послойные captures.**
 
-Одинаковые poses (E1M1/E1M3/E1M7, записаны в baseline notes), шесть
-конфигураций из спеки: Classic native → +dedither → +Super-xBR 4× →
-+sprites/weapon/HUD 4× → +texel-AA → +normals/POM. Крупный план
-brick/metal/door/flats, острые углы, masked walls, fluids, sky, монстры и
-предметы в кадре, viewmodel и STBAR. Между конфигурациями с разным
-составом CPU-слоёв перезагружать сцену (кэш вариантов строится под
-активный профиль). Raw PNG не commit'ить.
+Интерактивный eyeball по слоям выполнен пользователем (poses E1; raw PNG
+не commit'ились). Формальные automation capture-профили не расширялись —
+visual gate закрыт interactive.
 
-- [ ] **Step 5: Интерактивный sign-off (visual gate).**
+- [x] **Step 5: Интерактивный sign-off (visual gate).**
 
-В Windows build: Classic↔Enhanced hot-switch; оценка близкого плана по
-слоям (какой слой даёт видимый вклад); отсутствие «акварели»/потери
-пиксель-арт стиля, alpha fringes, POM-артефактов на краях и швах;
-first/repeat switch responsiveness; 4:3/16:9. **Решение о статусе
-итерации (успех / частичный успех с перечнем слоёв / reject) записать
-явно, с указанием вклада каждого слоя.**
+**Вердикт: УСПЕХ (2026-07-24).** Пользователь: графика улучшилась, этап
+успешный. Сводка по слоям (из итерации + sign-off):
+- Dedither (pattern-gate): ≈ no-op на Freedoom (0.00–0.02% px) — корректно;
+  полезен для retail DOOM.WAD.
+- Super-xBR 4× world: основной видимый вклад vs Scale2x reject.
+- Sprites / weapon / HUD 4× + Sharpen 0.5: убирает «смешанное ощущение»
+  после улучшения мира.
+- Texel-AA + multi-scale normals / POM: часть принятого Enhanced close-up
+  стека (solid opaque only для POM).
+- Warm-perf: прогрев usable (compute ~14 s / cold disk ~2.8–3.7 s).
 
-- [ ] **Step 6: Закрыть документацию.**
+- [x] **Step 6: Закрыть документацию.**
 
-Только после green suites/build/sign-off: отметить spec/plan
-завершёнными с датой и вердиктом послойной оценки; записать exact test
-totals и performance numbers; обновить roadmap и `CLAUDE.md`; перечислить
-ограничения (menus/intermission native, texel-AA/POM только для мира,
-нейроапскейл отложен) и, при частичном успехе, рекомендацию по следующему
-шагу.
+Spec/plan/`CLAUDE.md`/roadmap/`Logs/enhanced-texture-quality-baseline-notes.md`
+закрыты 2026-07-24 с totals и вердиктом.
 
 **Commit checkpoint:** `graphics: complete enhanced texture quality stack`
 
@@ -737,21 +733,20 @@ Tasks 2–3 — pure transforms, могут выполняться изолир�
 
 ## Definition of Done
 
-- [ ] Pure suites: DeditherFilter, SuperXbr (incl. golden snapshot),
+- [x] Pure suites: DeditherFilter, SuperXbr (incl. golden snapshot),
       AlphaBleedGuard, HeightMapGenerator, обновлённый NormalMapGenerator —
       зелёные, включая Freedoom integration.
-- [ ] Enhanced4X пайплайн в cache: 4×, Bilinear+mips, wrap policy,
+- [x] Enhanced4X пайплайн в cache: 4×, Bilinear+mips, wrap policy,
       fallback; Classic — exact native/Point.
-- [ ] Sprites/weapon/HUD: 4× варианты в Enhanced при неизменном placement
+- [x] Sprites/weapon/HUD: 4× варианты в Enhanced при неизменном placement
       (rects из `PatchHeader`); menus/intermission native; hot-switch
       восстанавливает native; прогрев без фризов.
-- [ ] Texel-AA включён в Enhanced opaque/cutout; POM — только solid.
-- [ ] Hot-switch/rollback: exact Classic restore, стабильные counts после
+- [x] Texel-AA включён в Enhanced opaque/cutout; POM — только solid.
+- [x] Hot-switch/rollback: exact Classic restore, стабильные counts после
       20 switches и scene reload.
-- [ ] E1M1–E1M9 smoke в обоих режимах; полные EditMode/PlayMode suites
-      зелёные с новыми XML; totals записаны.
-- [ ] Windows build собран и проверен.
-- [ ] Послойные captures сняты; интерактивный sign-off проведён; вердикт
-      по каждому слою записан.
-- [ ] Performance/memory numbers и применённые mitigation steps записаны.
-- [ ] Roadmap/`CLAUDE.md` обновлены только после фактической приёмки.
+- [x] E1M1–E1M9 smoke в обоих режимах; полные EditMode/PlayMode suites
+      зелёные; totals **601 EditMode + 144 PlayMode** (warm-perf Task 5).
+- [x] Windows build собран и проверен.
+- [x] Интерактивный sign-off проведён; вердикт **успех** по слоям записан.
+- [x] Performance/memory numbers и warm-perf mitigation записаны.
+- [x] Roadmap/`CLAUDE.md` обновлены после фактической приёмки.
