@@ -82,6 +82,9 @@ ehthumbs.db
 Desktop.ini
 .DS_Store
 
+# Unity Editor auto-generated (not project source)
+/ProjectSettings/SceneTemplateSettings.json
+
 # ============================================================
 # Notes for this project
 # ============================================================
