@@ -117,7 +117,7 @@ Useful CLI invocations:
 
 **Test CLI gotcha:** `-runTests` controls its own exit; do NOT add `-quit` with it (Unity exits before the runner starts). Per-test PASS/FAIL only lands in the `-testResults` XML, not the editor log. Use `-quit` only with `-executeMethod` or pure-compile runs.
 
-The current test suite is **413 EditMode + 67 PlayMode** tests (Stage 7 close, 2026-07-12). Historical breakdown below remains useful for archaeology; totals grew with 7a–7e, rockets/chainsaw/plasma-BFG, and E1 smoke/specials:
+The current test suite is **601 EditMode + 144 PlayMode** tests (Enhanced Texture Quality close, 2026-07-24). Historical breakdown below remains useful for archaeology; totals grew with 7a–7e, rockets/chainsaw/plasma-BFG, E1 smoke/specials, Stage 8, upscale, texquality, and warm-perf:
 - 30 from Stage 1 (WAD reader): 4 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticWadBuilder`-built blobs.
 - 32 from Stage 2 (Map pipeline): 5 integration tests against `freedoom1.wad`, the rest unit tests on `SyntheticMapBuilder`-built lumps.
 - 9 from Stage 3 EditMode (Player): THINGS parsing (+2), THINGS as required lump in Load (+2), worldScale plumbing (+4), Freedoom Player-1-start integration (+1), plus 1 PlayMode test asserting the player lands on E1M1's floor.
