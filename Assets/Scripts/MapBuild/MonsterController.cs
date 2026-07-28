@@ -228,12 +228,22 @@ namespace Doom.MapBuild
             return names[i];
         }
 
+        // Keeps death-drop and corpse billboards off the same plane (z-fighting).
+        const float DeathDropOffsetDoom = 12f;
+
         void SpawnDeathDrop()
         {
             if (dropSpawned) return;
             dropSpawned = true;
             if (!DeathDropTable.TryGet(doomEdNum, out int dropNum)) return;
-            PickupFactory.Spawn(cache, worldScale, dropNum, transform.position, transform.parent);
+
+            Vector3 facing = bb != null ? bb.FacingDirection : transform.forward;
+            facing.y = 0f;
+            if (facing.sqrMagnitude < 1e-6f) facing = Vector3.forward;
+            else facing.Normalize();
+            Vector3 dropPos = transform.position + facing * (DeathDropOffsetDoom * worldScale);
+
+            PickupFactory.Spawn(cache, worldScale, dropNum, dropPos, transform.parent);
         }
 
         Vector3 EyePos() => transform.position + Vector3.up * (heightM * 0.75f);
