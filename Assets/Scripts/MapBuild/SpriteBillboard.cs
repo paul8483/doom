@@ -27,8 +27,10 @@ namespace Doom.MapBuild
         readonly Vector3[] quadVerts = new Vector3[4];
         bool lockRotation;
         int emissionLightHandle = -1;
+        float emissionStrength;
 
         bool spectre;
+        bool poseInterpolationEnabled;
         bool poseSeeded;
         Vector3 prevPos;
         Vector3 currPos;
@@ -84,12 +86,22 @@ namespace Doom.MapBuild
         /// Sticky Enhanced decoration light handle; released on destroy.
         public void BindEmissionLight(int handle) => emissionLightHandle = handle;
 
+        /// Per-instance Enhanced emission. Kept in a property block because sprite
+        /// materials are cached and shared by every billboard using the same lump.
+        public void SetEmission(float strength) =>
+            emissionStrength = Mathf.Clamp(strength, 0f, 2f);
+
         public void SetSpectre(bool value) => spectre = value;
         public bool IsSpectre => spectre;
 
         /// Called from MonsterController after gameplay pose updates (35 Hz).
         public void NotifyGameplayPose(Vector3 pos, float doomAngleDegrees)
         {
+            // Pose interpolation is opt-in. Projectiles and transient effects move
+            // their transforms every render frame and never call this method; using
+            // their Init pose would visually pin them to the spawn point in Enhanced.
+            poseInterpolationEnabled = true;
+
             if (!poseSeeded)
             {
                 prevPos = currPos = pos;
@@ -169,7 +181,9 @@ namespace Doom.MapBuild
             }
 
             var profile = ActiveProfile();
-            bool interp = profile.Mode == GraphicsMode.Enhanced && profile.LitSprites;
+            bool interp = poseInterpolationEnabled &&
+                          profile.Mode == GraphicsMode.Enhanced &&
+                          profile.LitSprites;
             poseAlpha = Mathf.Clamp01(poseAlpha + Time.deltaTime * PoseInterpRate);
 
             float renderAngle = doomAngleDeg;
@@ -226,6 +240,9 @@ namespace Doom.MapBuild
                 ? DoomMaterialFactory.SoftFloorFadeAmount : 0f;
             if (mat.HasProperty(DoomMaterialFactory.SoftFloorFadeProperty))
                 mpb.SetFloat(DoomMaterialFactory.SoftFloorFadeProperty, soft);
+
+            if (mat.HasProperty(DoomMaterialFactory.EmissionProperty))
+                mpb.SetFloat(DoomMaterialFactory.EmissionProperty, emissionStrength);
 
             float cross = 0f;
             if (crossFadeLeft > 0f && crossPrevTex != null &&

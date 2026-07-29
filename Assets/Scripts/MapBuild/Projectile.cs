@@ -63,6 +63,10 @@ namespace Doom.MapBuild
             bb.Init(cache, def.MissileSprite, def.MissileFlyFrames[0], worldScale,
                     doomAngleDeg: 0f, spawnCeiling: false, ceilingY: 0f);
             bb.SetStaticFrame(def.MissileFlyFrames[0]);
+            // Monster missiles are full-bright sprites in DOOM. In Enhanced the
+            // shared lit-sprite material needs a per-instance emissive override;
+            // otherwise a fireball can shade down to near-black.
+            bb.SetEmission(1f);
 
             var p = go.AddComponent<Projectile>();
             p.cache = cache; p.def = def; p.worldScale = worldScale; p.rng = rng;
