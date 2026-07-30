@@ -18,8 +18,12 @@ store/disk различают состав через `EnhancedLayerConfig` +
 `EnhancedPipelineVersion` bump.
 Спека: `docs/superpowers/specs/2026-07-30-neural-sprite-upscale-design.md`.
 
-**Статус:** ❌ stopped — Gate 0 FAIL (2026-07-30). Tasks 2–6 не выполняются.
-Runtime не менялся.
+**Статус:** ❌ stopped — Real-ESRGAN Gate 0 FAIL и follow-up MMPX 4×
+Gate 0 FAIL (2026-07-30). Tasks 2–6 не выполняются. MMPX изменил лишь
+0,43–1,98% пикселей четырёх сравнений при средней разнице канала менее
+0,4/255 и визуально неотличим от Classic nearest. Runtime должен
+остаться на Super-xBR 4× + Sharpen; незакоммиченный MMPX-прототип
+требует отдельного решения об откате.
 
 **Ветка:** `esrgan` (от `main` после вливания `texquality`;
 проверить фактическое состояние веток перед стартом).
