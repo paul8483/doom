@@ -77,7 +77,7 @@ namespace Doom.MapBuild
         {
             float left = sx - leftOffset;
             float top = sy - topOffset;
-            return ToScreen(t, left, top, width, height);
+            return ToScreenSnapped(t, left, top, width, height);
         }
     }
 }

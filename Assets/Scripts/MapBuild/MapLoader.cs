@@ -173,10 +173,19 @@ namespace Doom.MapBuild
                         flow.EnsureLoadingShown(pendingMap);
                     }
 
+                    // Pin saved GraphicsMode before Build while WorldRenderContext is
+                    // still null: Apply then only sets controller/factory profile
+                    // (no warm). BuildRoutine keys world/sprite/HUD Enhanced warm off
+                    // gfx.Current — applying after Build left first Enhanced boots on
+                    // Classic natives, then raced an async warm against NotifyLevelReady.
+                    var settings = SettingsController.Ensure();
+                    settings.ApplyLoadedSettings();
+
                     yield return BuildRoutine(flow);
                     if (!StillValid(flow)) yield break;
 
-                    var settings = SettingsController.Ensure();
+                    // Re-apply volumes / look / display now that Sound/Music/Player exist;
+                    // Enhanced warm is already complete when settings requested it.
                     settings.ApplyLoadedSettings();
                     Music?.EnsurePlayback();
                     flow.NotifyLevelReady();

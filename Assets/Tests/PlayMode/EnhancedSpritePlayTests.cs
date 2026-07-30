@@ -11,6 +11,19 @@ namespace Doom.Stage3.PlayTests
 {
     public class EnhancedSpritePlayTests
     {
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                var loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+                yield return new WaitForSecondsRealtime(0.01f);
+            }
+            Assert.Fail("MapLoader build did not finish");
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -26,7 +39,9 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return null;
+            yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
             yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
@@ -68,7 +83,9 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return null;
+            yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
             gfx.Apply(GraphicsMode.Classic);

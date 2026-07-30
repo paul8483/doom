@@ -13,6 +13,19 @@ namespace Doom.Stage3.PlayTests
 {
     public class EnhancedPostPlayTests
     {
+        static IEnumerator WaitForMapBuild(float timeoutSeconds = 180f)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                var loader = Object.FindFirstObjectByType<MapLoader>();
+                if (loader != null && loader.LastBuildSeconds > 0f)
+                    yield break;
+                yield return new WaitForSecondsRealtime(0.01f);
+            }
+            Assert.Fail("MapLoader build did not finish");
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -20,6 +33,12 @@ namespace Doom.Stage3.PlayTests
             LogAssert.ignoreFailingMessages = false;
             MapLoader.MapNameOverride = null;
             RenderSettings.fog = false;
+            var gfx = GraphicsModeController.Instance;
+            if (gfx != null)
+            {
+                gfx.SetCapabilities(GraphicsCapabilityPolicy.Probe());
+                gfx.Apply(GraphicsMode.Classic);
+            }
         }
 
         [UnityTest]
@@ -29,7 +48,9 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return null;
+            yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
             Assert.IsNotNull(gfx.Context?.CameraRenderer);
@@ -70,9 +91,15 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return null;
+            yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
+            // Full-suite order may leave the persistent controller Enhanced.
+            // Force a real Classic→Enhanced apply so new capability gates bind.
+            gfx.Apply(GraphicsMode.Classic);
+            yield return null;
             gfx.SetCapabilities(new GraphicsCapabilityReport(
                 msaa: false, renderScale: false, fsr: false));
             yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);
@@ -95,7 +122,9 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
-            for (int i = 0; i < 90; i++) yield return null;
+            yield return null;
+            yield return null;
+            yield return WaitForMapBuild();
 
             var gfx = GraphicsModeController.Ensure();
             Assert.IsNotNull(gfx.EnhancedVolumeProfile);

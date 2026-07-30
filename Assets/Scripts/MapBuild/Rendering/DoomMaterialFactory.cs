@@ -26,6 +26,7 @@ namespace Doom.MapBuild.Rendering
         public const string CrossTexProperty = "_CrossTex";
         /// Fat-pixel texel-AA sampling in Enhanced world shaders (opaque/cutout).
         public const string TexelAaKeyword = "DOOM_TEXEL_AA";
+        public const string SpriteTexelAaKeyword = "DOOM_SPRITE_TEXEL_AA";
         /// Parallax occlusion from height in _BumpMap.a (solid opaque only).
         public const string ParallaxKeyword = "DOOM_PARALLAX";
         public const string ParallaxAmplitudeProperty = "_ParallaxAmplitude";
@@ -157,6 +158,11 @@ namespace Doom.MapBuild.Rendering
 
         void ConfigureSpriteSurface(Material material)
         {
+            if (active.Mode == GraphicsMode.Enhanced && active.LitSprites)
+                material.EnableKeyword(SpriteTexelAaKeyword);
+            else
+                material.DisableKeyword(SpriteTexelAaKeyword);
+
             if (material.HasProperty(CutoffProperty))
                 material.SetFloat(CutoffProperty, 0.5f);
 

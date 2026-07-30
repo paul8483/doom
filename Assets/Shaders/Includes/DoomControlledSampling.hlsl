@@ -54,6 +54,36 @@ half4 DoomSampleTexelAA(
     return lerp(closeSample, distantSample, distantWeight);
 }
 
+// Point-sampler-compatible texel AA for sprites. Four explicit texel-center
+// taps blend only in an fwidth-sized band around the nearest-texel boundary;
+// interiors remain exact source colors. This avoids changing the Texture2D
+// filter mode shared with the IMGUI weapon view.
+half4 DoomSamplePointTexelAA(
+    TEXTURE2D_PARAM(textureName, samplerName),
+    float2 uv,
+    float4 texelSize)
+{
+    float2 texelPosition = uv * texelSize.zw - 0.5;
+    float2 baseTexel = floor(texelPosition);
+    float2 within = frac(texelPosition);
+    float2 halfWidth = clamp(fwidth(texelPosition) * 0.5, 1e-5, 0.5);
+    float2 blend = smoothstep(0.5 - halfWidth, 0.5 + halfWidth, within);
+
+    float2 uv00 = (baseTexel + float2(0.5, 0.5)) * texelSize.xy;
+    float2 uv10 = (baseTexel + float2(1.5, 0.5)) * texelSize.xy;
+    float2 uv01 = (baseTexel + float2(0.5, 1.5)) * texelSize.xy;
+    float2 uv11 = (baseTexel + float2(1.5, 1.5)) * texelSize.xy;
+    half4 top = lerp(
+        SAMPLE_TEXTURE2D_LOD(textureName, samplerName, uv00, 0.0),
+        SAMPLE_TEXTURE2D_LOD(textureName, samplerName, uv10, 0.0),
+        blend.x);
+    half4 bottom = lerp(
+        SAMPLE_TEXTURE2D_LOD(textureName, samplerName, uv01, 0.0),
+        SAMPLE_TEXTURE2D_LOD(textureName, samplerName, uv11, 0.0),
+        blend.x);
+    return lerp(top, bottom, blend.y);
+}
+
 // Albedo path for Enhanced world shaders. Keyword is toggled from
 // DoomMaterialFactory from GraphicsProfile.WorldTexelAA.
 half4 DoomSampleAlbedo(

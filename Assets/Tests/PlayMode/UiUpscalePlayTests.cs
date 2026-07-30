@@ -158,6 +158,10 @@ namespace Doom.Stage3.PlayTests
                 var rNative = WeaponView.PlacementRect(t, sx, sy, native);
                 var rEnhanced = WeaponView.PlacementRect(t, sx, sy, enhanced);
                 Assert.AreEqual(rNative, rEnhanced);
+                Assert.AreEqual(Mathf.Round(rEnhanced.x), rEnhanced.x);
+                Assert.AreEqual(Mathf.Round(rEnhanced.y), rEnhanced.y);
+                Assert.AreEqual(Mathf.Round(rEnhanced.width), rEnhanced.width);
+                Assert.AreEqual(Mathf.Round(rEnhanced.height), rEnhanced.height);
             }
         }
 

@@ -111,6 +111,26 @@ namespace Doom.Stage3.PlayTests
             Assert.That(withNormal, Is.GreaterThan(0), "expected procedural normals on world mats");
             Assert.That(loader.WorldTextures.NormalMapCount, Is.GreaterThan(0));
 
+            int enhancedSprites = 0;
+            foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var mat = r.sharedMaterial;
+                if (mat == null || mat.shader == null ||
+                    mat.shader.name != DoomMaterialFactory.EnhancedSpriteName)
+                    continue;
+                enhancedSprites++;
+                Assert.IsTrue(
+                    mat.IsKeywordEnabled(DoomMaterialFactory.SpriteTexelAaKeyword),
+                    "Enhanced sprite materials must enable point-compatible texel AA");
+                if (mat.mainTexture is Texture2D spriteTexture)
+                {
+                    Assert.AreEqual(FilterMode.Point, spriteTexture.filterMode,
+                        "sprite texel AA must not blur the shared IMGUI weapon texture");
+                    Assert.AreEqual(1, spriteTexture.mipmapCount);
+                }
+            }
+            Assert.That(enhancedSprites, Is.GreaterThan(0), "expected Enhanced sprite materials");
+
             // Classic must drop Enhanced shaders, texel-AA keyword, and clear bump maps.
             gfx.Apply(GraphicsMode.Classic);
             Assert.IsFalse(gfx.ActiveProfile.WorldTexelAA);

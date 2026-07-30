@@ -56,7 +56,10 @@ namespace Doom.Stage3.PlayTests
 
         static IEnumerator WaitForPlayer(string map, int maxFrames = 180)
         {
-            for (int i = 0; i < maxFrames; i++)
+            // Enhanced cache warm runs on worker threads. A frame-count timeout
+            // can expire in seconds in batchmode before workers get wall time.
+            float deadline = Time.realtimeSinceStartup + Mathf.Max(30f, maxFrames / 6f);
+            while (Time.realtimeSinceStartup < deadline)
             {
                 var player = GameObject.Find("Player");
                 var loader = Object.FindAnyObjectByType<MapLoader>();
@@ -65,7 +68,7 @@ namespace Doom.Stage3.PlayTests
                     GameFlowController.Instance != null &&
                     GameFlowController.Instance.State == GameFlowState.Playing)
                     yield break;
-                yield return null;
+                yield return new WaitForSecondsRealtime(0.01f);
             }
             Assert.Fail($"Timed out waiting for player on {map}");
         }

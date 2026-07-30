@@ -26,6 +26,8 @@ Shader "Doom/EnhancedSprite"
         Cull Off
         ZWrite On
         ZTest LEqual
+        // Converts the cutout alpha edge to MSAA coverage in Enhanced mode.
+        AlphaToMask On
 
         Pass
         {
@@ -37,14 +39,18 @@ Shader "Doom/EnhancedSprite"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_SPRITE_TEXEL_AA
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Includes/DoomControlledSampling.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             TEXTURE2D(_CrossTex); SAMPLER(sampler_CrossTex);
+            float4 _MainTex_TexelSize;
+            float4 _CrossTex_TexelSize;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -134,8 +140,15 @@ Shader "Doom/EnhancedSprite"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                #if defined(DOOM_SPRITE_TEXEL_AA)
+                half4 mainSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
+                half4 crossSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_CrossTex, sampler_CrossTex), input.uv, _CrossTex_TexelSize);
+                #else
                 half4 mainSample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 half4 crossSample = SAMPLE_TEXTURE2D(_CrossTex, sampler_CrossTex, input.uv);
+                #endif
                 half4 albedoSample = lerp(mainSample, crossSample, saturate(_CrossFade));
 
                 half softFade = 1.0h;
@@ -169,11 +182,15 @@ Shader "Doom/EnhancedSprite"
             #pragma vertex DepthVert
             #pragma fragment DepthFrag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_SPRITE_TEXEL_AA
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Includes/DoomControlledSampling.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             TEXTURE2D(_CrossTex); SAMPLER(sampler_CrossTex);
+            float4 _MainTex_TexelSize;
+            float4 _CrossTex_TexelSize;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -213,8 +230,15 @@ Shader "Doom/EnhancedSprite"
 
             half DepthFrag(Varyings input) : SV_Target
             {
+                #if defined(DOOM_SPRITE_TEXEL_AA)
+                half4 mainSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
+                half4 crossSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_CrossTex, sampler_CrossTex), input.uv, _CrossTex_TexelSize);
+                #else
                 half4 mainSample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 half4 crossSample = SAMPLE_TEXTURE2D(_CrossTex, sampler_CrossTex, input.uv);
+                #endif
                 half alpha = lerp(mainSample.a, crossSample.a, saturate(_CrossFade));
                 half softFade = 1.0h;
                 if (_SoftFloorFade > 1e-4h)
@@ -240,12 +264,16 @@ Shader "Doom/EnhancedSprite"
             #pragma vertex ShadowVert
             #pragma fragment ShadowFrag
             #pragma multi_compile_instancing
+            #pragma multi_compile_local _ DOOM_SPRITE_TEXEL_AA
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+            #include "Includes/DoomControlledSampling.hlsl"
 
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             TEXTURE2D(_CrossTex); SAMPLER(sampler_CrossTex);
+            float4 _MainTex_TexelSize;
+            float4 _CrossTex_TexelSize;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
@@ -291,8 +319,15 @@ Shader "Doom/EnhancedSprite"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
+                #if defined(DOOM_SPRITE_TEXEL_AA)
+                half4 mainSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
+                half4 crossSample = DoomSamplePointTexelAA(
+                    TEXTURE2D_ARGS(_CrossTex, sampler_CrossTex), input.uv, _CrossTex_TexelSize);
+                #else
                 half4 mainSample = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 half4 crossSample = SAMPLE_TEXTURE2D(_CrossTex, sampler_CrossTex, input.uv);
+                #endif
                 half alpha = lerp(mainSample.a, crossSample.a, saturate(_CrossFade));
                 half softFade = 1.0h;
                 if (_SoftFloorFade > 1e-4h)

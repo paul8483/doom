@@ -65,8 +65,8 @@ namespace Doom.Stage3.PlayTests
             Time.captureDeltaTime = 1f / 60f;
 
             // Simulate persisted Enhanced before map build (standalone New Game path).
-            // MapLoader.Start calls ApplyLoadedSettings after Build, so only settings
-            // persistence keeps Enhanced across boot — gfx.Apply alone is overwritten.
+            // MapLoader pins ApplyLoadedSettings before Build so gfx.Current drives
+            // the in-load Enhanced warm; settings persistence is the source of truth.
             var memory = new MemorySettingsStorage();
             var store = new SettingsStore(memory);
             store.Save(GameSettingsData.Defaults.WithGraphicsMode(GraphicsMode.Enhanced));
