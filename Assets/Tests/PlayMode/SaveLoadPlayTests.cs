@@ -255,7 +255,7 @@ namespace Doom.Stage3.PlayTests
 
             settings.OpenOptions();
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.ApplyAndSave();
+            settings.CloseOptions();
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
             // Classic→Enhanced is a yielded warm since the 4x stack — Current
             // flips only after the warm coroutine finishes.

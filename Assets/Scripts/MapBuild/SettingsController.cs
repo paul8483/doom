@@ -20,7 +20,6 @@ namespace Doom.MapBuild
         IDisplayAdapter display;
         IGraphicsModeAdapter graphics;
         GameSettingsData current;
-        GameSettingsData editSnapshot;
         HudTextureCache textures;
         bool editing;
         int selected;
@@ -35,8 +34,6 @@ namespace Doom.MapBuild
             "Invert Y",
             "Fullscreen",
             "Graphics Mode",
-            "Apply",
-            "Cancel",
         };
 
         /// Virtual Y of each selectable row (label line; thermos sit below volumes).
@@ -48,8 +45,6 @@ namespace Doom.MapBuild
             120f, // Invert Y
             136f, // Fullscreen
             152f, // Graphics Mode
-            168f, // Apply
-            184f, // Cancel
         };
 
         public GameSettingsData Current => current ?? GameSettingsData.Defaults;
@@ -111,8 +106,6 @@ namespace Doom.MapBuild
             var flow = GameFlowController.Ensure();
             returnMenuKind = flow.Menu != null ? flow.Menu.Kind : MenuKind.None;
             textures = ResolveTextures();
-            editSnapshot = Current;
-            current = editSnapshot;
             editing = true;
             selected = 0;
             skullTic = 0;
@@ -121,31 +114,13 @@ namespace Doom.MapBuild
             ApplyRuntime(current);
         }
 
-        public void Cancel()
-        {
-            if (!editing) return;
-            current = editSnapshot;
-            ApplyRuntime(current);
-            CloseOptions();
-        }
-
-        public void ApplyAndSave()
-        {
-            if (!editing) return;
-            store.Save(current);
-            editSnapshot = current;
-            ApplyRuntime(current);
-            CloseOptions();
-        }
-
         public void SetSfxVolume(float v)
         {
             if (!GameSettingsData.TryCreate(v, Current.MusicVolume, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
                     Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
-            current = next;
-            ApplyRuntime(current);
+            Commit(next);
         }
 
         public void SetMusicVolume(float v)
@@ -154,8 +129,7 @@ namespace Doom.MapBuild
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
                     Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
-            current = next;
-            ApplyRuntime(current);
+            Commit(next);
         }
 
         public void SetMouseSensitivity(float v)
@@ -164,27 +138,23 @@ namespace Doom.MapBuild
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
                     Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
                 return;
-            current = next;
-            ApplyRuntime(current);
+            Commit(next);
         }
 
         public void SetInvertY(bool v)
         {
-            current = Current.WithInvertY(v);
-            ApplyRuntime(current);
+            Commit(Current.WithInvertY(v));
         }
 
         public void SetFullscreen(bool v)
         {
-            current = Current.WithFullscreen(v);
-            ApplyRuntime(current);
+            Commit(Current.WithFullscreen(v));
         }
 
         public void SetGraphicsMode(GraphicsMode mode)
         {
             if (!GameSettingsData.IsDefinedGraphicsMode(mode)) return;
-            current = Current.WithGraphicsMode(mode);
-            ApplyRuntime(current);
+            Commit(Current.WithGraphicsMode(mode));
         }
 
         public void CycleGraphicsMode(int dir)
@@ -197,8 +167,9 @@ namespace Doom.MapBuild
             SetGraphicsMode(next);
         }
 
-        void CloseOptions()
+        public void CloseOptions()
         {
+            if (!editing) return;
             editing = false;
             enabled = false;
             textures = null;
@@ -210,6 +181,13 @@ namespace Doom.MapBuild
                 flow.Menu.ShowMain(ResolveTextures());
             else if (returnMenuKind == MenuKind.Pause)
                 flow.Menu.ShowPause(ResolveTextures());
+        }
+
+        void Commit(GameSettingsData next)
+        {
+            current = next;
+            ApplyRuntime(current);
+            store.Save(current);
         }
 
         void ApplyRuntime(GameSettingsData data)
@@ -261,7 +239,7 @@ namespace Doom.MapBuild
             if (kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
                 ActivateSelected();
             if (kb.escapeKey.wasPressedThisFrame)
-                Cancel();
+                CloseOptions();
         }
 
         void Nudge(int dir)
@@ -284,8 +262,6 @@ namespace Doom.MapBuild
                 case 3: SetInvertY(!Current.InvertY); break;
                 case 4: SetFullscreen(!Current.Fullscreen); break;
                 case 5: CycleGraphicsMode(1); break;
-                case 6: ApplyAndSave(); break;
-                case 7: Cancel(); break;
             }
         }
 
@@ -360,12 +336,6 @@ namespace Doom.MapBuild
                     DrawHuString(t, ItemX, y, "GRAPHICS MODE");
                     DrawHuString(t, ItemX + 140f, y,
                         Current.GraphicsMode == GraphicsMode.Enhanced ? "ENHANCED" : "CLASSIC");
-                    break;
-                case 6:
-                    DrawHuString(t, ItemX, y, "APPLY");
-                    break;
-                case 7:
-                    DrawHuString(t, ItemX, y, "CANCEL");
                     break;
             }
         }

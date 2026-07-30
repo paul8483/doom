@@ -34,7 +34,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Settings_apply_to_sound_music_and_look()
+        public IEnumerator Settings_apply_and_persist_immediately()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlaying();
@@ -60,7 +60,7 @@ namespace Doom.Stage3.PlayTests
             Assert.That(pc.InvertY, Is.True);
             Assert.That(display.Fullscreen, Is.False);
 
-            settings.ApplyAndSave();
+            settings.CloseOptions();
             Assert.That(settings.IsEditing, Is.False);
 
             // Reload preferences from the same memory store.
@@ -74,7 +74,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Options_graphics_mode_apply_persist_and_cancel()
+        public IEnumerator Options_graphics_mode_persists_immediately_and_survives_close()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlaying();
@@ -90,24 +90,17 @@ namespace Doom.Stage3.PlayTests
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
             Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
 
-            settings.ApplyAndSave();
-            Assert.That(settings.IsEditing, Is.False);
-
             var reloaded = new SettingsStore(memory).Load();
             Assert.That(reloaded.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
 
-            // Cancel restores snapshot including graphics mode.
-            settings.ConfigureForTests(new SettingsStore(memory), display, gfx);
-            settings.OpenOptions();
-            settings.SetGraphicsMode(GraphicsMode.Classic);
-            Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Classic));
-            settings.Cancel();
+            settings.CloseOptions();
+            Assert.That(settings.IsEditing, Is.False);
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
             Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
         }
 
         [UnityTest]
-        public IEnumerator Options_cancel_restores_snapshot()
+        public IEnumerator Options_close_keeps_immediate_changes()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlaying();
@@ -124,10 +117,12 @@ namespace Doom.Stage3.PlayTests
             Assert.That(Object.FindAnyObjectByType<MapLoader>().Sound.Volume,
                 Is.EqualTo(0.1f).Within(0.001f));
 
-            settings.Cancel();
+            settings.CloseOptions();
             Assert.That(settings.IsEditing, Is.False);
             Assert.That(Object.FindAnyObjectByType<MapLoader>().Sound.Volume,
-                Is.EqualTo(0.8f).Within(0.001f));
+                Is.EqualTo(0.1f).Within(0.001f));
+            Assert.That(new SettingsStore(memory).Load().SfxVolume,
+                Is.EqualTo(0.1f).Within(0.001f));
         }
 
         [UnityTest]
