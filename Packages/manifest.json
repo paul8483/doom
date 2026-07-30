@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.unity.ai.inference": "2.6.1",
     "com.unity.inputsystem": "1.11.2",
     "com.unity.multiplayer.center": "1.0.1",
     "com.unity.render-pipelines.universal": "17.4.0",
