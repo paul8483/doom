@@ -87,6 +87,56 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Enhanced_pickup_is_edge_mix_8x_with_native_header_dims()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                var native = cache.WarmNativePickup("MEDI", 0, 0);
+                Assert.IsTrue(native.IsValid);
+                var nativeTexture = native.Material.mainTexture;
+
+                var enhanced = cache.GetPickup("MEDI", 0, 0);
+
+                Assert.IsTrue(enhanced.IsValid);
+                Assert.AreEqual(nativeTexture.width * 8, enhanced.Material.mainTexture.width);
+                Assert.AreEqual(nativeTexture.height * 8, enhanced.Material.mainTexture.height);
+                Assert.AreEqual(native.Width, enhanced.Width);
+                Assert.AreEqual(native.Height, enhanced.Height);
+                Assert.AreEqual(native.LeftOffset, enhanced.LeftOffset);
+                Assert.AreEqual(native.TopOffset, enhanced.TopOffset);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Pickup_registration_does_not_change_monster_4x_pipeline()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                cache.WarmNativePickup("MEDI", 0, 0);
+                var monsterNative = cache.Get(
+                    "POSS", 0, 0, spectre: false, WorldTextureVariant.Native);
+                var monsterEnhanced = cache.Get("POSS", 0, 0);
+
+                Assert.IsTrue(monsterNative.IsValid);
+                Assert.IsTrue(monsterEnhanced.IsValid);
+                Assert.AreEqual(
+                    monsterNative.Material.mainTexture.width * 4,
+                    monsterEnhanced.Material.mainTexture.width);
+                Assert.AreEqual(
+                    monsterNative.Material.mainTexture.height * 4,
+                    monsterEnhanced.Material.mainTexture.height);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Classic_sprite_stays_native_object()
         {
             LogAssert.ignoreFailingMessages = true;

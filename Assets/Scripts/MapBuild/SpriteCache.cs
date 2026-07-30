@@ -42,6 +42,7 @@ namespace Doom.MapBuild
         private readonly Dictionary<(int lump, WorldTextureVariant variant, bool spectre), Material> matCache = new();
         private readonly HashSet<int> failedLumps = new();
         private readonly HashSet<int> failedEnhancedLumps = new();
+        private readonly HashSet<int> pickupLumps = new();
         private readonly List<int> nativeLumpOrder = new();
 
         int enhancedVariantCount;
@@ -77,6 +78,21 @@ namespace Doom.MapBuild
                 ? WorldTextureVariant.Enhanced4X
                 : WorldTextureVariant.Native;
 
+        WorldTextureVariant ActivePickupVariant =>
+            materials.ActiveProfile.SpritesUpscale4X
+                ? WorldTextureVariant.EnhancedPickup8X
+                : WorldTextureVariant.Native;
+
+        WorldTextureVariant EnhancedVariantForLump(int lumpIndex) =>
+            pickupLumps.Contains(lumpIndex)
+                ? WorldTextureVariant.EnhancedPickup8X
+                : WorldTextureVariant.Enhanced4X;
+
+        public EnhancedJobKind EnhancedKindForLump(int lumpIndex) =>
+            pickupLumps.Contains(lumpIndex)
+                ? EnhancedJobKind.PickupSprite
+                : EnhancedJobKind.Sprite;
+
         public SpriteMaterial GetSpectre(string sprite, int frame, int rotationIndex) =>
             Get(sprite, frame, rotationIndex, spectre: true);
 
@@ -86,11 +102,32 @@ namespace Doom.MapBuild
             string sprite, int frame, int rotationIndex, bool spectre = false) =>
             Get(sprite, frame, rotationIndex, spectre, WorldTextureVariant.Native);
 
+        /// Register and pre-warm a world pickup frame. Registered lumps use the
+        /// experimental EdgeMix 8× path in Enhanced; all other sprites stay 4×.
+        public SpriteMaterial WarmNativePickup(string sprite, int frame, int rotationIndex)
+        {
+            RegisterPickupLump(sprite, frame, rotationIndex);
+            return Get(sprite, frame, rotationIndex, spectre: false, WorldTextureVariant.Native);
+        }
+
         /// Resolve (sprite, frame, rotationIndex 0..7) for the active profile.
         /// Returns an invalid SpriteMaterial (IsValid == false) if missing.
         public SpriteMaterial Get(
             string sprite, int frame, int rotationIndex, bool spectre = false) =>
             Get(sprite, frame, rotationIndex, spectre, ActiveSpriteVariant);
+
+        public SpriteMaterial GetPickup(
+            string sprite, int frame, int rotationIndex)
+        {
+            RegisterPickupLump(sprite, frame, rotationIndex);
+            return Get(sprite, frame, rotationIndex, spectre: false, ActivePickupVariant);
+        }
+
+        void RegisterPickupLump(string sprite, int frame, int rotationIndex)
+        {
+            if (sprites.TryGet(sprite, frame, rotationIndex, out var refr))
+                pickupLumps.Add(refr.LumpIndex);
+        }
 
         public SpriteMaterial Get(
             string sprite,
@@ -104,6 +141,11 @@ namespace Doom.MapBuild
 
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
+
+            if (variant == WorldTextureVariant.EnhancedPickup8X)
+                pickupLumps.Add(refr.LumpIndex);
+            if (variant != WorldTextureVariant.Native)
+                variant = EnhancedVariantForLump(refr.LumpIndex);
 
             if (failedLumps.Contains(refr.LumpIndex))
                 return default;
@@ -159,14 +201,14 @@ namespace Doom.MapBuild
             if (!decodedByLump.ContainsKey(lumpIndex))
                 return false;
 
-            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            var key = (lumpIndex, EnhancedVariantForLump(lumpIndex));
             if (texByLumpVariant.ContainsKey(key))
                 return true;
 
             if (ForceEnhancedFailureForTests)
             {
                 Integrate(lumpIndex, EnhancedJobResult.Failed(
-                    EnhancedJobKind.Sprite,
+                    EnhancedKindForLump(lumpIndex),
                     "Forced Enhanced4X sprite failure (test seam)."));
                 return false;
             }
@@ -199,7 +241,7 @@ namespace Doom.MapBuild
             if (failedLumps.Contains(lumpIndex) || failedEnhancedLumps.Contains(lumpIndex))
                 return null;
 
-            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            var key = (lumpIndex, EnhancedVariantForLump(lumpIndex));
             if (texByLumpVariant.ContainsKey(key))
                 return null;
 
@@ -209,6 +251,9 @@ namespace Doom.MapBuild
             // Native GPU entry must exist for tracking / fallback.
             if (CreateNativeTexture(lumpIndex) == null)
                 return null;
+
+            if (pickupLumps.Contains(lumpIndex))
+                return EnhancedJob.ForPickupSprite(lumpIndex.ToString(), nativeImg);
 
             var profile = materials.ActiveProfile;
             return EnhancedJob.ForSprite(
@@ -222,7 +267,8 @@ namespace Doom.MapBuild
         /// Main-thread: upload Enhanced sprite or mark failed fallback.
         public void Integrate(int lumpIndex, EnhancedJobResult result)
         {
-            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            var variant = EnhancedVariantForLump(lumpIndex);
+            var key = (lumpIndex, variant);
             if (texByLumpVariant.ContainsKey(key)) return;
             if (failedEnhancedLumps.Contains(lumpIndex)) return;
 
@@ -236,7 +282,7 @@ namespace Doom.MapBuild
                     ? "Forced Enhanced4X sprite failure (test seam)."
                     : (result?.ErrorMessage ?? "Enhanced sprite job failed.");
                 Debug.LogWarning(
-                    $"SpriteCache: Enhanced 4× failed for lump {lumpIndex}: {msg} — using native");
+                    $"SpriteCache: Enhanced {variant} failed for lump {lumpIndex}: {msg} — using native");
                 return;
             }
 
@@ -250,11 +296,11 @@ namespace Doom.MapBuild
         /// True when an Enhanced (non-fallback) texture exists for the lump.
         public bool HasEnhanced(int lumpIndex) =>
             !failedEnhancedLumps.Contains(lumpIndex) &&
-            texByLumpVariant.ContainsKey((lumpIndex, WorldTextureVariant.Enhanced4X));
+            texByLumpVariant.ContainsKey((lumpIndex, EnhancedVariantForLump(lumpIndex)));
 
         Texture2D GetOrCreateTexture(int lumpIndex, WorldTextureVariant variant)
         {
-            if (variant == WorldTextureVariant.Enhanced4X &&
+            if (variant != WorldTextureVariant.Native &&
                 failedEnhancedLumps.Contains(lumpIndex))
                 return GetOrCreateTexture(lumpIndex, WorldTextureVariant.Native);
 
@@ -265,7 +311,7 @@ namespace Doom.MapBuild
             if (variant == WorldTextureVariant.Native)
                 return CreateNativeTexture(lumpIndex);
 
-            return CreateEnhancedTexture(lumpIndex);
+            return CreateEnhancedTexture(lumpIndex, variant);
         }
 
         Texture2D CreateNativeTexture(int lumpIndex)
@@ -285,9 +331,12 @@ namespace Doom.MapBuild
             return tex;
         }
 
-        Texture2D CreateEnhancedTexture(int lumpIndex)
+        Texture2D CreateEnhancedTexture(int lumpIndex, WorldTextureVariant requestedVariant)
         {
-            var key = (lumpIndex, WorldTextureVariant.Enhanced4X);
+            var expectedVariant = EnhancedVariantForLump(lumpIndex);
+            if (requestedVariant != expectedVariant)
+                requestedVariant = expectedVariant;
+            var key = (lumpIndex, requestedVariant);
             if (texByLumpVariant.TryGetValue(key, out var existing))
                 return existing;
 
@@ -302,7 +351,7 @@ namespace Doom.MapBuild
             if (ForceEnhancedFailureForTests)
             {
                 Integrate(lumpIndex, EnhancedJobResult.Failed(
-                    EnhancedJobKind.Sprite,
+                    EnhancedKindForLump(lumpIndex),
                     "Forced Enhanced4X sprite failure (test seam)."));
                 return nativeTex;
             }
@@ -344,6 +393,7 @@ namespace Doom.MapBuild
         bool TryIntegrateFromStore(int lumpIndex)
         {
             string itemId = lumpIndex.ToString();
+            var kind = EnhancedKindForLump(lumpIndex);
             var store = EnhancedVariantStore.Instance;
             bool storeBound = !string.IsNullOrEmpty(store.BoundWadIdentity);
             EnhancedJobResult stored = null;
@@ -351,14 +401,14 @@ namespace Doom.MapBuild
             // Lazy-build resolution: session store first, then the disk pack (a
             // disk hit is promoted into the store so later lookups stay cheap).
             bool hit = storeBound &&
-                store.TryGet(EnhancedJobKind.Sprite, itemId, StoreLayers, out stored);
+                store.TryGet(kind, itemId, StoreLayers, out stored);
             if (!hit && EnhancedDiskCache.Enabled &&
                 EnhancedDiskCache.Instance.TryGet(
-                    EnhancedJobKind.Sprite, itemId, StoreLayers, out stored))
+                    kind, itemId, StoreLayers, out stored))
             {
                 hit = true;
                 if (storeBound)
-                    store.Publish(EnhancedJobKind.Sprite, itemId, StoreLayers, stored);
+                    store.Publish(kind, itemId, StoreLayers, stored);
             }
 
             if (!hit) return false;
@@ -369,12 +419,13 @@ namespace Doom.MapBuild
         void PublishToStore(int lumpIndex, EnhancedJobResult result)
         {
             string itemId = lumpIndex.ToString();
+            var kind = EnhancedKindForLump(lumpIndex);
             var store = EnhancedVariantStore.Instance;
             if (!string.IsNullOrEmpty(store.BoundWadIdentity))
-                store.Publish(EnhancedJobKind.Sprite, itemId, StoreLayers, result);
+                store.Publish(kind, itemId, StoreLayers, result);
             if (EnhancedDiskCache.Enabled)
                 EnhancedDiskCache.Instance.Publish(
-                    EnhancedJobKind.Sprite, itemId, StoreLayers, result);
+                    kind, itemId, StoreLayers, result);
         }
 
         DecodedImage DecodeLump(int lumpIndex)

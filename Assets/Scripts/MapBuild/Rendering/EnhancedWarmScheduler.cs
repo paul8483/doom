@@ -429,14 +429,15 @@ namespace Doom.MapBuild.Rendering
                 }
 
                 string itemId = lump.ToString();
+                var kind = sprites.EnhancedKindForLump(lump);
                 if (TryTakeCached(
-                        store, disk, EnhancedJobKind.Sprite, itemId, layers,
+                        store, disk, kind, itemId, layers,
                         out var cached, out bool fromDisk))
                 {
                     sprites.Integrate(lump, cached);
                     if (fromDisk)
                     {
-                        store?.Publish(EnhancedJobKind.Sprite, itemId, layers, cached);
+                        store?.Publish(kind, itemId, layers, cached);
                         LastDiskHits++;
                     }
                     else
@@ -471,8 +472,8 @@ namespace Doom.MapBuild.Rendering
                         sprites.Integrate(captured, r);
                         if (r != null && r.Success)
                         {
-                            store?.Publish(EnhancedJobKind.Sprite, itemId, layers, r);
-                            disk?.Publish(EnhancedJobKind.Sprite, itemId, layers, r);
+                            store?.Publish(kind, itemId, layers, r);
+                            disk?.Publish(kind, itemId, layers, r);
                         }
 
                         onItemDone?.Invoke();

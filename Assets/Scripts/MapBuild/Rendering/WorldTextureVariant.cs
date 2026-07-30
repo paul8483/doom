@@ -11,5 +11,7 @@ namespace Doom.MapBuild.Rendering
         Enhanced2X = 1,
         /// Super-xBR 4× (dedither → upscale → controlled mips) Enhanced world albedo.
         Enhanced4X = 2,
+        /// Experimental pickup-only EdgeMix 8× sprite texture.
+        EnhancedPickup8X = 3,
     }
 }

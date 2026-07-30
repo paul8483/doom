@@ -21,6 +21,7 @@ namespace Doom.Graphics
                     EnhancedJobKind.WorldNormal => RunWorldNormal(job),
                     EnhancedJobKind.Sprite => RunRgba(job, EnhancedJobKind.Sprite),
                     EnhancedJobKind.Hud => RunRgba(job, EnhancedJobKind.Hud),
+                    EnhancedJobKind.PickupSprite => RunPickupSprite(job),
                     _ => EnhancedJobResult.Failed(job.Kind, $"Unknown job kind {job.Kind}."),
                 };
             }
@@ -85,5 +86,10 @@ namespace Doom.Graphics
                 enhanced = SharpenFilter.Apply(enhanced);
             return EnhancedJobResult.OkRgba(kind, enhanced);
         }
+
+        static EnhancedJobResult RunPickupSprite(EnhancedJob job) =>
+            EnhancedJobResult.OkRgba(
+                EnhancedJobKind.PickupSprite,
+                EdgeMixUpscaler.Scale8X(job.Native));
     }
 }

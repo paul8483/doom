@@ -187,7 +187,7 @@ namespace Doom.Graphics
                     }
 
                     int kindRaw = r.ReadInt32();
-                    if (kindRaw < 0 || kindRaw > (int)EnhancedJobKind.Hud)
+                    if (kindRaw < 0 || kindRaw > (int)EnhancedJobKind.PickupSprite)
                     {
                         error = "Invalid job kind.";
                         return false;
@@ -242,6 +242,7 @@ namespace Doom.Graphics
                         break;
                     case EnhancedJobKind.Sprite:
                     case EnhancedJobKind.Hud:
+                    case EnhancedJobKind.PickupSprite:
                         WriteImage(pw, result.Rgba);
                         break;
                     default:
@@ -296,6 +297,7 @@ namespace Doom.Graphics
                         return true;
                     case EnhancedJobKind.Sprite:
                     case EnhancedJobKind.Hud:
+                    case EnhancedJobKind.PickupSprite:
                         if (!TryReadImage(pr, out var rgba, out error))
                             return false;
                         result = EnhancedJobResult.OkRgba(kind, rgba);

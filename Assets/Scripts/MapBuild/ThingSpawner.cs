@@ -41,7 +41,7 @@ namespace Doom.MapBuild
                 if (!ThingTable.TryGet(entry.Key, out var pickupDef)) continue;
                 foreach (int frame in entry.Value.Frames)
                     for (int rot = 0; rot < 8; rot++)
-                        cache.WarmNative(pickupDef.Sprite, frame, rot);
+                        cache.WarmNativePickup(pickupDef.Sprite, frame, rot);
             }
 
             for (int thingIndex = 0; thingIndex < map.Things.Length; thingIndex++)
@@ -49,6 +49,7 @@ namespace Doom.MapBuild
                 var t = map.Things[thingIndex];
                 if (IsSpawnPoint(t.Type)) continue;
                 if (!ThingTable.TryGet(t.Type, out var def)) continue;
+                bool isPickup = ItemRules.IsPickup(t.Type);
 
                 float x = t.X * worldScale;
                 float z = t.Y * worldScale;
@@ -71,6 +72,7 @@ namespace Doom.MapBuild
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
+                bb.SetPickupUpscale(isPickup);
                 if (t.Type == 58)
                     bb.SetSpectre(true);
 
@@ -80,7 +82,10 @@ namespace Doom.MapBuild
                 // Enhanced 4× is yielded later under ENHANCED SPRITES (not here).
                 for (int rot = 0; rot < 8; rot++)
                 {
-                    cache.WarmNative(def.Sprite, def.Frame, rot);
+                    if (isPickup)
+                        cache.WarmNativePickup(def.Sprite, def.Frame, rot);
+                    else
+                        cache.WarmNative(def.Sprite, def.Frame, rot);
                     if (t.Type == 58)
                         cache.WarmNative(def.Sprite, def.Frame, rot, spectre: true);
                 }
@@ -142,14 +147,14 @@ namespace Doom.MapBuild
                 }
 
                 // E1 pickups (Stage 6e) — full ItemRules set.
-                if (ItemRules.IsPickup(t.Type))
+                if (isPickup)
                 {
                     go.AddComponent<ThingPickup>().Init(t.Type, worldScale, thingIndex);
                     if (PickupAnimationTable.TryGet(t.Type, out var pickupAnimation))
                     {
                         foreach (int frame in pickupAnimation.Frames)
                             for (int rot = 0; rot < 8; rot++)
-                                cache.WarmNative(def.Sprite, frame, rot);
+                                cache.WarmNativePickup(def.Sprite, frame, rot);
                         go.AddComponent<PickupAnimator>().Init(bb, pickupAnimation);
                     }
                 }
@@ -175,7 +180,7 @@ namespace Doom.MapBuild
                 // Pre-warm death-drop sprites while the WAD is still open.
                 if (DeathDropTable.TryGet(t.Type, out int dropNum) &&
                     ThingTable.TryGet(dropNum, out var dropDef))
-                    cache.WarmNative(dropDef.Sprite, dropDef.Frame, 0);
+                    cache.WarmNativePickup(dropDef.Sprite, dropDef.Frame, 0);
 
                 count++;
             }

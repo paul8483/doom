@@ -30,6 +30,7 @@ namespace Doom.MapBuild
         float emissionStrength;
 
         bool spectre;
+        bool pickupUpscale;
         bool poseInterpolationEnabled;
         bool poseSeeded;
         Vector3 prevPos;
@@ -93,6 +94,7 @@ namespace Doom.MapBuild
 
         public void SetSpectre(bool value) => spectre = value;
         public bool IsSpectre => spectre;
+        public void SetPickupUpscale(bool value) => pickupUpscale = value;
 
         /// Called from MonsterController after gameplay pose updates (35 Hz).
         public void NotifyGameplayPose(Vector3 pos, float doomAngleDegrees)
@@ -214,12 +216,12 @@ namespace Doom.MapBuild
 
             // 3) Resolve and apply the sprite material + quad size/anchor/mirror.
             bool useSpectre = spectre && profile.SpectreMaterial;
-            var sm = cache.Get(sprite, frame, rotIndex, useSpectre);
+            var sm = ResolveSprite(frame, rotIndex, useSpectre);
             if (!sm.IsValid)
             {
                 // Prefer front (0 = DOOM '1'), then back (4 = '5').
-                sm = cache.Get(sprite, frame, 0, useSpectre);
-                if (!sm.IsValid) sm = cache.Get(sprite, frame, 4, useSpectre);
+                sm = ResolveSprite(frame, 0, useSpectre);
+                if (!sm.IsValid) sm = ResolveSprite(frame, 4, useSpectre);
                 if (!sm.IsValid) { meshRenderer.enabled = false; return; }
             }
             meshRenderer.enabled = true;
@@ -230,6 +232,11 @@ namespace Doom.MapBuild
             ApplyPresentationProps(profile, sm.Material);
             ApplyQuadTransform(sm, visualWorldOffset);
         }
+
+        SpriteMaterial ResolveSprite(int resolvedFrame, int rotationIndex, bool useSpectre) =>
+            pickupUpscale
+                ? cache.GetPickup(sprite, resolvedFrame, rotationIndex)
+                : cache.Get(sprite, resolvedFrame, rotationIndex, useSpectre);
 
         void ApplyPresentationProps(GraphicsProfile profile, Material mat)
         {
