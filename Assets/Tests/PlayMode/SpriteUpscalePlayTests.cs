@@ -52,7 +52,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Enhanced_sprite_is_4x_with_native_header_dims()
+        public IEnumerator Enhanced_enemy_is_edge_mix_8x_with_native_header_dims()
         {
             LogAssert.ignoreFailingMessages = true;
             yield return null;
@@ -60,7 +60,7 @@ namespace Doom.Stage3.PlayTests
             var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
             using (wad)
             {
-                var native = cache.Get("POSS", 0, 0, spectre: false, WorldTextureVariant.Native);
+                var native = cache.WarmNativeEnemy("POSS", 0, 0);
                 Assert.IsTrue(native.IsValid);
                 Assert.IsNotNull(native.Material.mainTexture);
                 int nativeW = native.Material.mainTexture.width;
@@ -70,10 +70,10 @@ namespace Doom.Stage3.PlayTests
                 int left = native.LeftOffset;
                 int top = native.TopOffset;
 
-                var enhanced = cache.Get("POSS", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X);
+                var enhanced = cache.GetEnemy("POSS", 0, 0);
                 Assert.IsTrue(enhanced.IsValid);
-                Assert.AreEqual(nativeW * 4, enhanced.Material.mainTexture.width);
-                Assert.AreEqual(nativeH * 4, enhanced.Material.mainTexture.height);
+                Assert.AreEqual(nativeW * 8, enhanced.Material.mainTexture.width);
+                Assert.AreEqual(nativeH * 8, enhanced.Material.mainTexture.height);
                 // Placement rects come from PatchHeader — not texture dims.
                 Assert.AreEqual(headerW, enhanced.Width);
                 Assert.AreEqual(headerH, enhanced.Height);
@@ -82,7 +82,7 @@ namespace Doom.Stage3.PlayTests
                 Assert.AreEqual(native.Mirrored, enhanced.Mirrored);
                 Assert.AreSame(
                     enhanced.Material,
-                    cache.Get("POSS", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X).Material);
+                    cache.GetEnemy("POSS", 0, 0).Material);
             }
         }
 
@@ -112,7 +112,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Pickup_registration_does_not_change_monster_4x_pipeline()
+        public IEnumerator Pickup_registration_does_not_change_generic_sprite_4x_pipeline()
         {
             LogAssert.ignoreFailingMessages = true;
             yield return null;
@@ -121,18 +121,18 @@ namespace Doom.Stage3.PlayTests
             using (wad)
             {
                 cache.WarmNativePickup("MEDI", 0, 0);
-                var monsterNative = cache.Get(
-                    "POSS", 0, 0, spectre: false, WorldTextureVariant.Native);
-                var monsterEnhanced = cache.Get("POSS", 0, 0);
+                var spriteNative = cache.Get(
+                    "PISG", 0, 0, spectre: false, WorldTextureVariant.Native);
+                var spriteEnhanced = cache.Get("PISG", 0, 0);
 
-                Assert.IsTrue(monsterNative.IsValid);
-                Assert.IsTrue(monsterEnhanced.IsValid);
+                Assert.IsTrue(spriteNative.IsValid);
+                Assert.IsTrue(spriteEnhanced.IsValid);
                 Assert.AreEqual(
-                    monsterNative.Material.mainTexture.width * 4,
-                    monsterEnhanced.Material.mainTexture.width);
+                    spriteNative.Material.mainTexture.width * 4,
+                    spriteEnhanced.Material.mainTexture.width);
                 Assert.AreEqual(
-                    monsterNative.Material.mainTexture.height * 4,
-                    monsterEnhanced.Material.mainTexture.height);
+                    spriteNative.Material.mainTexture.height * 4,
+                    spriteEnhanced.Material.mainTexture.height);
             }
         }
 
@@ -155,7 +155,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Spectre_variant_shares_enhanced_4x_source()
+        public IEnumerator Spectre_variant_shares_enemy_edge_mix_8x_source()
         {
             LogAssert.ignoreFailingMessages = true;
             yield return null;
@@ -163,8 +163,9 @@ namespace Doom.Stage3.PlayTests
             var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
             using (wad)
             {
-                var normal = cache.Get("POSS", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X);
-                var spectre = cache.Get("POSS", 0, 0, spectre: true, WorldTextureVariant.Enhanced4X);
+                cache.WarmNativeEnemy("POSS", 0, 0);
+                var normal = cache.GetEnemy("POSS", 0, 0);
+                var spectre = cache.GetEnemy("POSS", 0, 0, spectre: true);
                 Assert.IsTrue(normal.IsValid);
                 Assert.IsTrue(spectre.IsValid);
                 Assert.AreNotSame(normal.Material, spectre.Material);
@@ -175,7 +176,7 @@ namespace Doom.Stage3.PlayTests
                 Assert.That(spectre.Material.mainTexture.width, Is.GreaterThan(0));
                 Assert.AreEqual(
                     cache.Get("POSS", 0, 0, spectre: false, WorldTextureVariant.Native)
-                        .Material.mainTexture.width * 4,
+                        .Material.mainTexture.width * 8,
                     spectre.Material.mainTexture.width);
             }
         }
@@ -291,8 +292,8 @@ namespace Doom.Stage3.PlayTests
             var enhancedSm = loader.Sprites.Get(
                 "POSS", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X);
             Assert.IsTrue(enhancedSm.IsValid);
-            Assert.AreEqual(nativeTex.width * 4, enhancedSm.Material.mainTexture.width);
-            Assert.AreEqual(nativeTex.height * 4, enhancedSm.Material.mainTexture.height);
+            Assert.AreEqual(nativeTex.width * 8, enhancedSm.Material.mainTexture.width);
+            Assert.AreEqual(nativeTex.height * 8, enhancedSm.Material.mainTexture.height);
             Assert.AreEqual(headerW, enhancedSm.Width);
             Assert.AreEqual(headerH, enhancedSm.Height);
 

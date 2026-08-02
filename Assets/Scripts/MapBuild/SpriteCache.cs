@@ -43,6 +43,7 @@ namespace Doom.MapBuild
         private readonly HashSet<int> failedLumps = new();
         private readonly HashSet<int> failedEnhancedLumps = new();
         private readonly HashSet<int> pickupLumps = new();
+        private readonly HashSet<int> enemyLumps = new();
         private readonly List<int> nativeLumpOrder = new();
 
         int enhancedVariantCount;
@@ -83,15 +84,24 @@ namespace Doom.MapBuild
                 ? WorldTextureVariant.EnhancedPickup8X
                 : WorldTextureVariant.Native;
 
+        WorldTextureVariant ActiveEnemyVariant =>
+            materials.ActiveProfile.SpritesUpscale4X
+                ? WorldTextureVariant.EnhancedEnemy8X
+                : WorldTextureVariant.Native;
+
         WorldTextureVariant EnhancedVariantForLump(int lumpIndex) =>
             pickupLumps.Contains(lumpIndex)
                 ? WorldTextureVariant.EnhancedPickup8X
-                : WorldTextureVariant.Enhanced4X;
+                : enemyLumps.Contains(lumpIndex)
+                    ? WorldTextureVariant.EnhancedEnemy8X
+                    : WorldTextureVariant.Enhanced4X;
 
         public EnhancedJobKind EnhancedKindForLump(int lumpIndex) =>
             pickupLumps.Contains(lumpIndex)
                 ? EnhancedJobKind.PickupSprite
-                : EnhancedJobKind.Sprite;
+                : enemyLumps.Contains(lumpIndex)
+                    ? EnhancedJobKind.EnemySprite
+                    : EnhancedJobKind.Sprite;
 
         public SpriteMaterial GetSpectre(string sprite, int frame, int rotationIndex) =>
             Get(sprite, frame, rotationIndex, spectre: true);
@@ -110,6 +120,15 @@ namespace Doom.MapBuild
             return Get(sprite, frame, rotationIndex, spectre: false, WorldTextureVariant.Native);
         }
 
+        /// Register and pre-warm an enemy frame. Registered lumps use EdgeMix
+        /// 8× in Enhanced while their native patch header still controls placement.
+        public SpriteMaterial WarmNativeEnemy(
+            string sprite, int frame, int rotationIndex, bool spectre = false)
+        {
+            RegisterEnemyLump(sprite, frame, rotationIndex);
+            return Get(sprite, frame, rotationIndex, spectre, WorldTextureVariant.Native);
+        }
+
         /// Resolve (sprite, frame, rotationIndex 0..7) for the active profile.
         /// Returns an invalid SpriteMaterial (IsValid == false) if missing.
         public SpriteMaterial Get(
@@ -123,10 +142,23 @@ namespace Doom.MapBuild
             return Get(sprite, frame, rotationIndex, spectre: false, ActivePickupVariant);
         }
 
+        public SpriteMaterial GetEnemy(
+            string sprite, int frame, int rotationIndex, bool spectre = false)
+        {
+            RegisterEnemyLump(sprite, frame, rotationIndex);
+            return Get(sprite, frame, rotationIndex, spectre, ActiveEnemyVariant);
+        }
+
         void RegisterPickupLump(string sprite, int frame, int rotationIndex)
         {
             if (sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 pickupLumps.Add(refr.LumpIndex);
+        }
+
+        void RegisterEnemyLump(string sprite, int frame, int rotationIndex)
+        {
+            if (sprites.TryGet(sprite, frame, rotationIndex, out var refr))
+                enemyLumps.Add(refr.LumpIndex);
         }
 
         public SpriteMaterial Get(
@@ -144,6 +176,8 @@ namespace Doom.MapBuild
 
             if (variant == WorldTextureVariant.EnhancedPickup8X)
                 pickupLumps.Add(refr.LumpIndex);
+            if (variant == WorldTextureVariant.EnhancedEnemy8X)
+                enemyLumps.Add(refr.LumpIndex);
             if (variant != WorldTextureVariant.Native)
                 variant = EnhancedVariantForLump(refr.LumpIndex);
 
@@ -254,6 +288,8 @@ namespace Doom.MapBuild
 
             if (pickupLumps.Contains(lumpIndex))
                 return EnhancedJob.ForPickupSprite(lumpIndex.ToString(), nativeImg);
+            if (enemyLumps.Contains(lumpIndex))
+                return EnhancedJob.ForEnemySprite(lumpIndex.ToString(), nativeImg);
 
             var profile = materials.ActiveProfile;
             return EnhancedJob.ForSprite(

@@ -13,5 +13,7 @@ namespace Doom.MapBuild.Rendering
         Enhanced4X = 2,
         /// Experimental pickup-only EdgeMix 8× sprite texture.
         EnhancedPickup8X = 3,
+        /// Experimental enemy-only EdgeMix 8× sprite texture.
+        EnhancedEnemy8X = 4,
     }
 }

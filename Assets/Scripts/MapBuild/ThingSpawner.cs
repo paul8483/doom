@@ -50,6 +50,7 @@ namespace Doom.MapBuild
                 if (IsSpawnPoint(t.Type)) continue;
                 if (!ThingTable.TryGet(t.Type, out var def)) continue;
                 bool isPickup = ItemRules.IsPickup(t.Type);
+                bool isEnemy = MonsterTable.TryGet(t.Type, out var monsterDef);
 
                 float x = t.X * worldScale;
                 float z = t.Y * worldScale;
@@ -73,6 +74,7 @@ namespace Doom.MapBuild
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
                 bb.SetPickupUpscale(isPickup);
+                bb.SetEnemyUpscale(isEnemy);
                 if (t.Type == 58)
                     bb.SetSpectre(true);
 
@@ -84,10 +86,12 @@ namespace Doom.MapBuild
                 {
                     if (isPickup)
                         cache.WarmNativePickup(def.Sprite, def.Frame, rot);
+                    else if (isEnemy)
+                        cache.WarmNativeEnemy(def.Sprite, def.Frame, rot);
                     else
                         cache.WarmNative(def.Sprite, def.Frame, rot);
                     if (t.Type == 58)
-                        cache.WarmNative(def.Sprite, def.Frame, rot, spectre: true);
+                        cache.WarmNativeEnemy(def.Sprite, def.Frame, rot, spectre: true);
                 }
 
                 CapsuleCollider col = null;
@@ -109,7 +113,12 @@ namespace Doom.MapBuild
                             countKill: countKill, noBlood: t.Type == BarrelRules.DoomEdNum);
                     eh.SetMapThingIndex(thingIndex);
                     if (def.CorpseFrame >= 0)
-                        cache.WarmNative(def.Sprite, def.CorpseFrame, 0);
+                    {
+                        if (isEnemy)
+                            cache.WarmNativeEnemy(def.Sprite, def.CorpseFrame, 0);
+                        else
+                            cache.WarmNative(def.Sprite, def.CorpseFrame, 0);
+                    }
 
                     if (t.Type == BarrelRules.DoomEdNum)
                     {
@@ -119,8 +128,9 @@ namespace Doom.MapBuild
                         foreach (int f in BarrelRules.ExplodeFrames)
                             cache.WarmNative(BarrelRules.ExplodeSprite, f, 0);
                     }
-                    else if (MonsterTable.TryGet(t.Type, out var mdef))
+                    else if (isEnemy)
                     {
+                        var mdef = monsterDef;
                         bool ambush = (t.Flags & 0x0008) != 0;
                         var mc = go.AddComponent<MonsterController>();
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
@@ -132,10 +142,10 @@ namespace Doom.MapBuild
                             if (seq == null) continue;
                             foreach (int f in seq.Frames)
                                 for (int rot = 0; rot < 8; rot++)
-                                    cache.WarmNative(def.Sprite, f, rot);
+                                    cache.WarmNativeEnemy(def.Sprite, f, rot);
                         }
                         if (mdef.XDeathCorpseFrame >= 0)
-                            cache.WarmNative(def.Sprite, mdef.XDeathCorpseFrame, 0);
+                            cache.WarmNativeEnemy(def.Sprite, mdef.XDeathCorpseFrame, 0);
                         if (mdef.HasMissile)
                         {
                             foreach (int f in mdef.MissileFlyFrames)

@@ -41,6 +41,14 @@ namespace Doom.Graphics.Tests
                 EnhancedJobKind.PickupSprite, new DecodedImage(8, 8, rgba));
         }
 
+        static EnhancedJobResult OkEnemy()
+        {
+            var rgba = new byte[8 * 8 * 4];
+            for (int i = 0; i < rgba.Length; i++) rgba[i] = (byte)(255 - i * 5);
+            return EnhancedJobResult.OkRgba(
+                EnhancedJobKind.EnemySprite, new DecodedImage(8, 8, rgba));
+        }
+
         static EnhancedJobResult OkAlbedo()
         {
             var l0 = new byte[8 * 8 * 4];
@@ -92,6 +100,7 @@ namespace Doom.Graphics.Tests
                 Entry(EnhancedJobKind.Sprite, "42", flags, OkSprite()),
                 Entry(EnhancedJobKind.Hud, "STBAR", flags, OkHud()),
                 Entry(EnhancedJobKind.PickupSprite, "84", flags, OkPickup()),
+                Entry(EnhancedJobKind.EnemySprite, "96", flags, OkEnemy()),
             };
 
             byte[] bytes = EnhancedCacheCodec.Encode(
@@ -102,7 +111,7 @@ namespace Doom.Graphics.Tests
                     bytes, TestHash, EnhancedPipelineVersion.Value,
                     out var decoded, out string error),
                 error);
-            Assert.AreEqual(5, decoded.Count);
+            Assert.AreEqual(6, decoded.Count);
 
             Assert.AreEqual(EnhancedJobKind.WorldAlbedo, decoded[0].Kind);
             Assert.AreEqual("FLOOR0_1", decoded[0].ItemId);
@@ -125,6 +134,9 @@ namespace Doom.Graphics.Tests
 
             Assert.AreEqual(EnhancedJobKind.PickupSprite, decoded[4].Kind);
             AssertImagesEqual(entries[4].Result.Rgba, decoded[4].Result.Rgba);
+
+            Assert.AreEqual(EnhancedJobKind.EnemySprite, decoded[5].Kind);
+            AssertImagesEqual(entries[5].Result.Rgba, decoded[5].Result.Rgba);
         }
 
         [Test]

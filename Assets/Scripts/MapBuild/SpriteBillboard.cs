@@ -31,6 +31,7 @@ namespace Doom.MapBuild
 
         bool spectre;
         bool pickupUpscale;
+        bool enemyUpscale;
         bool poseInterpolationEnabled;
         bool poseSeeded;
         Vector3 prevPos;
@@ -95,6 +96,7 @@ namespace Doom.MapBuild
         public void SetSpectre(bool value) => spectre = value;
         public bool IsSpectre => spectre;
         public void SetPickupUpscale(bool value) => pickupUpscale = value;
+        public void SetEnemyUpscale(bool value) => enemyUpscale = value;
 
         /// Called from MonsterController after gameplay pose updates (35 Hz).
         public void NotifyGameplayPose(Vector3 pos, float doomAngleDegrees)
@@ -236,7 +238,9 @@ namespace Doom.MapBuild
         SpriteMaterial ResolveSprite(int resolvedFrame, int rotationIndex, bool useSpectre) =>
             pickupUpscale
                 ? cache.GetPickup(sprite, resolvedFrame, rotationIndex)
-                : cache.Get(sprite, resolvedFrame, rotationIndex, useSpectre);
+                : enemyUpscale
+                    ? cache.GetEnemy(sprite, resolvedFrame, rotationIndex, useSpectre)
+                    : cache.Get(sprite, resolvedFrame, rotationIndex, useSpectre);
 
         void ApplyPresentationProps(GraphicsProfile profile, Material mat)
         {
