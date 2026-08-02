@@ -252,8 +252,7 @@ namespace Doom.Stage3.PlayTests
             int hudW = classicHud.Width;
             int hudH = classicHud.Height;
 
-            var classicWeapon = loader.Sprites.Get(
-                "PISG", 0, 0, spectre: false, WorldTextureVariant.Native);
+            var classicWeapon = loader.Sprites.GetWeapon("PISG", 0, 0);
             Assert.IsTrue(classicWeapon.IsValid);
             var classicWeaponTex = classicWeapon.Material.mainTexture as Texture2D;
             Assert.IsNotNull(classicWeaponTex);
@@ -266,9 +265,9 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(hudW, enhancedHud.Width);
             Assert.AreEqual(hudH, enhancedHud.Height);
 
-            var enhancedWeapon = loader.Sprites.Get("PISG", 0, 0);
+            var enhancedWeapon = loader.Sprites.GetWeapon("PISG", 0, 0);
             Assert.IsTrue(enhancedWeapon.IsValid);
-            Assert.AreEqual(classicWeaponTex.width * 4, enhancedWeapon.Material.mainTexture.width);
+            Assert.AreEqual(classicWeaponTex.width * 8, enhancedWeapon.Material.mainTexture.width);
             Assert.AreEqual(classicWeapon.Width, enhancedWeapon.Width);
 
             int texCountAfterEnhanced = gfx.Context != null ? gfx.Context.TextureCount : 0;
@@ -280,7 +279,7 @@ namespace Doom.Stage3.PlayTests
             Assert.AreSame(classicHudTex, restoredHud.Texture);
             Assert.AreEqual(hudW, restoredHud.Width);
 
-            var restoredWeapon = loader.Sprites.Get("PISG", 0, 0);
+            var restoredWeapon = loader.Sprites.GetWeapon("PISG", 0, 0);
             Assert.AreSame(classicWeaponTex, restoredWeapon.Material.mainTexture);
 
             yield return GraphicsApplyWait.Apply(gfx, GraphicsMode.Enhanced);

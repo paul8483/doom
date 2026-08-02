@@ -1,8 +1,8 @@
 # Sprite EdgeMix 8× — implementation plan/status
 
-**Статус:** 🟢 предметы и противники реализованы, standalone visual gate
-успешно закрыт 2026-08-02; 🟡 first-person оружие реализовано и focused
-tests зелёные; ожидает Windows standalone + interactive visual gate.  
+**Статус:** 🟢 EdgeMix 8× для предметов, противников и first-person оружия
+закрыт 2026-08-02 (код + full suites + Windows standalone + interactive
+visual gates). Осталось: warm-perf baseline.  
 **Спека:** `docs/superpowers/specs/2026-07-31-inventory-edge-mix-design.md`.
 
 ## Выполнено
@@ -40,25 +40,31 @@ tests зелёные; ожидает Windows standalone + interactive visual gat
 
 ## Автоматические результаты
 
-- EditMode runner + codec (`EnhancedJobRunnerTests|EnhancedCacheCodecTests`):
+- Focused EditMode runner + codec
+  (`EnhancedJobRunnerTests|EnhancedCacheCodecTests`):
   **20/20 PASS** (2026-08-02, pipeline v3 + WeaponSprite).
-- PlayMode sprite/weapon routing + placement
+- Focused PlayMode sprite/weapon routing + placement
   (`SpriteUpscalePlayTests|Weapon_placement_rect…`): **12/12 PASS**.
+- Full EditMode: **610/610 PASS** (2026-08-02,
+  `Logs/test-results.xml`).
+- Full PlayMode: **149/149 PASS** (2026-08-02,
+  `Logs/playmode-results.xml`; hot-switch weapon assert обновлён с 4×
+  на EdgeMix 8× / `GetWeapon`).
 - Windows build: **SUCCESS**, `Builds/Windows/DoomUnity.exe`, ~122 MB
   (`Logs/edge-mix-weapon-build-windows.log`).
 
-## Осталось для закрытия реализованного scope (pickup/enemy)
-
-- [ ] При успехе прогнать полный EditMode/PlayMode suite.
-- [ ] Снять warm-time и memory delta для 8× pickup/enemy/weapon textures.
-- [ ] Обновить итоговые test/perf результаты в спеке и project status.
-
-## First-person оружие — осталось
+## First-person оружие — visual gate
 
 - [x] Прогнать focused EditMode/PlayMode suites.
 - [x] Собрать Windows standalone.
-- [ ] Сравнить Classic/Enhanced для fist, pistol, shotgun, chaingun,
+- [x] Сравнить Classic/Enhanced для fist, pistol, shotgun, chaingun,
   chainsaw, rocket launcher, plasma и BFG.
-- [ ] Проверить детали оружия, анимацию и muzzle flash на halo/размытие.
-- [ ] Зафиксировать отдельный visual verdict; при провале оставить weapon
-  path на Super-xBR 4× до улучшения EdgeMix.
+- [x] Проверить детали оружия, анимацию и muzzle flash на halo/размытие.
+- [x] Зафиксировать visual verdict: SUCCESS (см. спеку).
+
+## Осталось для полного закрытия scope
+
+- [x] Прогнать полный EditMode/PlayMode suite.
+- [ ] Снять warm-time и memory delta для 8× pickup/enemy/weapon textures.
+- [x] Обновить итоговые test результаты в спеке и project status
+  (warm-perf цифры — после baseline).

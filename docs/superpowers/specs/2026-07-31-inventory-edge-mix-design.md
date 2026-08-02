@@ -4,8 +4,9 @@
 **Ветка:** реализация предметов начата в `inventory-redraw` от `main`
 (`a11a35f`), затем перенесена в `main` и расширена на противников и
 first-person оружие.  
-**Статус:** 🟢 EdgeMix 8× для предметов, противников и FP-оружия
-реализован в коде; standalone visual gate для оружия ещё не закрыт.
+**Статус:** 🟢 EdgeMix 8× для предметов, противников и FP-оружия закрыт
+2026-08-02 (код + full suites + Windows standalone + interactive visual
+gates). Warm-perf baseline — ещё не снят.
 
 ## Цель и границы
 
@@ -87,15 +88,14 @@ AAAAAA | MMMM | BBBBBB
   (`EnhancedJobRunnerTests|EnhancedCacheCodecTests`, pipeline v3).
 - Sprite/weapon routing + placement: **12/12 PlayMode PASS**
   (`SpriteUpscalePlayTests|Weapon_placement_rect…`).
+- Full suites 2026-08-02: EditMode **610/610**, PlayMode **149/149**
+  (`Logs/test-results.xml`, `Logs/playmode-results.xml`).
 - 2026-08-02: отдельные enemy variant/job kind; visual gate SUCCESS.
-- 2026-08-02: weapon variant/job kind + `WeaponView` routing в коде;
-  focused suites зелёные.
+- 2026-08-02: weapon variant/job kind + `WeaponView` routing;
+  interactive weapon visual gate SUCCESS.
 - Windows standalone: **SUCCESS**, ~122 MB,
   `Builds/Windows/DoomUnity.exe`
   (`Logs/edge-mix-weapon-build-windows.log`).
-- Interactive weapon visual gate — pending.
-
-Это фокусные проверки, не полный прогон EditMode / PlayMode.
 
 ## Локальные visual artifacts
 
@@ -136,13 +136,13 @@ AAAAAA | MMMM | BBBBBB
 4. Нативные patch header dimensions/offsets остаются источником placement.
 5. Hot-switch Classic ↔ Enhanced не должен менять положение оружия и не
    должен показывать stale Super-xBR cache entry (pipeline v3).
-6. Осталось: standalone visual gate для fist, pistol, shotgun, chaingun,
-   chainsaw, rocket launcher, plasma и BFG.
+6. Standalone visual gate для fist, pistol, shotgun, chaingun, chainsaw,
+   rocket launcher, plasma и BFG — закрыт.
 
-Критерий visual gate: края и внутренние детали оружия выглядят лучше
-Super-xBR 4×, muzzle flash не получает halo, а известная мягкость EdgeMix
-не ухудшает читаемость мелких деталей и анимации. Если размытие окажется
-заметнее выигрыша, weapon routing не принимается до улучшения алгоритма.
+**Вердикт 2026-08-02: SUCCESS.** First-person оружие и muzzle flash приняты
+на EdgeMix 8×. Края и характер силуэта лучше Super-xBR 4×; известная
+мягкость/размытие EdgeMix остаётся ограничением алгоритма, но не ломает
+читаемость деталей и анимации.
 
 ## Риски
 
