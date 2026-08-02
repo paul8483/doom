@@ -363,19 +363,25 @@ namespace Doom.MapBuild
 
             // Pre-warm weapon/flash/effect sprites (native only): the WAD closes at
             // the end of Build(), and WeaponView/HitEffect fetch these lazily.
-            // Enhanced 4× is yielded after THINGS under ENHANCED SPRITES.
+            // Weapon viewmodels register for EdgeMix 8×; projectiles/effects stay 4×.
+            // Enhanced upscales are yielded after THINGS under ENHANCED SPRITES.
             foreach (var (spr, frames) in new (string, int[])[]
             {
                 ("PUNG", new[] { 0, 1, 2, 3 }), ("PISG", new[] { 0, 1, 2 }), ("PISF", new[] { 0 }),
                 ("SHTG", new[] { 0, 1, 2, 3 }), ("SHTF", new[] { 0, 1 }),
                 ("CHGG", new[] { 0, 1 }), ("CHGF", new[] { 0, 1 }),
                 ("MISG", new[] { 0, 1 }), ("MISF", new[] { 0, 1, 2, 3 }),
-                ("MISL", new[] { 0, 1, 2, 3 }),
                 // SAWG A/B fire, C idle (S_SAW); D unused by our states but in WAD.
                 ("SAWG", new[] { 0, 1, 2, 3 }),
                 ("PLSG", new[] { 0, 1 }), ("PLSF", new[] { 0, 1 }),
-                ("PLSS", new[] { 0, 1 }), ("PLSE", new[] { 0, 1, 2, 3, 4 }),
                 ("BFGG", new[] { 0, 1 }), ("BFGF", new[] { 0, 1 }),
+            })
+                foreach (int f in frames) spriteCache.WarmNativeWeapon(spr, f, 0);
+
+            foreach (var (spr, frames) in new (string, int[])[]
+            {
+                ("MISL", new[] { 0, 1, 2, 3 }),
+                ("PLSS", new[] { 0, 1 }), ("PLSE", new[] { 0, 1, 2, 3, 4 }),
                 ("BFS1", new[] { 0, 1 }), ("BFE1", new[] { 0, 1, 2, 3, 4, 5 }),
                 ("BFE2", new[] { 0, 1, 2, 3 }),
                 ("PUFF", new[] { 0, 1, 2, 3 }), ("BLUD", new[] { 0, 1, 2 }),

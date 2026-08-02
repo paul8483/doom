@@ -15,5 +15,7 @@ namespace Doom.MapBuild.Rendering
         EnhancedPickup8X = 3,
         /// Experimental enemy-only EdgeMix 8× sprite texture.
         EnhancedEnemy8X = 4,
+        /// First-person weapon / muzzle-flash EdgeMix 8× sprite texture.
+        EnhancedWeapon8X = 5,
     }
 }

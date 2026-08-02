@@ -12,6 +12,7 @@ namespace Doom.Graphics
         Hud = 3,
         PickupSprite = 4,
         EnemySprite = 5,
+        WeaponSprite = 6,
     }
 
     /// Immutable input for <see cref="EnhancedJobRunner"/>. Built on the main
@@ -131,6 +132,15 @@ namespace Doom.Graphics
             if (native == null) throw new ArgumentNullException(nameof(native));
             return new EnhancedJob(
                 EnhancedJobKind.EnemySprite, itemId, native, PixelWrapMode.Clamp,
+                applyDedither: false, applyAlphaBleed: false, applySharpen: false,
+                MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
+        }
+
+        public static EnhancedJob ForWeaponSprite(string itemId, DecodedImage native)
+        {
+            if (native == null) throw new ArgumentNullException(nameof(native));
+            return new EnhancedJob(
+                EnhancedJobKind.WeaponSprite, itemId, native, PixelWrapMode.Clamp,
                 applyDedither: false, applyAlphaBleed: false, applySharpen: false,
                 MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
         }

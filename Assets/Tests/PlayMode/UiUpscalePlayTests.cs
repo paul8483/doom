@@ -142,11 +142,11 @@ namespace Doom.Stage3.PlayTests
             var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
             using (wad)
             {
-                var native = cache.Get("PISG", 0, 0, spectre: false, WorldTextureVariant.Native);
-                var enhanced = cache.Get("PISG", 0, 0, spectre: false, WorldTextureVariant.Enhanced4X);
+                var native = cache.WarmNativeWeapon("PISG", 0, 0);
+                var enhanced = cache.GetWeapon("PISG", 0, 0);
                 Assert.IsTrue(native.IsValid);
                 Assert.IsTrue(enhanced.IsValid);
-                Assert.AreEqual(native.Material.mainTexture.width * 4,
+                Assert.AreEqual(native.Material.mainTexture.width * 8,
                     enhanced.Material.mainTexture.width);
                 Assert.AreEqual(native.Width, enhanced.Width);
                 Assert.AreEqual(native.Height, enhanced.Height);

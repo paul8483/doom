@@ -2,9 +2,10 @@
 
 **Дата:** 2026-07-31  
 **Ветка:** реализация предметов начата в `inventory-redraw` от `main`
-(`a11a35f`), затем перенесена в `main` и расширена на противников.  
-**Статус:** 🟢 EdgeMix 8× для предметов и противников реализован; standalone
-visual gate закрыт успешно 2026-08-02. Следующая стадия — first-person оружие.
+(`a11a35f`), затем перенесена в `main` и расширена на противников и
+first-person оружие.  
+**Статус:** 🟢 EdgeMix 8× для предметов, противников и FP-оружия
+реализован в коде; standalone visual gate для оружия ещё не закрыт.
 
 ## Цель и границы
 
@@ -14,13 +15,12 @@ visual gate закрыт успешно 2026-08-02. Следующая стад�
 - предметы, лежащие в мире: здоровье, патроны, броня, ключи,
   бонусы/power-up и world weapon pickups;
 - противники, включая их анимационные кадры и Spectre;
-- на следующей стадии — first-person оружие и muzzle flash.
+- first-person оружие и muzzle flash.
 
 Не меняются:
 
 - стены, полы, потолки и sky;
-- projectiles и world effects;
-- first-person оружие до завершения следующей стадии;
+- projectiles и world effects (PUFF/BLUD и т.п.);
 - HUD, меню и intermission.
 
 ## Как найден алгоритм
@@ -65,32 +65,37 @@ AAAAAA | MMMM | BBBBBB
   animated pickups и runtime death drops.
 - Enemy spawn/warm path помечает кадры противников отдельно от остальных
   sprite lumps.
-- `SpriteCache` регистрирует pickup/enemy lump indices.
+- `MapLoader` / `WeaponView` помечают first-person weapon и flash lumps
+  через `WarmNativeWeapon` / `GetWeapon`.
+- `SpriteCache` регистрирует pickup/enemy/weapon lump indices.
 - В Enhanced pickup получает `EnhancedPickup8X` и
   `EnhancedJobKind.PickupSprite`.
 - В Enhanced enemy получает `EnhancedEnemy8X` и
   `EnhancedJobKind.EnemySprite`.
-- Остальные sprite lumps продолжают использовать принятый
-  Super-xBR 4× + Sharpen.
-- В Classic pickup и enemy возвращаются к native texture.
+- В Enhanced weapon получает `EnhancedWeapon8X` и
+  `EnhancedJobKind.WeaponSprite`.
+- Остальные sprite lumps (projectiles/effects) продолжают использовать
+  принятый Super-xBR 4× + Sharpen.
+- В Classic pickup, enemy и weapon возвращаются к native texture.
 - Patch header width/height/offsets остаются нативными, поэтому размер
-  и положение спрайта в мире не меняются.
-- Session/disk cache разделён по job kind; pipeline version поднята до 2.
+  и положение спрайта / viewmodel в мире не меняются.
+- Session/disk cache разделён по job kind; pipeline version поднята до 3.
 
-## Проверки на 2026-07-31
+## Проверки
 
-- EdgeMix + Enhanced runner: **15/15 EditMode PASS**.
-- Enhanced cache codec: **9/9 EditMode PASS**.
-- Sprite upscale fixture: **8/8 PlayMode PASS**.
-- На исходной pickup-стадии проверено: pickup = 8×, monster = 4×,
-  native header placement, Classic fallback, hot switch и cache codec.
-- 2026-08-02 добавлены отдельные enemy variant/job kind, routing и тестовое
-  покрытие; противники переведены с Super-xBR 4× на EdgeMix 8×.
-- Windows standalone: **SUCCESS**, около 128 MB:
-  `Builds/Windows/DoomUnity.exe`.
-- Build log: `Logs/edge-mix-build-windows.log`.
+- EdgeMix + Enhanced runner / codec: **20/20 EditMode PASS**
+  (`EnhancedJobRunnerTests|EnhancedCacheCodecTests`, pipeline v3).
+- Sprite/weapon routing + placement: **12/12 PlayMode PASS**
+  (`SpriteUpscalePlayTests|Weapon_placement_rect…`).
+- 2026-08-02: отдельные enemy variant/job kind; visual gate SUCCESS.
+- 2026-08-02: weapon variant/job kind + `WeaponView` routing в коде;
+  focused suites зелёные.
+- Windows standalone: **SUCCESS**, ~122 MB,
+  `Builds/Windows/DoomUnity.exe`
+  (`Logs/edge-mix-weapon-build-windows.log`).
+- Interactive weapon visual gate — pending.
 
-Это фокусные проверки, не полный прогон 608 EditMode / 146 PlayMode.
+Это фокусные проверки, не полный прогон EditMode / PlayMode.
 
 ## Локальные visual artifacts
 
@@ -119,23 +124,20 @@ AAAAAA | MMMM | BBBBBB
 мягкость/размытие; это известное ограничение текущего EdgeMix 8×, которое
 следует уменьшить при будущем улучшении алгоритма.
 
-## Следующая стадия: first-person оружие
+## Visual gate: first-person оружие
 
 Перевести first-person weapon patches с общего Enhanced sprite path
-(Super-xBR 4× + Sharpen) на EdgeMix 8×. Стадия включает:
+(Super-xBR 4× + Sharpen) на EdgeMix 8×:
 
-1. Отдельные `EnhancedWeapon8X` и `EnhancedJobKind.WeaponSprite`, чтобы
-   weapon lumps не смешивались с pickup/enemy/cache entries.
-2. Явный weapon routing в `SpriteCache` (`GetWeapon`/регистрация lump) вместо
-   текущего общего `Get`, вызываемого из `WeaponView.DrawPatch`.
+1. Отдельные `EnhancedWeapon8X` и `EnhancedJobKind.WeaponSprite` — сделано.
+2. Явный weapon routing в `SpriteCache` (`GetWeapon`/регистрация lump) и
+   `WeaponView.DrawPatch` — сделано.
 3. EdgeMix 8× для idle/fire кадров и muzzle flash; Classic сохраняет native.
-4. Нативные patch header dimensions/offsets остаются источником placement,
-   поэтому размер, bob, lowering, clipping над status bar и анимационные
-   тайминги не меняются.
+4. Нативные patch header dimensions/offsets остаются источником placement.
 5. Hot-switch Classic ↔ Enhanced не должен менять положение оружия и не
-   должен показывать stale Super-xBR cache entry.
-6. Unit/codec/routing проверки и отдельный standalone visual gate для fist,
-   pistol, shotgun, chaingun, chainsaw, rocket launcher, plasma и BFG.
+   должен показывать stale Super-xBR cache entry (pipeline v3).
+6. Осталось: standalone visual gate для fist, pistol, shotgun, chaingun,
+   chainsaw, rocket launcher, plasma и BFG.
 
 Критерий visual gate: края и внутренние детали оружия выглядят лучше
 Super-xBR 4×, muzzle flash не получает halo, а известная мягкость EdgeMix

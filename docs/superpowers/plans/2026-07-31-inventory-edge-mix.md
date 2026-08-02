@@ -1,7 +1,8 @@
 # Sprite EdgeMix 8× — implementation plan/status
 
 **Статус:** 🟢 предметы и противники реализованы, standalone visual gate
-успешно закрыт 2026-08-02; 🟡 first-person оружие запланировано.  
+успешно закрыт 2026-08-02; 🟡 first-person оружие реализовано и focused
+tests зелёные; ожидает Windows standalone + interactive visual gate.  
 **Спека:** `docs/superpowers/specs/2026-07-31-inventory-edge-mix-design.md`.
 
 ## Выполнено
@@ -25,33 +26,37 @@
 - [x] Зафиксировать visual verdict: результат лучше исходного благодаря
   сохранению оригинальных краёв; заметное размытие принято как известное
   ограничение для будущего улучшения алгоритма.
+- [x] Добавить `EnhancedWeapon8X` и `EnhancedJobKind.WeaponSprite`.
+- [x] Расширить session/disk cache codec и поднять
+  `EnhancedPipelineVersion` до 3.
+- [x] Добавить в `SpriteCache` отдельную регистрацию weapon lumps и
+  `GetWeapon`, сохранив native Classic fallback.
+- [x] Перевести `WeaponView.DrawPatch` на weapon routing.
+- [x] Применить EdgeMix 8× к idle/fire кадрам и muzzle flash
+  (`WarmNativeWeapon` в `MapLoader`).
+- [x] Сохранить нативные header dimensions/offsets для placement /
+  bob / lowering / STBAR clipping.
+- [x] Добавить unit, runner, codec и PlayMode routing/placement tests.
 
 ## Автоматические результаты
 
-- EditMode EdgeMix/runner: **15/15 PASS**.
-- EditMode codec: **9/9 PASS**.
-- PlayMode sprite routing/hot-switch: **8/8 PASS**.
-- Windows build: **SUCCESS**, `Builds/Windows/DoomUnity.exe`, ~128 MB.
+- EditMode runner + codec (`EnhancedJobRunnerTests|EnhancedCacheCodecTests`):
+  **20/20 PASS** (2026-08-02, pipeline v3 + WeaponSprite).
+- PlayMode sprite/weapon routing + placement
+  (`SpriteUpscalePlayTests|Weapon_placement_rect…`): **12/12 PASS**.
+- Windows build: **SUCCESS**, `Builds/Windows/DoomUnity.exe`, ~122 MB
+  (`Logs/edge-mix-weapon-build-windows.log`).
 
-## Осталось для закрытия реализованного scope
+## Осталось для закрытия реализованного scope (pickup/enemy)
 
 - [ ] При успехе прогнать полный EditMode/PlayMode suite.
-- [ ] Снять warm-time и memory delta для 8× pickup/enemy textures.
+- [ ] Снять warm-time и memory delta для 8× pickup/enemy/weapon textures.
 - [ ] Обновить итоговые test/perf результаты в спеке и project status.
 
-## Следующая стадия — first-person оружие
+## First-person оружие — осталось
 
-- [ ] Добавить `EnhancedWeapon8X` и `EnhancedJobKind.WeaponSprite`.
-- [ ] Расширить session/disk cache codec и при необходимости поднять
-  `EnhancedPipelineVersion`.
-- [ ] Добавить в `SpriteCache` отдельную регистрацию weapon lumps и
-  `GetWeapon`, сохранив native Classic fallback.
-- [ ] Перевести `WeaponView.DrawPatch` на weapon routing.
-- [ ] Применить EdgeMix 8× к idle/fire кадрам и muzzle flash.
-- [ ] Проверить, что нативные header dimensions/offsets сохраняют placement,
-  bob, lowering и clipping над status bar.
-- [ ] Добавить unit, runner, codec и PlayMode hot-switch/routing tests.
-- [ ] Собрать Windows standalone.
+- [x] Прогнать focused EditMode/PlayMode suites.
+- [x] Собрать Windows standalone.
 - [ ] Сравнить Classic/Enhanced для fist, pistol, shotgun, chaingun,
   chainsaw, rocket launcher, plasma и BFG.
 - [ ] Проверить детали оружия, анимацию и muzzle flash на halo/размытие.

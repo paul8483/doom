@@ -9,6 +9,6 @@ namespace Doom.Graphics
     /// stale packs must not be served after a pipeline change.
     public static class EnhancedPipelineVersion
     {
-        public const int Value = 2;
+        public const int Value = 3;
     }
 }

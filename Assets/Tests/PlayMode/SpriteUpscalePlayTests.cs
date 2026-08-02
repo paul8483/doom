@@ -112,6 +112,77 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Enhanced_weapon_is_edge_mix_8x_with_native_header_dims()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                var native = cache.WarmNativeWeapon("PISG", 0, 0);
+                Assert.IsTrue(native.IsValid);
+                var nativeTexture = native.Material.mainTexture;
+
+                var enhanced = cache.GetWeapon("PISG", 0, 0);
+
+                Assert.IsTrue(enhanced.IsValid);
+                Assert.AreEqual(nativeTexture.width * 8, enhanced.Material.mainTexture.width);
+                Assert.AreEqual(nativeTexture.height * 8, enhanced.Material.mainTexture.height);
+                Assert.AreEqual(native.Width, enhanced.Width);
+                Assert.AreEqual(native.Height, enhanced.Height);
+                Assert.AreEqual(native.LeftOffset, enhanced.LeftOffset);
+                Assert.AreEqual(native.TopOffset, enhanced.TopOffset);
+                Assert.AreSame(
+                    enhanced.Material,
+                    cache.GetWeapon("PISG", 0, 0).Material);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Classic_weapon_stays_native()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Classic, out var wad);
+            using (wad)
+            {
+                var a = cache.GetWeapon("PISG", 0, 0);
+                var b = cache.GetWeapon("PISG", 0, 0);
+                Assert.IsTrue(a.IsValid);
+                Assert.AreSame(a.Material, b.Material);
+                Assert.AreSame(a.Material.mainTexture, b.Material.mainTexture);
+                Assert.AreEqual(0, cache.EnhancedVariantCount);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Weapon_registration_does_not_change_projectile_4x_pipeline()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                cache.WarmNativeWeapon("PISG", 0, 0);
+                var spriteNative = cache.Get(
+                    "PUFF", 0, 0, spectre: false, WorldTextureVariant.Native);
+                var spriteEnhanced = cache.Get("PUFF", 0, 0);
+
+                Assert.IsTrue(spriteNative.IsValid);
+                Assert.IsTrue(spriteEnhanced.IsValid);
+                Assert.AreEqual(
+                    spriteNative.Material.mainTexture.width * 4,
+                    spriteEnhanced.Material.mainTexture.width);
+                Assert.AreEqual(
+                    spriteNative.Material.mainTexture.height * 4,
+                    spriteEnhanced.Material.mainTexture.height);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Pickup_registration_does_not_change_generic_sprite_4x_pipeline()
         {
             LogAssert.ignoreFailingMessages = true;
@@ -122,8 +193,8 @@ namespace Doom.Stage3.PlayTests
             {
                 cache.WarmNativePickup("MEDI", 0, 0);
                 var spriteNative = cache.Get(
-                    "PISG", 0, 0, spectre: false, WorldTextureVariant.Native);
-                var spriteEnhanced = cache.Get("PISG", 0, 0);
+                    "PUFF", 0, 0, spectre: false, WorldTextureVariant.Native);
+                var spriteEnhanced = cache.Get("PUFF", 0, 0);
 
                 Assert.IsTrue(spriteNative.IsValid);
                 Assert.IsTrue(spriteEnhanced.IsValid);
