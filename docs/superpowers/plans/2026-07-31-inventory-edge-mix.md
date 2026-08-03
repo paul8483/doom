@@ -67,9 +67,12 @@ visual gates). Осталось: warm-perf baseline.
 ## Осталось для полного закрытия scope
 
 - [x] Прогнать полный EditMode/PlayMode suite.
-- [ ] Снять warm-time и memory delta для 8× pickup/enemy/weapon textures.
-- [x] Обновить итоговые test результаты в спеке и project status
-  (warm-perf цифры — после baseline).
+- [x] Снять warm-time и memory delta для 8× pickup/enemy/weapon
+  textures (2026-08-03, pipeline v4): E1M1 first switch 9.47–9.59 с
+  (cold ≈ disk-warm), repeat 7.6–21 мс; E1M7 9.86–9.97 с / ~9 мс;
+  sprite bytes 213 МБ; managed ~1.1 ГБ; mitigation ladder не нужен.
+  Паритет с до-v4 замерами. **Scope закрыт полностью.**
+- [x] Обновить итоговые test результаты в спеке и project status.
 
 ## Этап 2: contrast-gated EdgeMix (запланирован 2026-08-03)
 

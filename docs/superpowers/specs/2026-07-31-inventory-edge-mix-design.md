@@ -12,9 +12,17 @@ PNG-свипу (native | EdgeMix 8× | 16→64 | 32→112 | 64→176) выбра
 агрессивную точку **16→64** («крест чёткий»); runtime переведён на
 `Scale8XContrastGated`, pipeline **v4**; standalone visual gate —
 SUCCESS («всё хорошо, оставляем как есть»). Suites: EditMode
-**616/616**, PlayMode **149/149**. Warm-perf baseline по-прежнему
-не снят (замеры 2026-08-03 в
-`Logs/enhanced-texture-quality-baseline-notes.md` сделаны до v4).
+**616/616**, PlayMode **149/149**.
+
+**Warm-perf baseline (pipeline v4) ✅ снят 2026-08-03**
+(`Logs/enhanced-texture-quality-baseline-notes.md`, таблицы 19:32–19:37):
+паритет с принятым до-v4 baseline — E1M1 first switch 9.47–9.59 с
+(cold compute без диск-кэша ≈ disk-warm: гейт-математика дешёвая,
+параллельный прогрев маскирует диск), repeat 7.6–21 мс; E1M7 first
+switch 9.86–9.97 с, repeat ~9 мс; Sprite Enhanced bytes 213 МБ
+(гейт меняет значения пикселей, не размеры); managed ~1.0–1.1 ГБ;
+mitigation ladder не применялся. Дисковый pack v4 ~719 МБ записан
+standalone-сессией visual gate.
 
 ## Цель и границы
 
