@@ -1,8 +1,8 @@
 # Doom Unity Remake
 
-A from-scratch remake of the original DOOM in **Unity + C#**. Maps, textures, sprites, and sounds come from WAD files; rendering, physics, and gameplay logic are written anew. No custom maps, textures, or assets are authored.
+A from-scratch remake of the original DOOM in **Unity + C#**, built around a live **Classic / Enhanced** graphics switch: same WAD data and gameplay, but Enhanced upscales and relights it (Super-xBR world textures, EdgeMix sprites, URP lights and post) without authored replacement art.
 
-Development and distribution use **[Freedoom](https://freedoom.github.io/)** (Phase 1) — a free IWAD that is format-compatible with DOOM. The commercial `DOOM.WAD` is not required.
+Maps, textures, sprites, and sounds come from WAD files; rendering, physics, and gameplay logic are written anew. No custom maps, textures, or assets are authored. Development and distribution use **[Freedoom](https://freedoom.github.io/)** (Phase 1) — a free IWAD that is format-compatible with DOOM. The commercial `DOOM.WAD` is not required.
 
 **Play without the Editor:** download Windows or Linux builds from [Releases](https://github.com/paul8483/doom/releases) (current: **v1.0.3**).
 
