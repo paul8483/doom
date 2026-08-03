@@ -92,16 +92,16 @@ namespace Doom.Graphics
         static EnhancedJobResult RunPickupSprite(EnhancedJob job) =>
             EnhancedJobResult.OkRgba(
                 EnhancedJobKind.PickupSprite,
-                EdgeMixUpscaler.Scale8X(job.Native));
+                EdgeMixUpscaler.Scale8XContrastGated(job.Native));
 
         static EnhancedJobResult RunEnemySprite(EnhancedJob job) =>
             EnhancedJobResult.OkRgba(
                 EnhancedJobKind.EnemySprite,
-                EdgeMixUpscaler.Scale8X(job.Native));
+                EdgeMixUpscaler.Scale8XContrastGated(job.Native));
 
         static EnhancedJobResult RunWeaponSprite(EnhancedJob job) =>
             EnhancedJobResult.OkRgba(
                 EnhancedJobKind.WeaponSprite,
-                EdgeMixUpscaler.Scale8X(job.Native));
+                EdgeMixUpscaler.Scale8XContrastGated(job.Native));
     }
 }

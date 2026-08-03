@@ -86,6 +86,97 @@ namespace Doom.Graphics.Tests
                 EdgeMixUpscaler.Scale8X(new DecodedImage(2, 1, new byte[4])));
         }
 
+        [Test]
+        public void Gated_close_colors_mix_like_ungated()
+        {
+            var source = Image(
+                2, 1,
+                (100, 100, 100, 255),
+                (110, 110, 110, 255)); // weighted distance 10 <= GateRampStart
+
+            var gated = EdgeMixUpscaler.Scale8XGated(
+                source, EdgeMixUpscaler.GateRampStart, EdgeMixUpscaler.GateRampEnd);
+            var ungated = EdgeMixUpscaler.Scale8X(source);
+
+            Assert.AreEqual(ungated.Rgba, gated.Rgba);
+        }
+
+        [Test]
+        public void Gated_contrast_boundary_stays_hard_nearest()
+        {
+            var source = Image(
+                2, 1,
+                (0, 0, 0, 255),
+                (255, 255, 255, 255)); // weighted distance 255 >= GateRampEnd
+
+            var result = EdgeMixUpscaler.Scale8XGated(
+                source, EdgeMixUpscaler.GateRampStart, EdgeMixUpscaler.GateRampEnd);
+
+            for (int x = 0; x < 8; x++)
+                Assert.AreEqual(((byte)0, (byte)0, (byte)0, (byte)255), result.GetPixel(x, 0));
+            for (int x = 8; x < 16; x++)
+                Assert.AreEqual(((byte)255, (byte)255, (byte)255, (byte)255), result.GetPixel(x, 0));
+        }
+
+        [Test]
+        public void Gated_ramp_midpoint_mixes_partially()
+        {
+            // Weighted distance 40 sits mid-ramp for 16->64: weight ~0.5, so the
+            // band color leans toward the center texel instead of the full mean.
+            var source = Image(
+                2, 1,
+                (0, 0, 0, 255),
+                (40, 40, 40, 255));
+
+            var result = EdgeMixUpscaler.Scale8XGated(source, 16, 64);
+
+            var band = result.GetPixel(6, 0);
+            Assert.Greater(band.r, 0);
+            Assert.Less(band.r, 20); // full mean would be 20
+        }
+
+        [Test]
+        public void Gated_alpha_silhouette_matches_ungated()
+        {
+            var source = Image(
+                2, 1,
+                (200, 40, 20, 255),
+                (0, 0, 255, 0));
+
+            var gated = EdgeMixUpscaler.Scale8XGated(
+                source, EdgeMixUpscaler.GateRampStart, EdgeMixUpscaler.GateRampEnd);
+            var ungated = EdgeMixUpscaler.Scale8X(source);
+
+            Assert.AreEqual(ungated.Rgba, gated.Rgba);
+        }
+
+        [Test]
+        public void Gated_corner_with_one_contrast_diagonal_excludes_it()
+        {
+            // Three near-black texels and one white: the white diagonal must not
+            // bleed into the corner average.
+            var source = Image(
+                2, 2,
+                (0, 0, 0, 255), (10, 10, 10, 255),
+                (10, 10, 10, 255), (255, 255, 255, 255));
+
+            var result = EdgeMixUpscaler.Scale8XGated(
+                source, EdgeMixUpscaler.GateRampStart, EdgeMixUpscaler.GateRampEnd);
+
+            var corner = result.GetPixel(7, 7); // top-left texel corner sample
+            Assert.Less(corner.r, 30);
+        }
+
+        [Test]
+        public void Gated_invalid_ramp_throws()
+        {
+            var source = Image(1, 1, (1, 2, 3, 255));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                EdgeMixUpscaler.Scale8XGated(source, -1, 64));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                EdgeMixUpscaler.Scale8XGated(source, 64, 16));
+        }
+
         static DecodedImage Image(
             int width,
             int height,

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -85,7 +85,7 @@ namespace Doom.Graphics.Tests
             Assert.AreEqual(native.Width * 8, result.Rgba.Width);
             Assert.AreEqual(native.Height * 8, result.Rgba.Height);
             Assert.AreEqual(
-                EdgeMixUpscaler.Scale8X(native).Rgba,
+                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
                 result.Rgba.Rgba);
         }
 
@@ -105,7 +105,7 @@ namespace Doom.Graphics.Tests
             Assert.AreEqual(native.Width * 8, result.Rgba.Width);
             Assert.AreEqual(native.Height * 8, result.Rgba.Height);
             Assert.AreEqual(
-                EdgeMixUpscaler.Scale8X(native).Rgba,
+                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
                 result.Rgba.Rgba);
         }
 
@@ -125,7 +125,7 @@ namespace Doom.Graphics.Tests
             Assert.AreEqual(native.Width * 8, result.Rgba.Width);
             Assert.AreEqual(native.Height * 8, result.Rgba.Height);
             Assert.AreEqual(
-                EdgeMixUpscaler.Scale8X(native).Rgba,
+                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
                 result.Rgba.Rgba);
         }
 
