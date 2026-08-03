@@ -7,8 +7,8 @@ using Doom.Things;
 namespace Doom.MapBuild
 {
     /// Applies a <see cref="SaveGame"/> after MapLoader finishes the static WAD build.
-    /// Order: sectors/lines → map things → spawned pickups → targets/projectiles →
-    /// player → stats/spawn ids.
+    /// Order: sectors/lines → map things → spawned pickups → floor re-anchor →
+    /// targets/projectiles → player → stats/spawn ids.
     public static class WorldSnapshotRestore
     {
         public static bool TryApply(
@@ -45,6 +45,9 @@ namespace Doom.MapBuild
                 RestoreLines(world, map, registry.Lines);
                 RestoreMapThings(world, registry);
                 RestoreSpawnedPickups(world, registry, spriteCache, worldScale, player);
+                // Saves captured before FloorAnchor existed recorded things hanging
+                // over already-moved floors — settle everything onto restored heights.
+                FloorAnchor.ReanchorAll(heights, worldScale);
                 ResolveMonsterTargets(world, registry, player.transform);
                 RestoreProjectiles(
                     world, save.Version, registry, spriteCache, worldScale, sound, player);

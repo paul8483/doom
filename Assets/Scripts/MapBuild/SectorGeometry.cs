@@ -58,7 +58,12 @@ namespace Doom.MapBuild
             // Always rebuild when asked; the per-frame skip lives in the caller.
             // lastFloor/lastCeil are retained for a future finer-grained skip.
             Rebuild(s);
+            bool floorMoved = f != lastFloor[s];
             lastFloor[s] = f; lastCeil[s] = c;
+            if (floorMoved)
+                FloorAnchor.OnSectorFloorMoved(
+                    s, sectorRoots[s] != null ? sectorRoots[s].Find("Floor") : null,
+                    heights.FloorRaw(s) * worldScale);
         }
 
         private void Rebuild(int s)

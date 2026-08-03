@@ -65,6 +65,8 @@ namespace Doom.MapBuild
                     typeof(MeshFilter), typeof(MeshRenderer));
                 go.transform.SetParent(parent, worldPositionStays: false);
                 go.transform.position = new Vector3(x, feetY, z);
+                if (!ceiling)
+                    go.AddComponent<FloorAnchor>();
 
                 var identity = go.AddComponent<MapThingIdentity>();
                 identity.Init(thingIndex, t.Type, t.Flags);

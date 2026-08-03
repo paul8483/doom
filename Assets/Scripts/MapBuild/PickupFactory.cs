@@ -17,6 +17,7 @@ namespace Doom.MapBuild
             if (parent != null)
                 go.transform.SetParent(parent, worldPositionStays: false);
             go.transform.position = feetPosition;
+            go.AddComponent<FloorAnchor>();
 
             var bb = go.AddComponent<SpriteBillboard>();
             bb.Init(cache, def.Sprite, def.Frame, worldScale,
