@@ -4,9 +4,11 @@ A from-scratch remake of the original DOOM in **Unity + C#**. Maps, textures, sp
 
 Development and distribution use **[Freedoom](https://freedoom.github.io/)** (Phase 1) — a free IWAD that is format-compatible with DOOM. The commercial `DOOM.WAD` is not required.
 
+**Play without the Editor:** download Windows or Linux builds from [Releases](https://github.com/paul8483/doom/releases) (current: **v1.0.3**).
+
 ## Status
 
-**Stages 0–8 are complete.** Full Episode 1 (E1M1–E1M9) is playable: movement, doors/lifts, weapons, monsters, pickups, sound/music, HUD, menus, saves, and level transitions.
+**Stages 0–8 are complete**, plus post-8 Enhanced texture quality (Super-xBR / EdgeMix). Full Episode 1 (E1M1–E1M9) is playable: movement, doors/lifts, weapons, monsters, pickups, sound/music, HUD, menus, saves, and level transitions.
 
 Two graphics modes — **Classic** and **Enhanced** — switch live from Options without reloading the map or changing gameplay.
 
@@ -19,11 +21,11 @@ Two graphics modes — **Classic** and **Enhanced** — switch live from Options
 | Specials | Doors, lifts, stairs, teleports, exits, lights, floor damage, barrels |
 | Audio | DMX SFX + OPL3 music (MUS/MIDI from the WAD) |
 | UI | WAD HUD, menus, intermission, settings, save slots |
-| Graphics | URP 17, Classic / Enhanced modes |
+| Graphics | URP 17, Classic / Enhanced (4× world + EdgeMix 8× sprites) |
 
 ## Classic and Enhanced
 
-Both modes share the same geometry, physics, AI, and WAD data. Switching only changes the visual profile (materials, lights, post-processing). HUD, menus, and the weapon viewmodel always stay sharp (virtual 320×200 screen, nearest-neighbour scaling).
+Both modes share the same geometry, physics, AI, and WAD data. Switching only changes the visual profile (materials, lights, post-processing, upscaling). Menus and intermission stay at native WAD resolution.
 
 ### Classic (default)
 
@@ -32,28 +34,41 @@ Closest to the classic WAD-driven look:
 - Point filtering for textures and sprites
 - Unlit shaders: albedo × sector light, no Unity Lights
 - No bloom, SSAO, fog, normal maps, particles, decals, or real-time shadows
-- Original WAD texture resolution
+- Original WAD texture resolution (HUD / weapon view on a virtual 320×200 screen)
 
 ### Enhanced
 
 The same WAD content through a modern URP path (no authored replacement textures or models):
 
-- Lit materials + runtime normal maps derived from WAD texture luminance
-- Bilinear/trilinear sampling with mipmaps / anisotropic filtering
+- **World textures** Super-xBR **4×** (with optional pattern-gated dedither), plus multi-scale normals and POM on solid surfaces
+- **Sprites:** EdgeMix **8×** (contrast-gated) for pickups, enemies (incl. Spectre), and first-person weapons; projectiles/effects stay Super-xBR 4×
+- **HUD** Super-xBR 4× + light sharpen; menus/intermission remain native
+- Lit materials, texel-aware sampling, mipmaps / anisotropic filtering
 - Dynamic lights (muzzle flash, projectiles, lamps, explosions) and a bounded shadow pool
 - Post-processing: HDR, SSAO, soft bloom, fog, MSAA
 - WAD `SKY*` sky, animated fluids (nukage/lava), particles, and decals
-- Sprites lit by sector ambient + local lights; dedicated spectre material
+- Session / disk-pack warm cache so level transitions do not recompute upscales
 
 Switch via **Options → Graphics Mode → Classic | Enhanced**.
 
 ## Getting started
 
-1. Install **Unity 6000.4.8f1** (pinned in `ProjectSettings/ProjectVersion.txt`).
+### Play a release build
+
+1. Grab `DoomUnity-*-windows-x64.zip` or `DoomUnity-*-linux-x64.zip` from [Releases](https://github.com/paul8483/doom/releases).
+2. Unpack and run `DoomUnity.exe` (Windows) or `DoomUnity.x86_64` (Linux; `chmod +x` if needed).
+3. Freedoom Phase 1 is already bundled under StreamingAssets.
+
+### Develop in the Editor
+
+1. Install **Unity 6000.4.8f1** (pinned in `ProjectSettings/ProjectVersion.txt`). For Linux player builds, also install **Linux Build Support (Mono)** for that Editor.
 2. Open the repository root as a Unity project.
 3. Open `Assets/Scenes/Stage2_MapPreview.unity` and press Play — E1M1 loads from `Assets/StreamingAssets/wads/freedoom1.wad`.
 
-Windows standalone: editor menu **Tools → Doom → Build Windows Standalone** → `Builds/Windows/`.
+Standalone builds from the Editor:
+
+- **Tools → Doom → Build Windows Standalone** → `Builds/Windows/`
+- **Tools → Doom → Build Linux Standalone** → `Builds/Linux/`
 
 ## Architecture (brief)
 
@@ -90,6 +105,7 @@ Do not add `-quit` together with `-runTests`.
 | --- | --- | --- |
 | LibTessDotNet | SGI Free B 2.0 | `Assets/ThirdParty/LibTessDotNet/` |
 | Nuked OPL3 (managed) | LGPL-2.1 | `Assets/ThirdParty/NukedOpl/` |
+| Super-xBR | MIT | `Assets/ThirdParty/SuperXbr/` |
 | Freedoom Phase 1 | BSD-like (Freedoom) | `Assets/StreamingAssets/wads/freedoom1.wad` |
 
 This is an independent reimplementation. Not affiliated with id Software / Bethesda / Microsoft.
