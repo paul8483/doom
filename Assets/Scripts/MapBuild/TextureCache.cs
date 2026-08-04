@@ -87,7 +87,13 @@ namespace Doom.MapBuild
         public Material GetMaterial(string name, bool masked)
         {
             var key = (name, masked);
-            if (matCache.TryGetValue(key, out var m)) return m;
+            // Unity-destroyed materials compare as null but remain in the dictionary
+            // after WorldRenderContext.Dispose — returning them paints magenta/black.
+            if (matCache.TryGetValue(key, out var m))
+            {
+                if (m != null) return m;
+                matCache.Remove(key);
+            }
             // Always bind native albedo at creation. Enhanced4X (Super-xBR) is built
             // in a yielded warm/ApplyProfile pass — doing it here freezes New Game
             // for minutes while GEOMETRY runs without a frame.
@@ -115,7 +121,10 @@ namespace Doom.MapBuild
 
             var key = (name, variant);
             if (texCache.TryGetValue(key, out var existing))
-                return existing;
+            {
+                if (existing != null) return existing;
+                texCache.Remove(key);
+            }
 
             EnsureSource(name);
 
@@ -257,7 +266,10 @@ namespace Doom.MapBuild
         {
             var key = (name, WorldTextureVariant.Native);
             if (texCache.TryGetValue(key, out var existing))
-                return existing;
+            {
+                if (existing != null) return existing;
+                texCache.Remove(key);
+            }
 
             var entry = sourceCache[name];
             var tex = ToAlbedoTexture2D(entry.Native, name, entry);
@@ -272,7 +284,10 @@ namespace Doom.MapBuild
         {
             var key = (name, WorldTextureVariant.Enhanced4X);
             if (texCache.TryGetValue(key, out var existing))
-                return existing;
+            {
+                if (existing != null) return existing;
+                texCache.Remove(key);
+            }
 
             EnsureSource(name);
             var entry = sourceCache[name];

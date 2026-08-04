@@ -104,8 +104,18 @@ namespace Doom.Graphics
                 string patchName = pnames[pr.PatchIndex];
                 int li = wad.FindLump(patchName);
                 if (li < 0) { GraphicsLog.Warning($"TextureSet: missing patch '{patchName}'"); continue; }
-                var patch = Patch.Decode(wad.ReadLump(li), palette);
-                Stamp(rgba, d.Width, d.Height, patch, pr.OriginX, pr.OriginY);
+                try
+                {
+                    var patch = Patch.Decode(wad.ReadLump(li), palette);
+                    Stamp(rgba, d.Width, d.Height, patch, pr.OriginX, pr.OriginY);
+                }
+                catch (System.Exception e)
+                {
+                    // Closed WAD stream / corrupt column data — skip the patch
+                    // rather than failing the whole texture into a placeholder.
+                    GraphicsLog.Warning(
+                        $"TextureSet: patch '{patchName}' in '{name}' failed: {e.Message}");
+                }
             }
             return new DecodedImage(d.Width, d.Height, rgba);
         }

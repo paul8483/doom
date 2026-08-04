@@ -284,6 +284,11 @@ namespace Doom.MapBuild
             var textures = TextureSet.Load(wad);
             var cache    = new TextureCache(wad, textures, palette, materialFactory, renderContext);
             WorldTextures = cache;
+            // Lift/door rebuilds can first-touch sidedef textures that were absent
+            // from the initial sector mesh set (e.g. E1M3 BROWN144 on the nukage
+            // lift). Decode every map name now — after `using var wad` ends,
+            // TextureSet.Build can no longer read patches and would paint magenta.
+            PrewarmMapTextures(map, cache);
 
             // Stage 7b: decode HUD/menu/intermission patches while the WAD is open.
             // Follows GraphicsModeController for UiUpscale4X (menus stay native).
@@ -889,6 +894,38 @@ namespace Doom.MapBuild
 
         enum ColliderMode { None, Render, ThickWall }
 
+        /// Decode every wall/flat name referenced by the map into TextureCache while
+        /// the WAD stream is still open. Movers can expose sidedef textures that
+        /// never appeared in the initial mesh set; lazy decode after WAD dispose
+        /// yields Placeholder.Magenta (E1M3 nukage-lift BROWN144/DOORTRAK).
+        static void PrewarmMapTextures(MapData map, TextureCache cache)
+        {
+            if (map == null || cache == null) return;
+            var names = new System.Collections.Generic.HashSet<string>(
+                System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < map.SideDefs.Length; i++)
+            {
+                var side = map.SideDefs[i];
+                AddMapTextureName(names, side.UpperTexture);
+                AddMapTextureName(names, side.LowerTexture);
+                AddMapTextureName(names, side.MiddleTexture);
+            }
+            for (int i = 0; i < map.Sectors.Length; i++)
+            {
+                var sec = map.Sectors[i];
+                AddMapTextureName(names, sec.FloorFlat);
+                AddMapTextureName(names, sec.CeilingFlat);
+            }
+            foreach (string name in names)
+                cache.GetTexture(name);
+        }
+
+        static void AddMapTextureName(System.Collections.Generic.HashSet<string> names, string name)
+        {
+            if (string.IsNullOrEmpty(name) || name == "-") return;
+            names.Add(name);
+        }
+
         // ── Shared sector-root population (initial build AND in-place rebuild) ─────
 
         /// Re-create the Floor/Ceiling/Wall child GameObjects under `sectorRoot`
@@ -1065,6 +1102,10 @@ namespace Doom.MapBuild
             var renderer = wall.GetComponent<MeshRenderer>();
             if (renderer == null) renderer = wall.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
+            // Pooled walls may carry a stale MaterialPropertyBlock from scroll /
+            // fluid / sector-ambient writes. Clear so the new sharedMaterial albedo
+            // is not overridden by a destroyed or wrong _MainTex (magenta checker).
+            renderer.SetPropertyBlock(null);
 
             var collider = wall.GetComponent<MeshCollider>();
             if (blocks)

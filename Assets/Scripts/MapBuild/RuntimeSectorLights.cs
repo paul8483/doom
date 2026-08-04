@@ -197,11 +197,21 @@ namespace Doom.MapBuild
                     renderer.SetPropertyBlock(null);
                     continue;
                 }
-                mpb.Clear();
-                mpb.SetColor(SectorAmbientProperty, new Color(level, level, level, 1f));
-                mpb.SetFloat(SectorAmbientWeightProperty, 1f);
-                renderer.SetPropertyBlock(mpb);
+                // Merge ambient into the existing block — Clear() would drop
+                // AnimatedSurfaceSystem / WallScrollController _MainTex overrides
+                // and leave Fluid/Enhanced sampling Unity's missing-texture checker
+                // until the next animation tick (or forever on non-animated walls
+                // that inherited a stale block after a lift rebuild).
+                ApplyAmbientBlock(renderer, level);
             }
+        }
+
+        void ApplyAmbientBlock(MeshRenderer renderer, float level)
+        {
+            renderer.GetPropertyBlock(mpb);
+            mpb.SetColor(SectorAmbientProperty, new Color(level, level, level, 1f));
+            mpb.SetFloat(SectorAmbientWeightProperty, 1f);
+            renderer.SetPropertyBlock(mpb);
         }
 
         void ApplyVisualsIfNeeded(bool force)
@@ -231,10 +241,7 @@ namespace Doom.MapBuild
                         continue;
                     }
 
-                    mpb.Clear();
-                    mpb.SetColor(SectorAmbientProperty, new Color(level, level, level, 1f));
-                    mpb.SetFloat(SectorAmbientWeightProperty, 1f);
-                    renderer.SetPropertyBlock(mpb);
+                    ApplyAmbientBlock(renderer, level);
                 }
             }
         }

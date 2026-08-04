@@ -84,6 +84,14 @@ namespace Doom.MapBuild.Rendering
             for (int i = 0; i < materials.Count; i++)
             {
                 var (mat, masked, textureName) = materials[i];
+                // Recreate entries destroyed by a prior Dispose while a cache still
+                // held the slot — MeshRenderers pick these up on the next rebuild
+                // or via Retarget below when the instance is live again.
+                if (mat == null && TextureCache != null && !string.IsNullOrEmpty(textureName))
+                {
+                    mat = TextureCache.GetMaterial(textureName, masked);
+                    materials[i] = (mat, masked, textureName);
+                }
                 if (mat == null) continue;
 
                 if (TextureCache != null && !string.IsNullOrEmpty(textureName))

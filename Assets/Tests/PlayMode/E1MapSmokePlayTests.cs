@@ -109,12 +109,21 @@ namespace Doom.Stage3.PlayTests
         {
             foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
             {
-                if (r == null || r.sharedMaterial == null) continue;
-                var sh = r.sharedMaterial.shader;
+                if (r == null || !r.gameObject.activeInHierarchy) continue;
+                // Skip HUD/UI overlays that intentionally omit world materials.
+                if (r.GetComponentInParent<DoomHud>() != null) continue;
+                var mat = r.sharedMaterial;
+                Assert.IsNotNull(mat, $"{label}: null sharedMaterial on {r.name} (magenta)");
+                var sh = mat.shader;
                 Assert.IsNotNull(sh, $"{label}: missing shader on {r.name}");
                 Assert.IsFalse(
                     sh.name.Contains("InternalError") || sh.name == "Hidden/InternalErrorShader",
                     $"{label}: pink/error shader on {r.name}: {sh.name}");
+                if (r.name.StartsWith("Wall_") || r.name == "Floor" || r.name == "Ceiling")
+                {
+                    Assert.IsNotNull(mat.mainTexture,
+                        $"{label}: null mainTexture on {r.name} (magenta checker)");
+                }
             }
 
             foreach (var filter in Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
