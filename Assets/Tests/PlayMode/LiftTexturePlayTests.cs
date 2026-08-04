@@ -9,14 +9,18 @@ using Doom.Game;
 
 namespace Doom.Stage3.PlayTests
 {
-    /// Regression for E1M3 nukage-lift magenta walls (save slot 0 repro):
-    /// after a lift rebuild, Wall_* renderers under the pit/lift must keep a live
-    /// Doom shader and non-null albedo — not Unity's missing-texture checker.
+    /// Regression for E1M3 mover magenta walls (save slot 0 repros):
+    /// after a lift/door rebuild, newly exposed Wall_* renderers must keep a live
+    /// Doom shader and non-null albedo — not Unity's missing-texture checker /
+    /// Placeholder.Magenta. Closed doors start with floor==ceiling so DOORTRAK
+    /// tracks are absent from the initial mesh set and first-touched on open.
     public class LiftTexturePlayTests
     {
         const string MapName = "E1M3";
         const int LiftSector = 91;
         const int PitSector = 90;
+        const int DoorSector = 86;
+        const float DoorOpenCeiling = 228f;
 
         [SetUp]
         public void SetUp()
@@ -90,13 +94,80 @@ namespace Doom.Stage3.PlayTests
                     yield return null;
                 }
                 Time.captureDeltaTime = 0f;
-                AssertWallAlbedos(mode, "restored");
+                AssertWallAlbedos(mode, "restored", PitSector, LiftSector, 92);
             }
         }
 
-        static void AssertWallAlbedos(GraphicsMode mode, string phase)
+        [UnityTest]
+        public IEnumerator E1M3_door_open_keeps_doortrak_albedos_in_classic_and_enhanced()
         {
-            foreach (int sector in new[] { PitSector, LiftSector, 92 })
+            foreach (var mode in new[] { GraphicsMode.Classic, GraphicsMode.Enhanced })
+            {
+                GameSessionHost.ResetForTests();
+                MapLoader.MapNameOverride = MapName;
+                SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+                yield return null;
+                yield return null;
+
+                MapLoader loader = null;
+                for (int i = 0; i < 30000; i++)
+                {
+                    loader = Object.FindAnyObjectByType<MapLoader>();
+                    if (loader != null && loader.LoadedMapName == MapName &&
+                        loader.LastBuildSeconds > 0f &&
+                        loader.Geometry != null &&
+                        loader.RuntimeHeights != null)
+                        break;
+                    yield return null;
+                }
+
+                Assert.That(loader, Is.Not.Null, $"{mode}: MapLoader missing");
+                Assert.That(loader.Geometry, Is.Not.Null, $"{mode}: Geometry missing");
+
+                var gfx = GraphicsModeController.Ensure();
+                yield return GraphicsApplyWait.Apply(gfx, mode);
+                for (int i = 0; i < 5; i++) yield return null;
+
+                // Closed door: no track mesh yet (degenerate floor==ceiling).
+                Assert.That(CountActiveWallsNamed(DoorSector, "DOORTRAK"), Is.EqualTo(0),
+                    $"{mode}: closed door should not emit DOORTRAK walls");
+
+                var heights = loader.RuntimeHeights;
+                float floor = heights.FloorRaw(DoorSector);
+                Assert.That(heights.CeilRaw(DoorSector), Is.EqualTo(floor).Within(0.01f),
+                    $"{mode}: E1M3 sector {DoorSector} should start closed");
+
+                // Open like the slot-0 save (ceil 228) and rebuild neighbors.
+                heights.SetCeil(DoorSector, DoorOpenCeiling);
+                loader.Geometry.RebuildSectorAndNeighbors(DoorSector);
+                yield return null;
+
+                int tracks = CountActiveWallsNamed(DoorSector, "DOORTRAK");
+                Assert.That(tracks, Is.GreaterThan(0),
+                    $"{mode}: open door must emit DOORTRAK track walls");
+                AssertWallAlbedos(mode, "door-open", DoorSector);
+            }
+        }
+
+        static int CountActiveWallsNamed(int sector, string textureFragment)
+        {
+            var root = GameObject.Find($"Sector_{sector}");
+            if (root == null) return 0;
+            int count = 0;
+            for (int i = 0; i < root.transform.childCount; i++)
+            {
+                var child = root.transform.GetChild(i);
+                if (!child.gameObject.activeInHierarchy) continue;
+                if (child.name.StartsWith("Wall_") &&
+                    child.name.IndexOf(textureFragment, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    count++;
+            }
+            return count;
+        }
+
+        static void AssertWallAlbedos(GraphicsMode mode, string phase, params int[] sectors)
+        {
+            foreach (int sector in sectors)
             {
                 var root = GameObject.Find($"Sector_{sector}");
                 if (root == null) continue;
