@@ -94,10 +94,21 @@ namespace Doom.MapBuild
                 if (m != null) return m;
                 matCache.Remove(key);
             }
-            // Always bind native albedo at creation. Enhanced4X (Super-xBR) is built
-            // in a yielded warm/ApplyProfile pass — doing it here freezes New Game
-            // for minutes while GEOMETRY runs without a frame.
-            var tex = GetTexture(name, WorldTextureVariant.Native);
+            // Prefer a already-warmed Enhanced variant when the active profile
+            // wants one. Sync Super-xBR here would freeze New Game — only bind
+            // what Warm/ApplyProfile (or a prior GetTexture) already cached.
+            // Late mover walls (E1M3 DOORTRAK) otherwise keep Native on an
+            // Enhanced shader forever after RegisterContext's ApplyProfile.
+            var variant = materials.ActiveProfile.WorldTextureVariant;
+#pragma warning disable CS0618
+            if (variant == WorldTextureVariant.Enhanced2X)
+                variant = WorldTextureVariant.Enhanced4X;
+#pragma warning restore CS0618
+            Texture2D tex;
+            if (variant != WorldTextureVariant.Native && HasCachedVariant(name, variant))
+                tex = GetTexture(name, variant);
+            else
+                tex = GetTexture(name, WorldTextureVariant.Native);
             var mat = materials.CreateMaterial(tex, masked);
             matCache[key] = mat;
             context?.RegisterMaterial(mat, masked, name);
@@ -342,8 +353,27 @@ namespace Doom.MapBuild
         {
             if (!TryTakeShared(EnhancedJobKind.WorldAlbedo, name, out var stored))
                 return false;
+            // Reject packs that cached a fully transparent canvas (closed-WAD
+            // Build before empty-stamp → Placeholder). Those look like magenta /
+            // black door tracks in Enhanced standalone.
+            if (stored.Success && stored.AlbedoMips != null &&
+                !HasAnyOpaque(stored.AlbedoMips[0]))
+            {
+                GraphicsLog.Warning(
+                    $"TextureCache: discarding empty cached Enhanced albedo '{name}'");
+                return false;
+            }
             Integrate(name, stored);
             return texCache.ContainsKey((name, WorldTextureVariant.Enhanced4X));
+        }
+
+        static bool HasAnyOpaque(DecodedImage img)
+        {
+            if (img.Rgba == null) return false;
+            var rgba = img.Rgba;
+            for (int i = 3; i < rgba.Length; i += 4)
+                if (rgba[i] != 0) return true;
+            return false;
         }
 
         bool TryIntegrateNormalFromStore(string name)

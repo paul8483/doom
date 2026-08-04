@@ -81,5 +81,35 @@ namespace Doom.Graphics.Tests
             Assert.That(set.Contains("NOPE"), Is.False);
             Assert.That(set.TryGetSize("NOPE", out _, out _), Is.False);
         }
+
+        [Test]
+        public void Build_after_wad_dispose_returns_placeholder_not_empty_buffer()
+        {
+            var wad = BuildWad();
+            var set = TextureSet.Load(wad);
+            var pal = new Palette(wad.ReadLump("PLAYPAL"));
+            wad.Dispose();
+
+            var img = set.Build("WALL", pal);
+            // Must not silently return a fully transparent canvas (black door-track
+            // look that bypassed Placeholder wrap asserts).
+            Assert.That(img.Width, Is.EqualTo(2));
+            Assert.That(img.Height, Is.EqualTo(2));
+            int opaque = 0;
+            int checkerCells = 0;
+            for (int y = 0; y < img.Height; y++)
+            for (int x = 0; x < img.Width; x++)
+            {
+                var (r, g, b, a) = img.GetPixel(x, y);
+                if (a == 0) continue;
+                opaque++;
+                bool magenta = r == 255 && g == 0 && b == 255;
+                bool black = r == 0 && g == 0 && b == 0;
+                if (magenta || black) checkerCells++;
+            }
+            Assert.That(opaque, Is.GreaterThan(0), "placeholder must be opaque");
+            Assert.That(checkerCells, Is.EqualTo(opaque),
+                "disposed-WAD Build must surface Placeholder.Magenta checker");
+        }
     }
 }

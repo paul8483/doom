@@ -437,6 +437,11 @@ namespace Doom.MapBuild
             {
                 var warmNames = new HashSet<string>(StringComparer.Ordinal);
                 renderContext.CollectTextureNames(warmNames);
+                // Sidedef/flat names prewarmed as materials but absent from the
+                // closed-door mesh set (DOORTRAK) are not in CollectTextureNames
+                // unless GetMaterial ran — still merge the full map set so
+                // Enhanced4X exists before RegisterContext ApplyProfile.
+                CollectMapTextureNames(map, warmNames);
                 foreach (var seq in animCatalog.Sequences)
                     foreach (string frameName in seq.Frames)
                         warmNames.Add(frameName);
@@ -585,6 +590,11 @@ namespace Doom.MapBuild
                 {
                     host.SetNextSpawnId(registry.NextSpawnId);
                     host.SyncSpawnIdFrom(registry);
+                    // Restore rebuilds can first-touch materials after the boot
+                    // ApplyProfile. Re-Apply so Enhanced albedo/normals/shaders
+                    // match the warm set (DOORTRAK tracks on open doors).
+                    renderContext.ApplyProfile(
+                        GraphicsProfile.ForMode(gfx.Current), materialFactory);
                     SectorLights?.NotifyProfileChanged();
                 }
             }
@@ -895,32 +905,43 @@ namespace Doom.MapBuild
         enum ColliderMode { None, Render, ThickWall }
 
         /// Decode every wall/flat name referenced by the map into TextureCache while
-        /// the WAD stream is still open. Movers can expose sidedef textures that
-        /// never appeared in the initial mesh set; lazy decode after WAD dispose
-        /// yields Placeholder.Magenta (E1M3 nukage-lift BROWN144/DOORTRAK).
+        /// the WAD stream is still open, and register opaque+masked materials so
+        /// Enhanced CollectTextureNames / ApplyProfile see mover-only names
+        /// (E1M3 closed-door DOORTRAK) before the first rebuild.
         static void PrewarmMapTextures(MapData map, TextureCache cache)
         {
             if (map == null || cache == null) return;
-            var names = new System.Collections.Generic.HashSet<string>(
-                System.StringComparer.OrdinalIgnoreCase);
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            CollectMapTextureNames(map, names);
+            foreach (string name in names)
+            {
+                cache.GetTexture(name);
+                // Both keys: two-sided middles are masked; door tracks / steps are not.
+                cache.GetMaterial(name, masked: false);
+                cache.GetMaterial(name, masked: true);
+            }
+        }
+
+        /// Unique sidedef/flat names on the map (skips "-" / empty).
+        public static void CollectMapTextureNames(MapData map, HashSet<string> dst)
+        {
+            if (map == null || dst == null) return;
             for (int i = 0; i < map.SideDefs.Length; i++)
             {
                 var side = map.SideDefs[i];
-                AddMapTextureName(names, side.UpperTexture);
-                AddMapTextureName(names, side.LowerTexture);
-                AddMapTextureName(names, side.MiddleTexture);
+                AddMapTextureName(dst, side.UpperTexture);
+                AddMapTextureName(dst, side.LowerTexture);
+                AddMapTextureName(dst, side.MiddleTexture);
             }
             for (int i = 0; i < map.Sectors.Length; i++)
             {
                 var sec = map.Sectors[i];
-                AddMapTextureName(names, sec.FloorFlat);
-                AddMapTextureName(names, sec.CeilingFlat);
+                AddMapTextureName(dst, sec.FloorFlat);
+                AddMapTextureName(dst, sec.CeilingFlat);
             }
-            foreach (string name in names)
-                cache.GetTexture(name);
         }
 
-        static void AddMapTextureName(System.Collections.Generic.HashSet<string> names, string name)
+        static void AddMapTextureName(HashSet<string> names, string name)
         {
             if (string.IsNullOrEmpty(name) || name == "-") return;
             names.Add(name);
@@ -984,6 +1005,9 @@ namespace Doom.MapBuild
                                     worldScale, ref ignore);
                     if (wall != null && ws.Blocks)
                         wall.AddComponent<LineRef>().SectorIndex = sm.SectorIdx;
+                    // New pooled slots only — re-registering every mover tic would
+                    // unbounded-grow WorldRenderContext.Renderers.
+                    RegisterWallRenderer(wall);
                 }
                 ConfigureWallEffects(wall, ws);
                 wi++;
@@ -994,6 +1018,14 @@ namespace Doom.MapBuild
             // when returning, so destroying it would reintroduce churn and leaks.
             for (int i = wi; i < pooledWalls.Count; i++)
                 pooledWalls[i].SetActive(false);
+        }
+
+        static void RegisterWallRenderer(GameObject wall)
+        {
+            if (wall == null) return;
+            var renderer = wall.GetComponent<MeshRenderer>();
+            if (renderer == null) return;
+            GraphicsModeController.Instance?.Context?.RegisterRenderer(renderer);
         }
 
         /// Build the Floor/Ceiling/Wall child GameObjects for one sector under

@@ -66,10 +66,9 @@ namespace Doom.MapBuild
         void RestoreOffset()
         {
             if (target == null) return;
-            block ??= new MaterialPropertyBlock();
-            target.GetPropertyBlock(block);
-            block.SetVector(MainTexStId, new Vector4(1f, 1f, 0f, 0f));
-            target.SetPropertyBlock(block);
+            // Drop the block entirely when scroll is off so pooled walls reused
+            // for non-scroll textures (door tracks) do not keep a stale MPB.
+            target.SetPropertyBlock(null);
         }
     }
 }

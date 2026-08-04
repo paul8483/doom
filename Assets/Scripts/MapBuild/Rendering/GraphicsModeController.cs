@@ -245,6 +245,14 @@ namespace Doom.MapBuild.Rendering
             }
 
             var loader = Object.FindFirstObjectByType<MapLoader>();
+            // Hot-switch warm must include mover-only sidedef names that may not
+            // yet have MeshRenderers (closed doors → DOORTRAK on open).
+            if (loader != null && loader.Geometry != null)
+            {
+                var registry = Object.FindFirstObjectByType<WorldStateRegistry>();
+                if (registry != null && registry.Map != null)
+                    MapLoader.CollectMapTextureNames(registry.Map, names);
+            }
             CancelWarm();
             EnhancedWarmScheduler.ResetCompletedStats();
             warmScheduler = new EnhancedWarmScheduler();

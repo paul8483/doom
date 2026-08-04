@@ -98,6 +98,7 @@ namespace Doom.Graphics
             }
 
             var rgba = new byte[d.Width * d.Height * 4];
+            int stamped = 0;
             foreach (var pr in d.Patches)
             {
                 if (pr.PatchIndex < 0 || pr.PatchIndex >= pnames.Count) continue;
@@ -107,22 +108,33 @@ namespace Doom.Graphics
                 try
                 {
                     var patch = Patch.Decode(wad.ReadLump(li), palette);
-                    Stamp(rgba, d.Width, d.Height, patch, pr.OriginX, pr.OriginY);
+                    stamped += Stamp(rgba, d.Width, d.Height, patch, pr.OriginX, pr.OriginY);
                 }
                 catch (System.Exception e)
                 {
                     // Closed WAD stream / corrupt column data — skip the patch
-                    // rather than failing the whole texture into a placeholder.
+                    // rather than throwing out of Build (TextureCache would still
+                    // cache a bad source). Empty stamp is handled below.
                     GraphicsLog.Warning(
                         $"TextureSet: patch '{patchName}' in '{name}' failed: {e.Message}");
                 }
             }
+            // All patches skipped (typical: WAD stream already disposed) used to
+            // return a fully transparent buffer that looked like black/magenta
+            // door tracks while bypassing Placeholder wrap-mode asserts.
+            if (stamped == 0 && d.Patches.Length > 0)
+            {
+                GraphicsLog.Warning(
+                    $"TextureSet: '{name}' stamped 0 opaque texels — using placeholder");
+                return Placeholder.Magenta(d.Width, d.Height);
+            }
             return new DecodedImage(d.Width, d.Height, rgba);
         }
 
-        private static void Stamp(byte[] dst, int dstW, int dstH,
+        private static int Stamp(byte[] dst, int dstW, int dstH,
                                   DecodedImage src, int originX, int originY)
         {
+            int stamped = 0;
             for (int y = 0; y < src.Height; y++)
             {
                 int dy = originY + y;
@@ -138,8 +150,10 @@ namespace Doom.Graphics
                     dst[di + 1] = src.Rgba[si + 1];
                     dst[di + 2] = src.Rgba[si + 2];
                     dst[di + 3] = 255;
+                    stamped++;
                 }
             }
+            return stamped;
         }
 
         private static string ReadName8(BinaryReader r)
