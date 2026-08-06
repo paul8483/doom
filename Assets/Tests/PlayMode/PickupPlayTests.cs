@@ -208,7 +208,17 @@ namespace Doom.Stage3.PlayTests
         [UnityTest]
         public IEnumerator Experimental_models_load_scale_and_swap_presentation()
         {
-            foreach (int doomedNum in new[] { 2012, 2014 })
+            foreach (int doomedNum in new[]
+                     {
+                         2001, // shotgun
+                         2002, // chaingun
+                         2003, // rocket launcher
+                         2004, // plasma rifle
+                         2005, // chainsaw
+                         2006, // BFG9000
+                         2012, // medikit
+                         2014, // health bonus
+                     })
             {
                 var go = new GameObject($"Experimental_{doomedNum}",
                     typeof(MeshFilter), typeof(MeshRenderer));

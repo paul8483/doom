@@ -3,11 +3,12 @@
 **Дата:** 2026-08-06  
 **Статус:** LIVE TEST SUCCESS — MEDIA0 and BON1A0 accepted in-game; paid
 Hugging Face access removed the ZeroGPU quota blocker and generation continues.  
-**Runtime:** Enhanced routes medikit (2012) and health bonus (2014) to textured
-TRELLIS.2 meshes; Classic keeps EdgeMix 8× billboards and pickup gameplay is unchanged.  
-**Baseline:** targeted model PlayMode test passed before the final presentation
-tuning; Windows standalone built and interactive brightness/scale/glow verdict
-SUCCESS on 2026-08-06. Full suites intentionally not run after the final tuning.
+**Runtime:** Enhanced routes medikit (2012), health bonus (2014), and six weapon
+pickups (2001–2006) to textured TRELLIS.2 meshes; Classic keeps EdgeMix 8×
+billboards and pickup gameplay is unchanged.  
+**Baseline:** MEDIA0/BON1A0 interactive verdict SUCCESS on 2026-08-06. The
+six-weapon Enhanced rollout passed automation, Windows build and interactive
+scale/orientation/brightness/pickup/performance sign-off on 2026-08-07.
 
 ## Goal
 
@@ -114,6 +115,38 @@ This is not yet a performance acceptance: the raw meshes are deliberately
 retained for visual evaluation and require a later decimation gate before
 production rollout.
 
+## Six weapon rollout — SUCCESS
+
+The shape-hint TRELLIS.2 exports were converted to textured OBJ Resources
+without simplification and routed through the same presentation-only component:
+
+- 2001 shotgun → `SHOTA0` (94,029 triangles);
+- 2002 chaingun → `MGUNA0` (98,400 triangles);
+- 2003 rocket launcher → `LAUNA0` (95,396 triangles);
+- 2004 plasma rifle → `PLASA0` (99,125 triangles);
+- 2005 chainsaw → `CSAWA0` (99,198 triangles);
+- 2006 BFG9000 → `BFUGA0` (96,578 triangles).
+
+All six use `Doom/ExperimentalPickupUnlit` at exposure `1.0`, with no added
+weapon emission or sticky lights. Enhanced shows the model; Classic restores
+the existing EdgeMix billboard. Gameplay, collision, collection, inventory,
+death-drop and save identity remain on the unchanged pickup root.
+
+Automated baseline on Unity `6000.4.8f1`:
+
+- model load/normalization/mode-swap PlayMode test: 1/1 passed;
+- `WeaponPlayTests`: 7/7 passed;
+- graphics hot-switch PlayMode test: 1/1 passed;
+- full EditMode suite: 617/617 passed;
+- full PlayMode suite: 155/155 passed;
+- Windows standalone build: SUCCESS, 166,385,591 bytes.
+
+Interactive standalone gate: SUCCESS. All six models were accepted for scale,
+orientation and brightness; pickup removal and Classic fallback remained
+correct, with no serious frame-rate regression observed. Raw meshes still
+remain an explicit decimation/performance debt before a wider production
+rollout.
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
@@ -154,3 +187,9 @@ Original TRELLIS.2 exports:
 - `Textures/Trellis2/GLB/BON1A0_2026-08-06T185552.641.glb`
 - `Textures/Trellis2/GLB/ARM1A0_2026-08-06T194747.841.glb`
 - `Textures/Trellis2/GLB/ARM1A0_2026-08-06T200929.245.glb`
+- `Textures/Trellis2/GLB/CSAWA0_2026-08-07T003844.479.glb`
+- `Textures/Trellis2/GLB/SHOTA0_2026-08-07T002730.162.glb`
+- `Textures/Trellis2/GLB/MGUNA0_2026-08-07T003205.078.glb`
+- `Textures/Trellis2/GLB/LAUNA0_2026-08-07T003640.657.glb`
+- `Textures/Trellis2/GLB/PLASA0_2026-08-07T003038.870.glb`
+- `Textures/Trellis2/GLB/BFUGA0_2026-08-07T004316.500.glb`

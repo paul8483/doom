@@ -35,7 +35,10 @@ namespace Doom.MapBuild
                 return null;
 
             var presentation = pickupRoot.AddComponent<ExperimentalPickupModel>();
-            bool useUnlit = doomedNum == 2012 || doomedNum == 2014;
+            // TRELLIS textures contain their own baked presentation. The
+            // Resources-loaded shader keeps them readable in dark sectors and
+            // avoids standalone stripping that affected the original Lit pass.
+            bool useUnlit = true;
             float emissionStrength = doomedNum == 2014 ? 0.65f : 0f;
             string pulseMaskResource = doomedNum == 2012
                 ? ResourceRoot + "MEDIA0/MEDIA0_emission"
@@ -54,6 +57,24 @@ namespace Doom.MapBuild
         {
             switch (doomedNum)
             {
+                case 2001:
+                    resource = ResourceRoot + "SHOTA0/SHOTA0";
+                    return true;
+                case 2002:
+                    resource = ResourceRoot + "MGUNA0/MGUNA0";
+                    return true;
+                case 2003:
+                    resource = ResourceRoot + "LAUNA0/LAUNA0";
+                    return true;
+                case 2004:
+                    resource = ResourceRoot + "PLASA0/PLASA0";
+                    return true;
+                case 2005:
+                    resource = ResourceRoot + "CSAWA0/CSAWA0";
+                    return true;
+                case 2006:
+                    resource = ResourceRoot + "BFUGA0/BFUGA0";
+                    return true;
                 case 2012:
                     resource = ResourceRoot + "MEDIA0/MEDIA0";
                     return true;
