@@ -6,9 +6,10 @@ using Doom.Things;
 
 namespace Doom.MapBuild
 {
-    /// Experimental TRELLIS.2 presentation for allowlisted things (pickups and
-    /// decorations). Gameplay/collision remain on the original root; Enhanced
-    /// swaps only the visible billboard for a textured 3D model from Resources.
+    /// Experimental TRELLIS.2 presentation for allowlisted things (pickups,
+    /// decorations, exploding barrels). Gameplay/collision remain on the
+    /// original root; Enhanced swaps only the visible billboard for a textured
+    /// 3D model from Resources.
     public sealed class ExperimentalPickupModel : MonoBehaviour
     {
         const string ResourceRoot = "ExperimentalPickups/";
@@ -19,6 +20,7 @@ namespace Doom.MapBuild
         Renderer[] modelRenderers;
         readonly List<Material> ownedMaterials = new List<Material>();
         bool lastEnhanced;
+        bool lockedToBillboard;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
@@ -83,6 +85,9 @@ namespace Doom.MapBuild
                     return true;
                 case 2028:
                     resource = ResourceRoot + "COLUA0/COLUA0";
+                    return true;
+                case 2035:
+                    resource = ResourceRoot + "BAR1A0/BAR1A0";
                     return true;
                 default:
                     resource = null;
@@ -211,8 +216,23 @@ namespace Doom.MapBuild
 
         void Update() => RefreshVisibility(force: false);
 
+        /// Barrel explode (and similar one-shots): drop the static 3D mesh and
+        /// keep the billboard so BEXP / death frames stay visible in Enhanced.
+        public void RevertToBillboard()
+        {
+            lockedToBillboard = true;
+            if (modelRoot != null)
+                modelRoot.SetActive(false);
+            if (billboardRenderer != null)
+                billboardRenderer.enabled = true;
+            if (billboard != null)
+                billboard.enabled = true;
+        }
+
         void RefreshVisibility(bool force)
         {
+            if (lockedToBillboard) return;
+
             bool enhanced = GraphicsModeController.Instance != null &&
                             GraphicsModeController.Instance.Current == GraphicsMode.Enhanced;
             if (!force && enhanced == lastEnhanced) return;
@@ -228,6 +248,7 @@ namespace Doom.MapBuild
 
         public void SetEnhancedForTest(bool enhanced)
         {
+            if (lockedToBillboard) return;
             lastEnhanced = enhanced;
             if (modelRoot != null)
                 modelRoot.SetActive(enhanced);

@@ -86,6 +86,41 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Enhanced_barrel_model_reverts_to_billboard_on_explode()
+        {
+            var go = new GameObject("EnhancedBarrel", typeof(MeshFilter), typeof(MeshRenderer));
+            var mr = go.GetComponent<MeshRenderer>();
+            var bb = go.AddComponent<SpriteBillboard>();
+            var presentation = ExperimentalPickupModel.TryAttach(
+                go, BarrelRules.DoomEdNum, worldScale: 1f / 32f, billboard: bb);
+            Assert.That(presentation, Is.Not.Null);
+            Assert.That(presentation.HasModel, Is.True);
+
+            presentation.SetEnhancedForTest(true);
+            Assert.That(presentation.ModelVisible, Is.True);
+            Assert.That(mr.enabled, Is.False);
+
+            var col = go.AddComponent<CapsuleCollider>();
+            var eh = go.AddComponent<EnemyHealth>();
+            eh.Init(1, -1, bb, col, countKill: false, noBlood: true);
+            var be = go.AddComponent<BarrelExplosion>();
+            be.Init(bb, col, cache: null, worldScale: 1f / 32f, sound: null);
+            eh.SetBarrel(be);
+
+            eh.TakeDamage(1, DamageSource.Player());
+            yield return null;
+
+            Assert.That(eh.IsDead, Is.True);
+            Assert.That(presentation.ModelVisible, Is.False,
+                "3D intact barrel hidden for BEXP billboard");
+            Assert.That(mr.enabled, Is.True, "billboard renderer re-enabled on explode");
+            Assert.That(bb.enabled, Is.True);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator Barrel_splash_damages_nearby_enemy()
         {
             yield return LoadLevel();

@@ -219,6 +219,7 @@ namespace Doom.Stage3.PlayTests
                          2012, // medikit
                          2014, // health bonus
                          2028, // COLU floor lamp
+                         2035, // exploding barrel
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);

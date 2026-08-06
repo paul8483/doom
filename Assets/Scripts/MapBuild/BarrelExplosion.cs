@@ -41,6 +41,10 @@ namespace Doom.MapBuild
             if (id != null)
                 WorldStateRegistry.Instance?.UnregisterMapThing(id.MapThingIndex);
 
+            // Enhanced 3D presentation is the intact barrel only; explode frames
+            // stay on the classic billboard path.
+            GetComponent<ExperimentalPickupModel>()?.RevertToBillboard();
+
             if (billboard != null)
                 billboard.SetSprite(BarrelRules.ExplodeSprite, BarrelRules.ExplodeFrames[0]);
 

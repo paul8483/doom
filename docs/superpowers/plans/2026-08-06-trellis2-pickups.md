@@ -2,16 +2,18 @@
 
 **Дата:** 2026-08-07  
 **Статус:** LIVE TEST SUCCESS — MEDIA0/BON1A0/weapons + COLUA0 floor lamp
-accepted in Enhanced.  
++ BAR1A0 exploding barrel accepted in Enhanced.  
 **Runtime:** Enhanced routes medikit (2012), health bonus (2014), six weapon
-pickups (2001–2006), and COLU floor lamp (2028) to textured TRELLIS.2 meshes;
-Classic keeps EdgeMix 8× billboards. Pickup gameplay and lamp sticky lights
-are unchanged.  
+pickups (2001–2006), COLU floor lamp (2028), and exploding barrel (2035) to
+textured TRELLIS.2 meshes; Classic keeps EdgeMix 8× billboards. Pickup
+gameplay, lamp sticky lights, and barrel explosion rules are unchanged.
+On barrel death the 3D mesh reverts to the BEXP billboard sequence.  
 **Baseline:** MEDIA0/BON1A0 interactive verdict SUCCESS on 2026-08-06. The
 six-weapon Enhanced rollout passed automation, Windows build and interactive
 scale/orientation/brightness/pickup/performance sign-off on 2026-08-07.
 COLUA0 interactive standalone/editor verdict SUCCESS on 2026-08-07
-(«результат отличный»).
+(«результат отличный»). BAR1A0 interactive standalone verdict SUCCESS on
+2026-08-07 («результат отличный»).
 
 ## Goal
 
@@ -169,6 +171,23 @@ Targeted model PlayMode test passed (height 48 DU → 1.5 m). Interactive
 verdict: **«результат отличный»**. Windows standalone build SUCCESS
 (171,514,599 bytes).
 
+## BAR1A0 exploding barrel — SUCCESS
+
+`BAR1A0_2026-08-07T001149.817.glb` (shape-hint export) converted to textured
+OBJ Resources without simplification (96,144 triangles) and allowlisted as
+doomednum `2035`. Same presentation component:
+
+- `Doom/ExperimentalPickupUnlit` at exposure `1.0`;
+- no model-side emission;
+- Enhanced shows the intact mesh; Classic restores the billboard;
+- collision / HP / splash / DSBAREXP stay on the original thing root;
+- on lethal hit `BarrelExplosion` calls `ExperimentalPickupModel.RevertToBillboard()`
+  so the BEXP A–E sequence plays on the billboard (3D mesh stays hidden).
+
+Targeted PlayMode: model load/scale/swap + explode revert + pistol explode
+passed (3/3). Windows standalone build SUCCESS (176,774,743 bytes).
+Interactive verdict: **«результат отличный»**.
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
@@ -203,6 +222,7 @@ Shape-hints:
 - `Textures/Trellis2/ShapeHints/ARM1A0-depth-shapehint.png`
 - `Textures/Trellis2/ShapeHints/STIMA0-cylinder-shapehint-v3.png`
 - `Textures/Trellis2/ShapeHints/COLUA0-depth-shapehint.png`
+- `Textures/Trellis2/ShapeHints/BAR1A0-depth-shapehint.png`
 
 Original TRELLIS.2 exports:
 
@@ -217,3 +237,4 @@ Original TRELLIS.2 exports:
 - `Textures/Trellis2/GLB/PLASA0_2026-08-07T003038.870.glb`
 - `Textures/Trellis2/GLB/BFUGA0_2026-08-07T004316.500.glb`
 - `Textures/Trellis2/GLB/COLUA0_2026-08-06T235903.211.glb`
+- `Textures/Trellis2/GLB/BAR1A0_2026-08-07T001149.817.glb`
