@@ -6,9 +6,9 @@ using Doom.Things;
 
 namespace Doom.MapBuild
 {
-    /// Experimental TRELLIS.2 pickup presentation. Gameplay remains on the
-    /// original pickup root; Enhanced swaps only the visible billboard for a
-    /// textured 3D model loaded from Resources.
+    /// Experimental TRELLIS.2 presentation for allowlisted things (pickups and
+    /// decorations). Gameplay/collision remain on the original root; Enhanced
+    /// swaps only the visible billboard for a textured 3D model from Resources.
     public sealed class ExperimentalPickupModel : MonoBehaviour
     {
         const string ResourceRoot = "ExperimentalPickups/";
@@ -80,6 +80,9 @@ namespace Doom.MapBuild
                     return true;
                 case 2014:
                     resource = ResourceRoot + "BON1A0/BON1A0";
+                    return true;
+                case 2028:
+                    resource = ResourceRoot + "COLUA0/COLUA0";
                     return true;
                 default:
                     resource = null;

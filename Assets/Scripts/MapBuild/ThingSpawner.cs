@@ -79,8 +79,8 @@ namespace Doom.MapBuild
                 bb.SetEnemyUpscale(isEnemy);
                 if (t.Type == 58)
                     bb.SetSpectre(true);
-                if (isPickup)
-                    ExperimentalPickupModel.TryAttach(go, t.Type, worldScale, bb);
+                // Presentation-only TRELLIS.2 models (pickups + decorations).
+                ExperimentalPickupModel.TryAttach(go, t.Type, worldScale, bb);
 
                 // Pre-warm native decode for all 8 rotations while the WAD is still open.
                 // SpriteCache is lazy and reads from the WAD on first access; by the

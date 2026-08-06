@@ -218,12 +218,17 @@ namespace Doom.Stage3.PlayTests
                          2006, // BFG9000
                          2012, // medikit
                          2014, // health bonus
+                         2028, // COLU floor lamp
                      })
             {
+                Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
+                float worldScale = 1f / 32f;
+                float expectedHeight = def.Height * worldScale;
+
                 var go = new GameObject($"Experimental_{doomedNum}",
                     typeof(MeshFilter), typeof(MeshRenderer));
                 var presentation = ExperimentalPickupModel.TryAttach(
-                    go, doomedNum, 1f / 32f, billboard: null);
+                    go, doomedNum, worldScale, billboard: null);
 
                 Assert.That(presentation, Is.Not.Null, $"model for thing {doomedNum}");
                 Assert.That(presentation.HasModel, Is.True);
@@ -237,7 +242,7 @@ namespace Doom.Stage3.PlayTests
                 var bounds = modelRenderers[0].bounds;
                 for (int i = 1; i < modelRenderers.Length; i++)
                     bounds.Encapsulate(modelRenderers[i].bounds);
-                Assert.That(bounds.size.y, Is.EqualTo(0.5f).Within(0.02f));
+                Assert.That(bounds.size.y, Is.EqualTo(expectedHeight).Within(0.02f));
                 Assert.That(bounds.min.y, Is.EqualTo(go.transform.position.y).Within(0.02f));
 
                 presentation.SetEnhancedForTest(false);

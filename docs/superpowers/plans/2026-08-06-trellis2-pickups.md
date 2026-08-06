@@ -1,14 +1,17 @@
 # TRELLIS.2 pickups — Gate 0 status
 
-**Дата:** 2026-08-06  
-**Статус:** LIVE TEST SUCCESS — MEDIA0 and BON1A0 accepted in-game; paid
-Hugging Face access removed the ZeroGPU quota blocker and generation continues.  
-**Runtime:** Enhanced routes medikit (2012), health bonus (2014), and six weapon
-pickups (2001–2006) to textured TRELLIS.2 meshes; Classic keeps EdgeMix 8×
-billboards and pickup gameplay is unchanged.  
+**Дата:** 2026-08-07  
+**Статус:** LIVE TEST SUCCESS — MEDIA0/BON1A0/weapons + COLUA0 floor lamp
+accepted in Enhanced.  
+**Runtime:** Enhanced routes medikit (2012), health bonus (2014), six weapon
+pickups (2001–2006), and COLU floor lamp (2028) to textured TRELLIS.2 meshes;
+Classic keeps EdgeMix 8× billboards. Pickup gameplay and lamp sticky lights
+are unchanged.  
 **Baseline:** MEDIA0/BON1A0 interactive verdict SUCCESS on 2026-08-06. The
 six-weapon Enhanced rollout passed automation, Windows build and interactive
 scale/orientation/brightness/pickup/performance sign-off on 2026-08-07.
+COLUA0 interactive standalone/editor verdict SUCCESS on 2026-08-07
+(«результат отличный»).
 
 ## Goal
 
@@ -147,6 +150,25 @@ correct, with no serious frame-rate regression observed. Raw meshes still
 remain an explicit decimation/performance debt before a wider production
 rollout.
 
+## COLUA0 floor lamp — SUCCESS
+
+`COLUA0_2026-08-06T235903.211.glb` (shape-hint export) converted to textured
+OBJ Resources without simplification (98,283 triangles) and allowlisted as
+doomednum `2028`. Same presentation component as pickups:
+
+- `Doom/ExperimentalPickupUnlit` at exposure `1.0`;
+- no model-side emission (existing `EnhancedEmissionTable` sticky lamp light
+  remains the warm floor pool);
+- Enhanced shows the mesh; Classic restores the billboard;
+- collision / solidity stay on the original thing root.
+
+`ThingSpawner` now attaches experimental models for any allowlisted doomednum
+(not only `ItemRules` pickups), so decorations can share the same path.
+
+Targeted model PlayMode test passed (height 48 DU → 1.5 m). Interactive
+verdict: **«результат отличный»**. Windows standalone build SUCCESS
+(171,514,599 bytes).
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
@@ -180,6 +202,7 @@ Shape-hints:
 
 - `Textures/Trellis2/ShapeHints/ARM1A0-depth-shapehint.png`
 - `Textures/Trellis2/ShapeHints/STIMA0-cylinder-shapehint-v3.png`
+- `Textures/Trellis2/ShapeHints/COLUA0-depth-shapehint.png`
 
 Original TRELLIS.2 exports:
 
@@ -193,3 +216,4 @@ Original TRELLIS.2 exports:
 - `Textures/Trellis2/GLB/LAUNA0_2026-08-07T003640.657.glb`
 - `Textures/Trellis2/GLB/PLASA0_2026-08-07T003038.870.glb`
 - `Textures/Trellis2/GLB/BFUGA0_2026-08-07T004316.500.glb`
+- `Textures/Trellis2/GLB/COLUA0_2026-08-06T235903.211.glb`
