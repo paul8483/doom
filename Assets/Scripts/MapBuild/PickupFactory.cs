@@ -25,6 +25,7 @@ namespace Doom.MapBuild
             bb.SetPickupUpscale(true);
             bb.SetStaticFrame(def.Frame);
             cache.GetPickup(def.Sprite, def.Frame, 0);
+            ExperimentalPickupModel.TryAttach(go, doomedNum, worldScale, bb);
 
             go.AddComponent<ThingPickup>().Init(doomedNum, worldScale);
             if (PickupAnimationTable.TryGet(doomedNum, out var animation))

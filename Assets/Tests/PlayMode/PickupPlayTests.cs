@@ -206,6 +206,40 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Experimental_models_load_scale_and_swap_presentation()
+        {
+            foreach (int doomedNum in new[] { 2012, 2014 })
+            {
+                var go = new GameObject($"Experimental_{doomedNum}",
+                    typeof(MeshFilter), typeof(MeshRenderer));
+                var presentation = ExperimentalPickupModel.TryAttach(
+                    go, doomedNum, 1f / 32f, billboard: null);
+
+                Assert.That(presentation, Is.Not.Null, $"model for thing {doomedNum}");
+                Assert.That(presentation.HasModel, Is.True);
+
+                presentation.SetEnhancedForTest(true);
+                Assert.That(presentation.ModelVisible, Is.True);
+                Assert.That(go.GetComponent<MeshRenderer>().enabled, Is.False);
+
+                var modelRenderers = go.GetComponentsInChildren<Renderer>();
+                Assert.That(modelRenderers.Length, Is.GreaterThan(0));
+                var bounds = modelRenderers[0].bounds;
+                for (int i = 1; i < modelRenderers.Length; i++)
+                    bounds.Encapsulate(modelRenderers[i].bounds);
+                Assert.That(bounds.size.y, Is.EqualTo(0.5f).Within(0.02f));
+                Assert.That(bounds.min.y, Is.EqualTo(go.transform.position.y).Within(0.02f));
+
+                presentation.SetEnhancedForTest(false);
+                Assert.That(presentation.ModelVisible, Is.False);
+                Assert.That(go.GetComponent<MeshRenderer>().enabled, Is.True);
+                Object.Destroy(go);
+            }
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator IronFeet_blocks_floor_damage()
         {
             yield return LoadLevel();

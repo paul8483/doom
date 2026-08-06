@@ -83,6 +83,18 @@ namespace Doom.Things
             Fire(57, 1f, 0.35f, 0.25f, 1.6f, 128f, 0.75f);   // SMRT
             Fire(70, 1f, 0.45f, 0.15f, 2.6f, 192f, 1.05f);   // FCAN burning barrel
 
+            // Health bonus flask: subtle green pool under the emissive 3D model.
+            // Low importance keeps lamps, fire and combat flashes ahead of it
+            // when the bounded 16-light pool is oversubscribed.
+            d[2014] = new EnhancedEmissionDef(
+                intensity: 0.75f,
+                rangeDoom: 64f,
+                colorR: 0.3f,
+                colorG: 1f,
+                colorB: 0.35f,
+                importance: 0.3f,
+                wantsShadow: false);
+
             return d;
         }
     }

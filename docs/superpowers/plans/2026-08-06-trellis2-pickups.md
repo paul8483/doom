@@ -1,9 +1,13 @@
 # TRELLIS.2 pickups — Gate 0 status
 
 **Дата:** 2026-08-06  
-**Статус:** PAUSED — бесплатная Hugging Face ZeroGPU-квота исчерпана; продолжить после восстановления доступа.  
-**Runtime:** не начат; Enhanced pickups остаются плоскими EdgeMix 8× billboards.  
-**Baseline:** 616 EditMode + 149 PlayMode; тесты и Unity build не запускались, код проекта не менялся.
+**Статус:** LIVE TEST SUCCESS — MEDIA0 and BON1A0 accepted in-game; further
+Gate 0 generation remains paused by ZeroGPU quota.  
+**Runtime:** Enhanced routes medikit (2012) and health bonus (2014) to textured
+TRELLIS.2 meshes; Classic keeps EdgeMix 8× billboards and pickup gameplay is unchanged.  
+**Baseline:** targeted model PlayMode test passed before the final presentation
+tuning; Windows standalone built and interactive brightness/scale/glow verdict
+SUCCESS on 2026-08-06. Full suites intentionally not run after the final tuning.
 
 ## Goal
 
@@ -52,7 +56,7 @@ Hugging Face settings:
 Trellis построил узнаваемую объёмную пиксельную аптечку: корректно прочитал
 коробчатый корпус, выступающие боковые части, центральную зелёную панель и
 крест. Результат заметно лучше uniform pixel extrusion и parametric MEDIA0
-candidate. GLB ещё не принят как runtime asset и в Unity не импортирован.
+candidate. Позже GLB принят для Enhanced live runtime test.
 
 ### MEDIA0 EdgeMix 8× — REJECT
 
@@ -67,15 +71,43 @@ WAD sprites, увеличенные только nearest-neighbor.
 боковой втулкой вместо цилиндра. Почти прямоугольный фронтальный силуэт и
 белый крест семантически перетягивают результат к аптечке.
 
-### BON1A0 native — REJECT, 2/2
+### BON1A0 native — SHAPE REJECT 2/2; LIVE RUNTIME ACCEPTED
 
-Оба результата превратили округлое тело вращения в кубический/voxel-флакон.
-Третий seed признан малополезным. Модель воспринимает крупные пиксели как
-геометрические блоки и не восстанавливает требуемую круглую поверхность.
+Оба результата превратили округлое тело вращения в кубический/voxel-флакон,
+поэтому строгий Gate 0 на восстановление круглой формы не пройден. Однако один
+результат позже проверен в реальной игре и принят как удачная стилизованная
+3D-колба после настройки масштаба, emission и зелёного локального света.
 
 ### ARM1A0 — PENDING
 
 Не запущен: бесплатная квота закончилась.
+
+## Live runtime test — SUCCESS
+
+`MEDIA0_2026-08-06T185331.895.glb` and
+`BON1A0_2026-08-06T185552.641.glb` were converted to textured OBJ resources
+without mesh simplification (about 94k triangles each) and routed only in
+Enhanced mode. The original billboard remains the Classic presentation and
+all collision, collection, stats and save identity remain on the existing
+pickup root.
+
+The first Lit pass made MEDIA0 too dark. Several brightness experiments exposed
+that the standalone build had stripped a shader referenced only through
+`Shader.Find`. Final accepted presentation:
+
+- both models: `Doom/ExperimentalPickupUnlit`, loaded explicitly from Resources;
+- original GLB albedo, no gamma rewrite;
+- exposure `1.0`;
+- MEDIA0: four-cross UV emission mask with smooth pulse; body stays constant;
+- BON1A0: HDR emission `0.65` plus a bounded green sticky light
+  (intensity `0.75`, range `64` DOOM units, low pool importance, no shadow).
+
+Interactive standalone verdict: both objects have acceptable scale and
+brightness; glowing flasks and the blinking white medikit cross preserve the
+important original visual cues. Final user verdict: **«результат отличный»**.
+This is not yet a performance acceptance: the raw meshes are deliberately
+retained for visual evaluation and require a later decimation gate before
+production rollout.
 
 ## Current conclusion
 
