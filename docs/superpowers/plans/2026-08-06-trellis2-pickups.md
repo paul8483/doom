@@ -1,8 +1,8 @@
 # TRELLIS.2 pickups — Gate 0 status
 
 **Дата:** 2026-08-06  
-**Статус:** LIVE TEST SUCCESS — MEDIA0 and BON1A0 accepted in-game; further
-Gate 0 generation remains paused by ZeroGPU quota.  
+**Статус:** LIVE TEST SUCCESS — MEDIA0 and BON1A0 accepted in-game; paid
+Hugging Face access removed the ZeroGPU quota blocker and generation continues.  
 **Runtime:** Enhanced routes medikit (2012) and health bonus (2014) to textured
 TRELLIS.2 meshes; Classic keeps EdgeMix 8× billboards and pickup gameplay is unchanged.  
 **Baseline:** targeted model PlayMode test passed before the final presentation
@@ -40,7 +40,7 @@ Hugging Face settings:
 - Texture Size: `1024`
 - для строгого A/B отключать Randomize Seed и повторять сохранённый seed
 
-Локальные Gate 0 inputs:
+Локальные native Gate 0 inputs:
 
 - `Logs/trellis2-gate0/MEDIA0-trellis.png`
 - `Logs/trellis2-gate0/MEDIA0-edgemix8x-trellis.png`
@@ -48,6 +48,8 @@ Hugging Face settings:
 - `Logs/trellis2-gate0/BON1A0-trellis.png`
 
 `Logs/` gitignored; это локальные продолжительные artifacts, не runtime assets.
+Durable conditioning images and exported GLBs are versioned under
+`Textures/Trellis2/`.
 
 ## Interactive verdicts
 
@@ -78,9 +80,12 @@ WAD sprites, увеличенные только nearest-neighbor.
 результат позже проверен в реальной игре и принят как удачная стилизованная
 3D-колба после настройки масштаба, emission и зелёного локального света.
 
-### ARM1A0 — PENDING
+### ARM1A0 native — CANDIDATE ACCEPTED
 
-Не запущен: бесплатная квота закончилась.
+Последний native run сохранил узнаваемый силуэт брони, наплечники и центральную
+эмблему. Объёма недостаточно, но результат признан пригодным для следующего
+live runtime gate. Дополнительно подготовлен depth shape-hint для более
+выраженных изгибов и толщины.
 
 ## Live runtime test — SUCCESS
 
@@ -111,26 +116,41 @@ production rollout.
 
 ## Current conclusion
 
-TRELLIS.2 уже доказал ценность для явно коробчатых pickups, но native
-single-view pixel art не даёт модели достаточно shape cues для цилиндрических
-и округлых предметов. Универсальное автоматическое решение пока не доказано.
-Платить за дополнительные runs до улучшения conditioning inputs не нужно.
+TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
+single-view sprites принят двухступенчатый workflow: native WAD sprite служит
+источником идентичности, затем отдельный shape-hint добавляет только понятные
+depth cues для image-to-3D conditioning. Универсальное автоматическое решение
+не доказано, но этот контролируемый per-item цикл достаточно быстрый для
+продолжения pickup-набора.
 
-## Resume point
+## Accepted production workflow
 
-После восстановления бесплатного доступа:
+1. Декодировать native WAD sprite и сохранить его силуэт, палитру и ключевую
+   символику.
+2. Подготовить shape-hint: добавить изгибы, толщину, radial shading и видимые
+   боковые плоскости, не изобретая новый предмет.
+3. Сгенерировать TRELLIS.2 mesh; для сравнений отключить Randomize Seed и
+   сохранить seed.
+4. Провести live Enhanced gate по масштабу, яркости, читаемости и стоимости
+   mesh. Classic продолжает использовать оригинальный billboard.
+5. Сохранить conditioning image и исходный GLB в Git до Unity-конвертации.
 
-1. подготовить deterministic `STIMA0-shapehint.png`:
-   сохранить native alpha silhouette и маркировку, но заменить пиксельную
-   светотень гладкими цилиндрическими normals/lighting;
-2. подготовить deterministic `BON1A0-shapehint.png` с гладкой светотенью тела
-   вращения;
-3. shape-hint изображения нужны только для geometry conditioning; generated
-   PBR texture не считается финальным WAD-derived материалом;
-4. выполнить fixed-seed A/B `native vs shape-hint`, максимум три seeds на lump;
-5. отдельно проверить native `ARM1A0`, если останется квота;
-6. только после visual SUCCESS решать вопрос GLB cleanup, WAD/PLAYPAL material
-   projection и Unity runtime catalog.
+Shape-hint нужен только для geometry conditioning; generated PBR texture не
+считается автоматически финальным WAD-derived материалом.
 
 Не использовать снова EdgeMix/Super-xBR как TRELLIS conditioning без нового
 Gate 0: чистый upscale уже показал, что не сообщает модели форму.
+
+## Versioned source artifacts
+
+Shape-hints:
+
+- `Textures/Trellis2/ShapeHints/ARM1A0-depth-shapehint.png`
+- `Textures/Trellis2/ShapeHints/STIMA0-cylinder-shapehint-v3.png`
+
+Original TRELLIS.2 exports:
+
+- `Textures/Trellis2/GLB/MEDIA0_2026-08-06T185331.895.glb`
+- `Textures/Trellis2/GLB/BON1A0_2026-08-06T185552.641.glb`
+- `Textures/Trellis2/GLB/ARM1A0_2026-08-06T194747.841.glb`
+- `Textures/Trellis2/GLB/ARM1A0_2026-08-06T200929.245.glb`
