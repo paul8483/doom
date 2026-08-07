@@ -1,0 +1,24 @@
+---
+description: Do not change or use a different Unity Editor version without explicit user confirmation
+alwaysApply: true
+---
+
+# Unity Editor version lock
+
+The project Unity version is pinned in `ProjectSettings/ProjectVersion.txt`. Do **not** change it, upgrade packages for a newer editor, or run Editor/build/test commands with a different Unity install unless the user explicitly confirms.
+
+## Required
+
+- Always use the exact Editor version from `ProjectSettings/ProjectVersion.txt` (currently `6000.4.8f1`).
+- If that Editor is missing, stop and tell the user — do not fall back to another installed version.
+- Do not edit `ProjectVersion.txt`, bump URP/Input System/Test Framework (or other packages) to match a newer Editor, or leave behind Unity-upgrade noise, without confirmation.
+
+## Examples
+
+```text
+❌ BAD: Project pins 6000.4.8f1, only 6000.5.5f1 is installed → build with 6000.5.5f1 anyway
+✅ GOOD: Report that 6000.4.8f1 is missing and wait for the user
+
+❌ BAD: Silently upgrade Packages/manifest.json after opening with a newer Editor
+✅ GOOD: Restore pinned packages / ask before any version or package upgrade
+```
