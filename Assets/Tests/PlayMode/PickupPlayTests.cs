@@ -220,6 +220,8 @@ namespace Doom.Stage3.PlayTests
                          2014, // health bonus
                          2028, // COLU floor lamp
                          2035, // exploding barrel
+                         54,   // TRE2 large brown tree
+                         47,   // SMIT stalagmite / leafy tree
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);

@@ -8,6 +8,7 @@ Shader "Doom/ExperimentalPickupUnlit"
         _EmissionStrength ("Emission", Range(0, 2)) = 0
         _PulseStrength ("Pulse Strength", Range(0, 3)) = 0
         _PulseSpeed ("Pulse Speed", Range(0, 16)) = 8
+        _ColorTint ("Color Tint", Color) = (1, 1, 1, 1)
     }
 
     SubShader
@@ -44,7 +45,12 @@ Shader "Doom/ExperimentalPickupUnlit"
                 half _EmissionStrength;
                 half _PulseStrength;
                 half _PulseSpeed;
+                half4 _ColorTint;
             CBUFFER_END
+
+            // SectorFogSystem globals (same contract as DoomEnhancedWorld/Sprite).
+            float4 _DoomFogColor;
+            float4 _DoomFogParams; // x=density y=start z=end w=enabled
 
             struct Attributes
             {
@@ -56,12 +62,26 @@ Shader "Doom/ExperimentalPickupUnlit"
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
             };
+
+            half3 ApplyDoomFog(half3 color, float3 positionWS)
+            {
+                if (_DoomFogParams.w < 0.5) return color;
+                float dist = distance(GetCameraPositionWS(), positionWS);
+                float start = _DoomFogParams.y;
+                float end = max(_DoomFogParams.z, start + 0.01);
+                float t = saturate((dist - start) / (end - start));
+                t = 1.0 - exp(-_DoomFogParams.x * t * t * 8.0);
+                return lerp(color, _DoomFogColor.rgb, t);
+            }
 
             Varyings Vert(Attributes input)
             {
                 Varyings output;
-                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                output.positionCS = TransformWorldToHClip(positionWS);
+                output.positionWS = positionWS;
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 return output;
             }
@@ -69,11 +89,13 @@ Shader "Doom/ExperimentalPickupUnlit"
             half4 Frag(Varyings input) : SV_Target
             {
                 half3 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).rgb;
+                albedo *= _ColorTint.rgb;
                 half mask = SAMPLE_TEXTURE2D(
                     _EmissionMask, sampler_EmissionMask, input.uv).r;
                 half pulse = 0.5h + 0.5h * sin(_Time.y * _PulseSpeed);
                 half3 color = albedo * (_Exposure + _EmissionStrength);
                 color += mask * _PulseStrength * pulse;
+                color = ApplyDoomFog(color, input.positionWS);
                 return half4(color, 1.0h);
             }
             ENDHLSL

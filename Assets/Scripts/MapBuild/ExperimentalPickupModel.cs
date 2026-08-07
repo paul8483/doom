@@ -89,6 +89,12 @@ namespace Doom.MapBuild
                 case 2035:
                     resource = ResourceRoot + "BAR1A0/BAR1A0";
                     return true;
+                case 54:
+                    resource = ResourceRoot + "TRE2A0/TRE2A0";
+                    return true;
+                case 47:
+                    resource = ResourceRoot + "SMITA0/SMITA0";
+                    return true;
                 default:
                     resource = null;
                     return false;
@@ -189,6 +195,7 @@ namespace Doom.MapBuild
                     {
                         material.SetFloat("_Exposure", 1f);
                         material.SetFloat("_EmissionStrength", emissionStrength);
+                        material.SetColor("_ColorTint", Color.white);
                         if (pulseMask != null)
                         {
                             material.SetTexture("_EmissionMask", pulseMask);

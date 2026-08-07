@@ -2,18 +2,21 @@
 
 **Дата:** 2026-08-07  
 **Статус:** LIVE TEST SUCCESS — MEDIA0/BON1A0/weapons + COLUA0 floor lamp
-+ BAR1A0 exploding barrel accepted in Enhanced.  
++ BAR1A0 exploding barrel + TRE2A0/SMITA0 trees wired in Enhanced.  
 **Runtime:** Enhanced routes medikit (2012), health bonus (2014), six weapon
-pickups (2001–2006), COLU floor lamp (2028), and exploding barrel (2035) to
-textured TRELLIS.2 meshes; Classic keeps EdgeMix 8× billboards. Pickup
-gameplay, lamp sticky lights, and barrel explosion rules are unchanged.
-On barrel death the 3D mesh reverts to the BEXP billboard sequence.  
+pickups (2001–2006), COLU floor lamp (2028), exploding barrel (2035),
+TRE2 large tree (54), and SMIT leafy tree (47) to textured TRELLIS.2 meshes;
+Classic keeps EdgeMix 8× billboards. Pickup gameplay, lamp sticky lights,
+and barrel explosion rules are unchanged. On barrel death the 3D mesh
+reverts to the BEXP billboard sequence.  
 **Baseline:** MEDIA0/BON1A0 interactive verdict SUCCESS on 2026-08-06. The
 six-weapon Enhanced rollout passed automation, Windows build and interactive
 scale/orientation/brightness/pickup/performance sign-off on 2026-08-07.
 COLUA0 interactive standalone/editor verdict SUCCESS on 2026-08-07
 («результат отличный»). BAR1A0 interactive standalone verdict SUCCESS on
-2026-08-07 («результат отличный»).
+2026-08-07 («результат отличный»). TRE2A0/SMITA0 interactive standalone
+verdict SUCCESS on 2026-08-07 after WAD palette albedo correction and
+SectorFog support in `Doom/ExperimentalPickupUnlit`.
 
 ## Goal
 
@@ -208,17 +211,34 @@ depths, and coherent natural shading.
 Front-facing v2 hints therefore prioritize explicit 3D topology rather than a
 nominal camera rotation:
 
-- `TRE2A0-depth-shapehint-v2.png` — **TRELLIS GEOMETRY SUCCESS**. The generated
-  mesh has volumetric trunk, roots and branches. Runtime/live style gate has
-  not been run.
+- `TRE2A0-depth-shapehint-v2.png` — **TRELLIS GEOMETRY SUCCESS**, then
+  **LIVE RUNTIME SUCCESS**. Converted to Resources OBJ
+  (`Assets/Resources/ExperimentalPickups/TRE2A0/`, 98,602 triangles) and
+  allowlisted as doomednum `54`.
 - initial `SMITA0` v2 — **REJECT**, still reconstructed as a flat card;
-- replacement `SMITA0-depth-shapehint-v2.png` — **CONDITIONAL SUCCESS**.
-  TRELLIS produced a properly volumetric tree after the hint moved to natural
-  broadleaf structure, radial roots and separated depth-layered boughs.
-  Identity fidelity is weaker than the original Freedoom sprite, so final
-  acceptance requires an Enhanced live gate for scale, silhouette, palette and
-  environmental style. Reject it even with good geometry if it looks foreign
-  in-game.
+- replacement `SMITA0-depth-shapehint-v2.png` — **CONDITIONAL SUCCESS** on
+  geometry, then **LIVE RUNTIME SUCCESS** after WAD palette albedo correction.
+  Converted to Resources OBJ (`Assets/Resources/ExperimentalPickups/SMITA0/`,
+  94,945 triangles) and allowlisted as doomednum `47`.
+
+## TRE2A0 / SMITA0 tree runtime — SUCCESS 2026-08-07
+
+`TRE2A0_2026-08-07T133155.814.glb` and `SMITA0_2026-08-07T133844.641.glb`
+converted to textured OBJ Resources without simplification and allowlisted:
+
+- 54 TRE2 → `TRE2A0` (98,602 triangles, height 64 DU → 2.0 m);
+- 47 SMIT → `SMITA0` (94,945 triangles, height 64 DU → 2.0 m).
+
+Same presentation component as decorations/pickups:
+
+- `Doom/ExperimentalPickupUnlit` at exposure `1.0`;
+- albedo remapped toward native WAD trunk/leaf palette;
+- SectorFog globals applied so distant trees fade with world fog;
+- no model-side emission;
+- Enhanced shows the mesh; Classic restores the billboard;
+- collision / solidity stay on the original thing root.
+
+Interactive standalone verdict: **SUCCESS**.
 
 ## Current conclusion
 
