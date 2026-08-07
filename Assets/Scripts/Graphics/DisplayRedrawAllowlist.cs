@@ -7,11 +7,15 @@ namespace Doom.Graphics
     {
         public const string ResourcesFolder = "EnhancedSprites";
 
-        /// Approved 2026-08-07. STIMA0-v3 rejected. Monsters/out-of-scope excluded.
+        /// Approved 2026-08-07 (ARM1B0/BAR1B0 added 2026-08-08 — full frame
+        /// coverage for the ARM1/BAR1 blink). STIMA0-v3 rejected.
+        /// Monsters/out-of-scope excluded.
         public static readonly string[] Lumps =
         {
             "ARM1A0",
+            "ARM1B0",
             "BAR1A0",
+            "BAR1B0",
             "BFUGA0",
             "COLUA0",
             "CSAWA0",

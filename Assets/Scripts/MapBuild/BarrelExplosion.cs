@@ -45,8 +45,15 @@ namespace Doom.MapBuild
             // stay on the classic billboard path.
             GetComponent<ExperimentalPickupModel>()?.RevertToBillboard();
 
+            // Stop the idle blink and leave the pickup/redraw path: BEXP is an
+            // effect and renders through the generic sprite pipeline.
+            var idle = GetComponent<PickupAnimator>();
+            if (idle != null) Destroy(idle);
             if (billboard != null)
+            {
+                billboard.SetPickupUpscale(false);
                 billboard.SetSprite(BarrelRules.ExplodeSprite, BarrelRules.ExplodeFrames[0]);
+            }
 
             Vector3 pos = transform.position;
             sound?.PlayAt(BarrelRules.ExplodeSound, pos);

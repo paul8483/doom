@@ -12,14 +12,17 @@ namespace Doom.MapBuild.Editor
     public static class ThreeDToggleGate1PreviewMenu
     {
         // Protocol set: medkit/armor/monster/shotgun + lamp/barrel/tree.
+        // ARM1/BAR1 A+B frames both covered since 2026-08-08 (blink animation).
         static readonly (string Lump, string Label, bool ExpectRedraw, bool ExpectMesh)[] Rows =
         {
             ("MEDIA0", "MEDIA0-medikit", false, true),
             ("ARM1A0", "ARM1A0-armor", true, false),
+            ("ARM1B0", "ARM1B0-armor-blink", true, false),
             ("POSSA1", "POSSA1-monster", false, false),
             ("SHOTA0", "SHOTA0-shotgun", true, true),
             ("COLUA0", "COLUA0-lamp", true, true),
-            ("BAR1A0", "BAR1A0-barrel", true, true), // redraw gated by BAR1 animation at runtime
+            ("BAR1A0", "BAR1A0-barrel", true, true),
+            ("BAR1B0", "BAR1B0-barrel-blink", true, false),
             ("TRE2A0", "TRE2A0-tree", false, true),
         };
 

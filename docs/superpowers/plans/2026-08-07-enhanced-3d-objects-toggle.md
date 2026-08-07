@@ -30,6 +30,11 @@ collision/save identity остаются на оригинальных thing roo
 
 Выход: утверждённый allowlist лумпов для 2D-уровня.
 
+**Дополнение 2026-08-08 ✅ («результат отличный»):** `ARM1B0`/`BAR1B0`
+приняты — allowlist 11 лумпов, гейт анимации пропускает полностью покрытые
+лумпы; бочка на pickup/redraw-пути + ваниллный idle-blink S_BAR1/S_BAR2.
+Suites: EditMode 614/614, PlayMode 161/161.
+
 ## Task 2 — Импорт redraws как runtime-ресурсов ✅
 
 1. Скопировать утверждённые PNG в `Assets/Resources/EnhancedSprites/<LUMP>.png`

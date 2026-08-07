@@ -103,9 +103,18 @@ namespace Doom.MapBuild
             string lumpName = wad.Directory[lumpIndex].Name;
             if (!DisplayRedrawAllowlist.Contains(lumpName))
                 return false;
-            // BAR1 A/B blink etc.: partial redraw coverage would flicker.
-            if (sprites.CountFrames(sprite) > 1)
-                return false;
+            // Animated lumps (ARM1/BAR1 blink, BON1 A–D): every frame must
+            // have a redraw, otherwise the animation would flicker between
+            // redraw and native frames.
+            int frames = sprites.CountFrames(sprite);
+            for (int f = 0; f < frames; f++)
+            {
+                if (!sprites.TryGet(sprite, f, 0, out var refr))
+                    return false;
+                string frameLump = wad.Directory[refr.LumpIndex].Name;
+                if (!DisplayRedrawAllowlist.Contains(frameLump))
+                    return false;
+            }
             return true;
         }
 

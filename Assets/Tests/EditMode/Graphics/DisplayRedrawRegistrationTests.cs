@@ -12,10 +12,13 @@ namespace Doom.Graphics.Tests
         const int BBoxTolerance = 6;
 
         [Test]
-        public void Allowlist_has_nine_gate0_lumps_and_excludes_stima()
+        public void Allowlist_has_eleven_lumps_and_excludes_stima()
         {
-            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(9));
+            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(11));
             Assert.That(DisplayRedrawAllowlist.Contains("SHOTA0"), Is.True);
+            // ARM1/BAR1 blink: both frames covered (2026-08-08).
+            Assert.That(DisplayRedrawAllowlist.Contains("ARM1B0"), Is.True);
+            Assert.That(DisplayRedrawAllowlist.Contains("BAR1B0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("STIMA0"), Is.False);
             Assert.That(DisplayRedrawAllowlist.Contains("POSSA1"), Is.False);
         }

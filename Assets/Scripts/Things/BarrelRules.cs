@@ -15,5 +15,9 @@ namespace Doom.Things
 
         /// Tics per explode frame (all 5 in vanilla).
         public static readonly int[] ExplodeTics = { 5, 5, 5, 5, 5 };
+
+        /// Idle blink S_BAR1 → S_BAR2 (BAR1 A 6 → B 6, loop).
+        public static readonly int[] IdleFrames = { 0, 1 };
+        public static readonly int[] IdleTics = { 6, 6 };
     }
 }

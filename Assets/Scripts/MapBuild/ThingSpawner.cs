@@ -75,7 +75,10 @@ namespace Doom.MapBuild
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
-                bb.SetPickupUpscale(isPickup);
+                // The intact barrel rides the pickup/redraw path in Enhanced 2D;
+                // its BEXP explosion switches back to the generic effects path.
+                bool isBarrel = t.Type == BarrelRules.DoomEdNum;
+                bb.SetPickupUpscale(isPickup || isBarrel);
                 bb.SetEnemyUpscale(isEnemy);
                 if (t.Type == 58)
                     bb.SetSpectre(true);
@@ -88,7 +91,7 @@ namespace Doom.MapBuild
                 // Enhanced 4× is yielded later under ENHANCED SPRITES (not here).
                 for (int rot = 0; rot < 8; rot++)
                 {
-                    if (isPickup)
+                    if (isPickup || isBarrel)
                         cache.WarmNativePickup(def.Sprite, def.Frame, rot);
                     else if (isEnemy)
                         cache.WarmNativeEnemy(def.Sprite, def.Frame, rot);
@@ -131,6 +134,11 @@ namespace Doom.MapBuild
                         eh.SetBarrel(be);
                         foreach (int f in BarrelRules.ExplodeFrames)
                             cache.WarmNative(BarrelRules.ExplodeSprite, f, 0);
+                        // Vanilla S_BAR1/S_BAR2 idle blink (BAR1 A 6 → B 6 loop).
+                        foreach (int f in BarrelRules.IdleFrames)
+                            cache.WarmNativePickup(def.Sprite, f, 0);
+                        go.AddComponent<PickupAnimator>().Init(bb,
+                            new PickupAnimation(BarrelRules.IdleFrames, BarrelRules.IdleTics));
                     }
                     else if (isEnemy)
                     {

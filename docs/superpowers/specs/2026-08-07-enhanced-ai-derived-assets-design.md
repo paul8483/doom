@@ -162,8 +162,14 @@ BEXP), оружия от первого лица (кадры стрельбы + 
 `ExperimentalPickupModel`/`SpriteCache`; display-redraw runtime-ресурсы в
 `Assets/Resources/EnhancedSprites/` (conditioning остаётся source-only в
 `Textures/Trellis2/`). Gate 0 allowlist: `ARM1A0`/`BAR1A0`/`BFUGA0`/`COLUA0`/
-`CSAWA0`/`LAUNA0`/`MGUNA0`/`PLASA0`/`SHOTA0` (Point); `BAR1` A0+B0 → EdgeMix
-до полного покрытия кадров; `STIMA0-v3` REJECT.
+`CSAWA0`/`LAUNA0`/`MGUNA0`/`PLASA0`/`SHOTA0` (Point); `STIMA0-v3` REJECT.
+
+**Дополнение 2026-08-08 ✅ (вердикт «результат отличный»):** redraw'ы
+`ARM1B0`/`BAR1B0` закрыли мигание брони и бочки — allowlist теперь 11 лумпов;
+гейт анимации в `SpriteCache` пропускает лумп, когда покрыты **все** кадры.
+Бочка зароучена через pickup/redraw-путь и получила ваниллную idle-анимацию
+S_BAR1/S_BAR2 (A 6 → B 6 loop; раньше порт всегда показывал кадр A); BEXP
+остаётся на общем пути эффектов.
 
 ## Производственный пайплайн
 
