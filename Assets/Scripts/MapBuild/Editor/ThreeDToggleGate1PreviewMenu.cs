@@ -6,8 +6,8 @@ using Doom.Wad;
 
 namespace Doom.MapBuild.Editor
 {
-    /// Gate 1 panels: EdgeMix | display-redraw (if any) | mesh albedo contact sheet
-    /// for the interactive standalone acceptance set.
+    /// Gate 1 panels: native | display-redraw (if any) contact sheet for the
+    /// interactive standalone acceptance set (mesh judged live in standalone).
     /// Output: Logs/3d-toggle-gate1/
     public static class ThreeDToggleGate1PreviewMenu
     {
@@ -50,7 +50,6 @@ namespace Doom.MapBuild.Editor
                 }
 
                 var native = Patch.Decode(wad.ReadLump(idx), palette);
-                var edge = EdgeMixUpscaler.Scale8XContrastGated(native);
                 DecodedImage redraw = null;
                 if (expectRedraw && DisplayRedrawAllowlist.Contains(lump))
                 {
@@ -60,23 +59,21 @@ namespace Doom.MapBuild.Editor
                     {
                         var canvas = TextureToDecoded(res);
                         redraw = DisplayRedrawRegistration.MapRedrawToNativeRect(canvas, native);
-                        redraw = DisplayRedrawRegistration.ScaleNearest(
-                            redraw, EdgeMixUpscaler.Scale);
+                        redraw = DisplayRedrawRegistration.ScaleNearest(redraw, DisplayScale);
                     }
                 }
 
                 string meshNote = expectMesh
                     ? Path.Combine("Assets", "Resources", "ExperimentalPickups", lump)
                     : "(no mesh)";
-                WriteCompare(native, edge, redraw, label, meshNote, outDir);
+                WriteCompare(native, redraw, label, meshNote, outDir);
             }
 
             File.WriteAllText(Path.Combine(outDir, "README.txt"),
                 "Gate 1 — Enhanced 3D Objects Toggle\n\n" +
                 "Columns left→right:\n" +
                 "1. Classic native (nearest)\n" +
-                "2. EdgeMix 8× (Enhanced 2D fallback)\n" +
-                "3. Display-redraw (if allowlisted; else empty panel)\n\n" +
+                "2. Display-redraw (if allowlisted; else empty panel)\n\n" +
                 "Mesh presence is noted in the filename / README row — live mesh\n" +
                 "must be judged in standalone (Enhanced + 3D Objects On).\n");
             Debug.Log($"Gate1Preview: wrote PNGs to {outDir}");
@@ -103,19 +100,16 @@ namespace Doom.MapBuild.Editor
 
         static void WriteCompare(
             DecodedImage native,
-            DecodedImage edge,
             DecodedImage redrawOrNull,
             string label,
             string meshNote,
             string outDir)
         {
             var nativeDisp = DisplayRedrawRegistration.ScaleNearest(native, DisplayScale);
-            // Edge is already 8×; scale display to match nativeDisp height.
             int targetH = nativeDisp.Height;
             var panels = new System.Collections.Generic.List<DecodedImage>
             {
                 nativeDisp,
-                FitHeight(edge, targetH),
             };
             if (redrawOrNull != null)
                 panels.Add(FitHeight(redrawOrNull, targetH));
@@ -136,7 +130,7 @@ namespace Doom.MapBuild.Editor
         static DecodedImage FitHeight(DecodedImage src, int targetH)
         {
             if (src.Height == targetH) return src;
-            // Nearest scale so height matches (EdgeMix is 8× native; DisplayScale=4 → half).
+            // Nearest scale so the panel height matches the native column.
             float scale = (float)targetH / src.Height;
             int dw = Mathf.Max(1, Mathf.RoundToInt(src.Width * scale));
             int dh = targetH;

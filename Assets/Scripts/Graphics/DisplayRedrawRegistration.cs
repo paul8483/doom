@@ -6,7 +6,7 @@ namespace Doom.Graphics
     /// Maps TRELLIS/GPT display-redraw canvases (sprite ≤416 px major axis,
     /// centered on a transparent 512×512 square; sources may be 1024×1024)
     /// onto the native WAD patch rectangle so billboard world size and
-    /// draw-offsets stay identical to Classic/EdgeMix.
+    /// draw-offsets stay identical to Classic.
     public static class DisplayRedrawRegistration
     {
         public const int CanvasSize = 512;

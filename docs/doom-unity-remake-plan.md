@@ -241,7 +241,7 @@ dedither ≈ no-op; POM только solid opaque; нейроапскейл от
 (+ warm-perf `2026-07-22-enhanced-warm-performance`)  
 **Notes:** `Logs/enhanced-texture-quality-baseline-notes.md`
 
-### Пост-Stage 8: Sprite EdgeMix 8× ✅
+### Пост-Stage 8: Sprite EdgeMix 8× ✅ → ❌ удалён 2026-08-08
 
 Ветки от `main` (2026-07-31 → 2026-08-03): детерминированный 8× с
 premultiplied-alpha boundary mix для Enhanced pickups/врагов/оружия от
@@ -250,6 +250,13 @@ premultiplied-alpha boundary mix для Enhanced pickups/врагов/оружи
 Интерактивный вердикт: SUCCESS. Попутно отклонены нейроапскейлы ESRGAN и
 MMPX (Gate 0, ветка `esrgan`). Спека/план —
 `2026-07-31-inventory-edge-mix`.
+
+**Удалён целиком 2026-08-08** (решение пользователя): EdgeMix мылил
+картинку и мешал честно оценивать Enhanced 2D («ошибки восприятия»).
+Пикапы/враги/оружие без AI-ассетов (меш/redraw) рендерятся в Enhanced
+**нативно (Point)** до покрытия display-grade redraw'ами; снаряды/эффекты
+остаются на Super-xBR 4×. Код (`EdgeMixUpscaler`, job-kinds 4–6,
+8×-варианты) удалён, pipeline v6 (старые disk pack'и инвалидированы).
 
 ### Пост-Stage 8: эксперименты объёма pickups ❌→✅ (путь к 3D)
 

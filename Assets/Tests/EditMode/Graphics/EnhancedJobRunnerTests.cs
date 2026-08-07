@@ -70,66 +70,6 @@ namespace Doom.Graphics.Tests
         }
 
         [Test]
-        public void Pickup_sprite_uses_edge_mix_8x()
-        {
-            using var ctx = OpenFreedoom();
-            int lump = ctx.Wad.FindLump("MEDIA0");
-            Assert.That(lump, Is.GreaterThanOrEqualTo(0));
-            var native = Patch.Decode(ctx.Wad.ReadLump(lump), ctx.Palette);
-
-            var result = EnhancedJobRunner.Run(
-                EnhancedJob.ForPickupSprite("MEDIA0", native));
-
-            Assert.IsTrue(result.Success, result.ErrorMessage);
-            Assert.AreEqual(EnhancedJobKind.PickupSprite, result.Kind);
-            Assert.AreEqual(native.Width * 8, result.Rgba.Width);
-            Assert.AreEqual(native.Height * 8, result.Rgba.Height);
-            Assert.AreEqual(
-                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
-                result.Rgba.Rgba);
-        }
-
-        [Test]
-        public void Enemy_sprite_uses_edge_mix_8x()
-        {
-            using var ctx = OpenFreedoom();
-            int lump = ctx.Wad.FindLump("POSSA1");
-            Assert.That(lump, Is.GreaterThanOrEqualTo(0));
-            var native = Patch.Decode(ctx.Wad.ReadLump(lump), ctx.Palette);
-
-            var result = EnhancedJobRunner.Run(
-                EnhancedJob.ForEnemySprite("POSSA1", native));
-
-            Assert.IsTrue(result.Success, result.ErrorMessage);
-            Assert.AreEqual(EnhancedJobKind.EnemySprite, result.Kind);
-            Assert.AreEqual(native.Width * 8, result.Rgba.Width);
-            Assert.AreEqual(native.Height * 8, result.Rgba.Height);
-            Assert.AreEqual(
-                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
-                result.Rgba.Rgba);
-        }
-
-        [Test]
-        public void Weapon_sprite_uses_edge_mix_8x()
-        {
-            using var ctx = OpenFreedoom();
-            int lump = ctx.Wad.FindLump("PISGA0");
-            Assert.That(lump, Is.GreaterThanOrEqualTo(0));
-            var native = Patch.Decode(ctx.Wad.ReadLump(lump), ctx.Palette);
-
-            var result = EnhancedJobRunner.Run(
-                EnhancedJob.ForWeaponSprite("PISGA0", native));
-
-            Assert.IsTrue(result.Success, result.ErrorMessage);
-            Assert.AreEqual(EnhancedJobKind.WeaponSprite, result.Kind);
-            Assert.AreEqual(native.Width * 8, result.Rgba.Width);
-            Assert.AreEqual(native.Height * 8, result.Rgba.Height);
-            Assert.AreEqual(
-                EdgeMixUpscaler.Scale8XContrastGated(native).Rgba,
-                result.Rgba.Rgba);
-        }
-
-        [Test]
         public void World_normal_matches_legacy_pipeline_composition()
         {
             using var ctx = OpenFreedoom();
@@ -229,18 +169,6 @@ namespace Doom.Graphics.Tests
                 var img = Patch.Decode(ctx.Wad.ReadLump(lump), ctx.Palette);
                 jobs.Add(EnhancedJob.ForSprite(sprite, img, applyDedither: true));
             }
-
-            int pickupIdx = ctx.Wad.FindLump("MEDIA0");
-            var pickup = Patch.Decode(ctx.Wad.ReadLump(pickupIdx), ctx.Palette);
-            jobs.Add(EnhancedJob.ForPickupSprite("MEDIA0/pickup", pickup));
-
-            int enemyIdx = ctx.Wad.FindLump("POSSA1");
-            var enemy = Patch.Decode(ctx.Wad.ReadLump(enemyIdx), ctx.Palette);
-            jobs.Add(EnhancedJob.ForEnemySprite("POSSA1/enemy", enemy));
-
-            int weaponIdx = ctx.Wad.FindLump("PISGA0");
-            var weapon = Patch.Decode(ctx.Wad.ReadLump(weaponIdx), ctx.Palette);
-            jobs.Add(EnhancedJob.ForWeaponSprite("PISGA0/weapon", weapon));
 
             int stbar = ctx.Wad.FindLump("STBAR");
             Assert.That(stbar, Is.GreaterThanOrEqualTo(0));

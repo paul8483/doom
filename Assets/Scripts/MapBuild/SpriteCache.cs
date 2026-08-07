@@ -88,7 +88,9 @@ namespace Doom.MapBuild
             if (ShouldUseDisplayRedraw(sprite, lumpIndex))
                 return WorldTextureVariant.EnhancedDisplayRedraw;
 
-            return WorldTextureVariant.EnhancedPickup8X;
+            // No upscaler fallback: without a display redraw the pickup stays
+            // native (Point) so Enhanced 2D is judged against crisp WAD art.
+            return WorldTextureVariant.Native;
         }
 
         bool ShouldUseDisplayRedraw(string sprite, int lumpIndex)
@@ -111,33 +113,21 @@ namespace Doom.MapBuild
             SettingsController.Instance == null ||
             SettingsController.Instance.Current.Enhanced3DObjects;
 
-        WorldTextureVariant ActiveEnemyVariant =>
-            materials.ActiveProfile.SpritesUpscale4X
-                ? WorldTextureVariant.EnhancedEnemy8X
-                : WorldTextureVariant.Native;
-
-        WorldTextureVariant ActiveWeaponVariant =>
-            materials.ActiveProfile.SpritesUpscale4X
-                ? WorldTextureVariant.EnhancedWeapon8X
-                : WorldTextureVariant.Native;
+        /// Pickups, enemies and first-person weapons render native in Enhanced
+        /// (EdgeMix 8× removed 2026-08-08); only unregistered sprites
+        /// (projectiles/effects/decorations) keep the Super-xBR 4× path.
+        bool IsNativeOnlyLump(int lumpIndex) =>
+            pickupLumps.Contains(lumpIndex) ||
+            enemyLumps.Contains(lumpIndex) ||
+            weaponLumps.Contains(lumpIndex);
 
         WorldTextureVariant EnhancedVariantForLump(int lumpIndex) =>
-            pickupLumps.Contains(lumpIndex)
-                ? WorldTextureVariant.EnhancedPickup8X
-                : enemyLumps.Contains(lumpIndex)
-                    ? WorldTextureVariant.EnhancedEnemy8X
-                    : weaponLumps.Contains(lumpIndex)
-                        ? WorldTextureVariant.EnhancedWeapon8X
-                        : WorldTextureVariant.Enhanced4X;
+            IsNativeOnlyLump(lumpIndex)
+                ? WorldTextureVariant.Native
+                : WorldTextureVariant.Enhanced4X;
 
         public EnhancedJobKind EnhancedKindForLump(int lumpIndex) =>
-            pickupLumps.Contains(lumpIndex)
-                ? EnhancedJobKind.PickupSprite
-                : enemyLumps.Contains(lumpIndex)
-                    ? EnhancedJobKind.EnemySprite
-                    : weaponLumps.Contains(lumpIndex)
-                        ? EnhancedJobKind.WeaponSprite
-                        : EnhancedJobKind.Sprite;
+            EnhancedJobKind.Sprite;
 
         public SpriteMaterial GetSpectre(string sprite, int frame, int rotationIndex) =>
             Get(sprite, frame, rotationIndex, spectre: true);
@@ -148,16 +138,16 @@ namespace Doom.MapBuild
             string sprite, int frame, int rotationIndex, bool spectre = false) =>
             Get(sprite, frame, rotationIndex, spectre, WorldTextureVariant.Native);
 
-        /// Register and pre-warm a world pickup frame. Registered lumps use the
-        /// experimental EdgeMix 8× path in Enhanced; all other sprites stay 4×.
+        /// Register and pre-warm a world pickup frame. Registered lumps render
+        /// native in Enhanced unless a display-grade redraw covers them.
         public SpriteMaterial WarmNativePickup(string sprite, int frame, int rotationIndex)
         {
             RegisterPickupLump(sprite, frame, rotationIndex);
             return Get(sprite, frame, rotationIndex, spectre: false, WorldTextureVariant.Native);
         }
 
-        /// Register and pre-warm an enemy frame. Registered lumps use EdgeMix
-        /// 8× in Enhanced while their native patch header still controls placement.
+        /// Register and pre-warm an enemy frame. Registered lumps render native
+        /// in Enhanced; the native patch header still controls placement.
         public SpriteMaterial WarmNativeEnemy(
             string sprite, int frame, int rotationIndex, bool spectre = false)
         {
@@ -166,7 +156,7 @@ namespace Doom.MapBuild
         }
 
         /// Register and pre-warm a first-person weapon / flash frame. Registered
-        /// lumps use EdgeMix 8× in Enhanced; placement stays native-header based.
+        /// lumps render native in Enhanced; placement stays native-header based.
         public SpriteMaterial WarmNativeWeapon(string sprite, int frame, int rotationIndex = 0)
         {
             RegisterWeaponLump(sprite, frame, rotationIndex);
@@ -193,13 +183,13 @@ namespace Doom.MapBuild
             string sprite, int frame, int rotationIndex, bool spectre = false)
         {
             RegisterEnemyLump(sprite, frame, rotationIndex);
-            return Get(sprite, frame, rotationIndex, spectre, ActiveEnemyVariant);
+            return Get(sprite, frame, rotationIndex, spectre, WorldTextureVariant.Native);
         }
 
         public SpriteMaterial GetWeapon(string sprite, int frame, int rotationIndex = 0)
         {
             RegisterWeaponLump(sprite, frame, rotationIndex);
-            return Get(sprite, frame, rotationIndex, spectre: false, ActiveWeaponVariant);
+            return Get(sprite, frame, rotationIndex, spectre: false, WorldTextureVariant.Native);
         }
 
         void RegisterPickupLump(string sprite, int frame, int rotationIndex)
@@ -233,14 +223,10 @@ namespace Doom.MapBuild
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
 
-            if (variant == WorldTextureVariant.EnhancedPickup8X ||
-                variant == WorldTextureVariant.EnhancedDisplayRedraw)
+            if (variant == WorldTextureVariant.EnhancedDisplayRedraw)
                 pickupLumps.Add(refr.LumpIndex);
-            if (variant == WorldTextureVariant.EnhancedEnemy8X)
-                enemyLumps.Add(refr.LumpIndex);
-            if (variant == WorldTextureVariant.EnhancedWeapon8X)
-                weaponLumps.Add(refr.LumpIndex);
-            // Display-redraw is requested explicitly; do not remap to EdgeMix.
+            // Display-redraw is requested explicitly; registered pickup/enemy/
+            // weapon lumps remap to Native, everything else to Enhanced4X.
             if (variant != WorldTextureVariant.Native &&
                 variant != WorldTextureVariant.EnhancedDisplayRedraw)
                 variant = EnhancedVariantForLump(refr.LumpIndex);
@@ -294,6 +280,8 @@ namespace Doom.MapBuild
         /// WAD close. Returns false if native is missing or Enhanced failed.
         public bool EnsureEnhanced(int lumpIndex)
         {
+            if (IsNativeOnlyLump(lumpIndex))
+                return false;
             if (failedLumps.Contains(lumpIndex) || failedEnhancedLumps.Contains(lumpIndex))
                 return false;
             if (!decodedByLump.ContainsKey(lumpIndex))
@@ -336,6 +324,9 @@ namespace Doom.MapBuild
         /// failed / native missing.
         public EnhancedJob TryCreateJob(int lumpIndex)
         {
+            // Pickups/enemies/weapons render native — no Enhanced CPU work.
+            if (IsNativeOnlyLump(lumpIndex))
+                return null;
             if (failedLumps.Contains(lumpIndex) || failedEnhancedLumps.Contains(lumpIndex))
                 return null;
 
@@ -349,13 +340,6 @@ namespace Doom.MapBuild
             // Native GPU entry must exist for tracking / fallback.
             if (CreateNativeTexture(lumpIndex) == null)
                 return null;
-
-            if (pickupLumps.Contains(lumpIndex))
-                return EnhancedJob.ForPickupSprite(lumpIndex.ToString(), nativeImg);
-            if (enemyLumps.Contains(lumpIndex))
-                return EnhancedJob.ForEnemySprite(lumpIndex.ToString(), nativeImg);
-            if (weaponLumps.Contains(lumpIndex))
-                return EnhancedJob.ForWeaponSprite(lumpIndex.ToString(), nativeImg);
 
             var profile = materials.ActiveProfile;
             return EnhancedJob.ForSprite(
@@ -395,7 +379,8 @@ namespace Doom.MapBuild
             enhancedTextureBytes += (long)tex.width * tex.height * 4L;
         }
 
-        /// True when an Enhanced (non-fallback) texture exists for the lump.
+        /// True when the lump needs no further Enhanced work: its variant texture
+        /// exists (native counts for native-only pickup/enemy/weapon lumps).
         public bool HasEnhanced(int lumpIndex) =>
             !failedEnhancedLumps.Contains(lumpIndex) &&
             texByLumpVariant.ContainsKey((lumpIndex, EnhancedVariantForLump(lumpIndex)));

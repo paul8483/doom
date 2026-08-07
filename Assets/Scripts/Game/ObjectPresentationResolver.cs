@@ -4,12 +4,12 @@ namespace Doom.Game
     public enum ObjectPresentation
     {
         NativeBillboard = 0,
-        EdgeMixBillboard = 1,
         RedrawBillboard = 2,
         Mesh = 3,
     }
 
     /// Pure cascade from the Enhanced 3D Objects Toggle design matrix.
+    /// EdgeMix 8× removed 2026-08-08: lumps without AI assets stay native.
     public static class ObjectPresentationResolver
     {
         public static ObjectPresentation Resolve(
@@ -25,15 +25,11 @@ namespace Doom.Game
             // Partial redraw coverage on animated sprites would flicker.
             bool redrawOk = hasDisplayRedraw && !isAnimated;
 
-            if (toggle3D)
-            {
-                if (hasMesh) return ObjectPresentation.Mesh;
-                if (redrawOk) return ObjectPresentation.RedrawBillboard;
-                return ObjectPresentation.EdgeMixBillboard;
-            }
+            if (toggle3D && hasMesh)
+                return ObjectPresentation.Mesh;
 
             if (redrawOk) return ObjectPresentation.RedrawBillboard;
-            return ObjectPresentation.EdgeMixBillboard;
+            return ObjectPresentation.NativeBillboard;
         }
     }
 }

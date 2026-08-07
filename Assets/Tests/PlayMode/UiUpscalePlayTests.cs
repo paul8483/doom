@@ -146,8 +146,9 @@ namespace Doom.Stage3.PlayTests
                 var enhanced = cache.GetWeapon("PISG", 0, 0);
                 Assert.IsTrue(native.IsValid);
                 Assert.IsTrue(enhanced.IsValid);
-                Assert.AreEqual(native.Material.mainTexture.width * 8,
-                    enhanced.Material.mainTexture.width);
+                // EdgeMix removed: Enhanced serves the native weapon texture.
+                Assert.AreSame(native.Material.mainTexture,
+                    enhanced.Material.mainTexture);
                 Assert.AreEqual(native.Width, enhanced.Width);
                 Assert.AreEqual(native.Height, enhanced.Height);
                 Assert.AreEqual(native.LeftOffset, enhanced.LeftOffset);
@@ -269,9 +270,10 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(hudW, enhancedHud.Width);
             Assert.AreEqual(hudH, enhancedHud.Height);
 
+            // EdgeMix removed: the weapon serves the native texture in Enhanced too.
             var enhancedWeapon = loader.Sprites.GetWeapon("PISG", 0, 0);
             Assert.IsTrue(enhancedWeapon.IsValid);
-            Assert.AreEqual(classicWeaponTex.width * 8, enhancedWeapon.Material.mainTexture.width);
+            Assert.AreSame(classicWeaponTex, enhancedWeapon.Material.mainTexture);
             Assert.AreEqual(classicWeapon.Width, enhancedWeapon.Width);
 
             int texCountAfterEnhanced = gfx.Context != null ? gfx.Context.TextureCount : 0;

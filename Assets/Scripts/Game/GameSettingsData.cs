@@ -29,7 +29,7 @@ namespace Doom.Game
         public int ResolutionHeight { get; }
         public GraphicsMode GraphicsMode { get; }
         /// When GraphicsMode is Enhanced: true → TRELLIS meshes where available;
-        /// false → display-redraw / EdgeMix billboards. Classic ignores this.
+        /// false → display-redraw / native billboards. Classic ignores this.
         public bool Enhanced3DObjects { get; }
 
         public GameSettingsData(

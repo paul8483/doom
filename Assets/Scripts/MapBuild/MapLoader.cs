@@ -377,7 +377,7 @@ namespace Doom.MapBuild
 
             // Pre-warm weapon/flash/effect sprites (native only): the WAD closes at
             // the end of Build(), and WeaponView/HitEffect fetch these lazily.
-            // Weapon viewmodels register for EdgeMix 8×; projectiles/effects stay 4×.
+            // Weapon viewmodels stay native in Enhanced; projectiles/effects stay 4×.
             // Enhanced upscales are yielded after THINGS under ENHANCED SPRITES.
             foreach (var (spr, frames) in new (string, int[])[]
             {

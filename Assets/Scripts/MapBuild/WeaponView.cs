@@ -187,7 +187,7 @@ namespace Doom.MapBuild
         void DrawPatch(string sprite, int frame, float sx, float sy,
                        in VirtualScreenRenderer.Transform t, Rect clip)
         {
-            // Weapon lumps use EdgeMix 8× in Enhanced; placement always uses
+            // Weapon lumps render native; placement always uses
             // PatchHeader dims/offsets (not texture size).
             var sm = cache.GetWeapon(sprite, frame, 0);
             if (!sm.IsValid) return;
@@ -200,7 +200,7 @@ namespace Doom.MapBuild
             GUI.DrawTexture(r, tex);
         }
 
-        /// R_DrawPSprite screen rect from header dims — identical for native and 8×.
+        /// R_DrawPSprite screen rect from header dims (texture size never matters).
         public static Rect PlacementRect(
             in VirtualScreenRenderer.Transform t, float sx, float sy, in SpriteMaterial sm) =>
             VirtualScreenRenderer.WeaponPatch(

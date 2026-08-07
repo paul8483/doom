@@ -35,9 +35,9 @@ namespace Doom.MapBuild.Rendering
         public readonly bool WorldTexelAA;
         /// Multi-scale normals + parallax occlusion on solid world surfaces.
         public readonly bool WorldParallax;
-        /// Super-xBR 4× for projectile/effect sprites; pickups/enemies/weapons use EdgeMix 8×.
+        /// Super-xBR 4× for projectile/effect sprites; pickups/enemies/weapons render native.
         public readonly bool SpritesUpscale4X;
-        /// Super-xBR 4× for HUD patches (menus stay native; weapon view uses EdgeMix 8×).
+        /// Super-xBR 4× for HUD patches (menus and weapon view stay native).
         public readonly bool UiUpscale4X;
         /// Keeps LOD0 point-sharp while enabling controlled mip/aniso minification.
         public readonly bool ControlledWorldMipmaps;

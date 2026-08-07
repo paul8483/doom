@@ -11,12 +11,7 @@ namespace Doom.MapBuild.Rendering
         Enhanced2X = 1,
         /// Super-xBR 4× (dedither → upscale → controlled mips) Enhanced world albedo.
         Enhanced4X = 2,
-        /// Experimental pickup-only EdgeMix 8× sprite texture.
-        EnhancedPickup8X = 3,
-        /// Experimental enemy-only EdgeMix 8× sprite texture.
-        EnhancedEnemy8X = 4,
-        /// First-person weapon / muzzle-flash EdgeMix 8× sprite texture.
-        EnhancedWeapon8X = 5,
+        // 3–5 were EdgeMix Pickup/Enemy/Weapon 8× variants, removed 2026-08-08.
         /// Gate-0 display-grade redraw (Resources/EnhancedSprites) on native quad.
         EnhancedDisplayRedraw = 6,
     }

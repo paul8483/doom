@@ -10,9 +10,8 @@ namespace Doom.Graphics
         WorldNormal = 1,
         Sprite = 2,
         Hud = 3,
-        PickupSprite = 4,
-        EnemySprite = 5,
-        WeaponSprite = 6,
+        // 4–6 were EdgeMix Pickup/Enemy/WeaponSprite, removed 2026-08-08.
+        // Old packs holding them are invalidated by the pipeline version bump.
     }
 
     /// Immutable input for <see cref="EnhancedJobRunner"/>. Built on the main
@@ -118,32 +117,6 @@ namespace Doom.Graphics
                 MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
         }
 
-        public static EnhancedJob ForPickupSprite(string itemId, DecodedImage native)
-        {
-            if (native == null) throw new ArgumentNullException(nameof(native));
-            return new EnhancedJob(
-                EnhancedJobKind.PickupSprite, itemId, native, PixelWrapMode.Clamp,
-                applyDedither: false, applyAlphaBleed: false, applySharpen: false,
-                MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
-        }
-
-        public static EnhancedJob ForEnemySprite(string itemId, DecodedImage native)
-        {
-            if (native == null) throw new ArgumentNullException(nameof(native));
-            return new EnhancedJob(
-                EnhancedJobKind.EnemySprite, itemId, native, PixelWrapMode.Clamp,
-                applyDedither: false, applyAlphaBleed: false, applySharpen: false,
-                MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
-        }
-
-        public static EnhancedJob ForWeaponSprite(string itemId, DecodedImage native)
-        {
-            if (native == null) throw new ArgumentNullException(nameof(native));
-            return new EnhancedJob(
-                EnhancedJobKind.WeaponSprite, itemId, native, PixelWrapMode.Clamp,
-                applyDedither: false, applyAlphaBleed: false, applySharpen: false,
-                MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
-        }
     }
 
     /// CPU-side result of an Enhanced job. Either success buffers for the kind,
