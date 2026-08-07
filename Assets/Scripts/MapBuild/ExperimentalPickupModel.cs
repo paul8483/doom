@@ -19,7 +19,7 @@ namespace Doom.MapBuild
         GameObject modelRoot;
         Renderer[] modelRenderers;
         readonly List<Material> ownedMaterials = new List<Material>();
-        bool lastEnhanced;
+        bool lastUseMesh;
         bool lockedToBillboard;
 
         public bool HasModel => modelRoot != null;
@@ -138,8 +138,11 @@ namespace Doom.MapBuild
 
             NormalizeToPickup(targetHeight);
             ConfigureMaterials(useUnlit, emissionStrength, pulseMaskResource);
+            SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
         }
+
+        void OnSettingsApplied(GameSettingsData _) => RefreshVisibility(force: true);
 
         void NormalizeToPickup(float targetHeight)
         {
@@ -240,33 +243,62 @@ namespace Doom.MapBuild
         {
             if (lockedToBillboard) return;
 
-            bool enhanced = GraphicsModeController.Instance != null &&
-                            GraphicsModeController.Instance.Current == GraphicsMode.Enhanced;
-            if (!force && enhanced == lastEnhanced) return;
+            bool useMesh = ResolveUseMesh();
+            if (!force && useMesh == lastUseMesh) return;
 
-            lastEnhanced = enhanced;
-            if (modelRoot != null)
-                modelRoot.SetActive(enhanced);
-            if (billboardRenderer != null)
-                billboardRenderer.enabled = !enhanced;
-            if (billboard != null)
-                billboard.enabled = !enhanced;
+            ApplyPresentation(useMesh);
         }
 
+        bool ResolveUseMesh()
+        {
+            // Prefer SettingsController (user intent / hot-toggle). GraphicsModeController
+            // may still report Classic while the Enhanced warm coroutine runs.
+            GraphicsMode mode;
+            bool toggle3D;
+            if (SettingsController.Instance != null)
+            {
+                mode = SettingsController.Instance.Current.GraphicsMode;
+                toggle3D = SettingsController.Instance.Current.Enhanced3DObjects;
+            }
+            else if (GraphicsModeController.Instance != null)
+            {
+                mode = GraphicsModeController.Instance.Current;
+                toggle3D = true;
+            }
+            else
+            {
+                return false;
+            }
+
+            return ObjectPresentationResolver.Resolve(
+                       mode,
+                       toggle3D,
+                       hasMesh: HasModel,
+                       hasDisplayRedraw: false, // mesh path ignores redraw
+                       isAnimated: false) == ObjectPresentation.Mesh;
+        }
+
+        void ApplyPresentation(bool useMesh)
+        {
+            lastUseMesh = useMesh;
+            if (modelRoot != null)
+                modelRoot.SetActive(useMesh);
+            if (billboardRenderer != null)
+                billboardRenderer.enabled = !useMesh;
+            if (billboard != null)
+                billboard.enabled = !useMesh;
+        }
+
+        /// Test seam: force mesh on/off without going through settings.
         public void SetEnhancedForTest(bool enhanced)
         {
             if (lockedToBillboard) return;
-            lastEnhanced = enhanced;
-            if (modelRoot != null)
-                modelRoot.SetActive(enhanced);
-            if (billboardRenderer != null)
-                billboardRenderer.enabled = !enhanced;
-            if (billboard != null)
-                billboard.enabled = !enhanced;
+            ApplyPresentation(enhanced);
         }
 
         void OnDestroy()
         {
+            SettingsController.SettingsApplied -= OnSettingsApplied;
             for (int i = 0; i < ownedMaterials.Count; i++)
                 if (ownedMaterials[i] != null)
                     Destroy(ownedMaterials[i]);

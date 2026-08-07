@@ -80,10 +80,36 @@ namespace Doom.MapBuild
                 ? WorldTextureVariant.Enhanced4X
                 : WorldTextureVariant.Native;
 
-        WorldTextureVariant ActivePickupVariant =>
-            materials.ActiveProfile.SpritesUpscale4X
-                ? WorldTextureVariant.EnhancedPickup8X
-                : WorldTextureVariant.Native;
+        WorldTextureVariant ActivePickupVariant(string sprite, int lumpIndex)
+        {
+            if (!materials.ActiveProfile.SpritesUpscale4X)
+                return WorldTextureVariant.Native;
+
+            if (ShouldUseDisplayRedraw(sprite, lumpIndex))
+                return WorldTextureVariant.EnhancedDisplayRedraw;
+
+            return WorldTextureVariant.EnhancedPickup8X;
+        }
+
+        bool ShouldUseDisplayRedraw(string sprite, int lumpIndex)
+        {
+            // 3D On → meshes own the presentation; redraw is the 3D Off path.
+            if (Enhanced3DObjectsEnabled)
+                return false;
+            if (lumpIndex < 0 || lumpIndex >= wad.Directory.Count)
+                return false;
+            string lumpName = wad.Directory[lumpIndex].Name;
+            if (!DisplayRedrawAllowlist.Contains(lumpName))
+                return false;
+            // BAR1 A/B blink etc.: partial redraw coverage would flicker.
+            if (sprites.CountFrames(sprite) > 1)
+                return false;
+            return true;
+        }
+
+        static bool Enhanced3DObjectsEnabled =>
+            SettingsController.Instance == null ||
+            SettingsController.Instance.Current.Enhanced3DObjects;
 
         WorldTextureVariant ActiveEnemyVariant =>
             materials.ActiveProfile.SpritesUpscale4X
@@ -157,7 +183,10 @@ namespace Doom.MapBuild
             string sprite, int frame, int rotationIndex)
         {
             RegisterPickupLump(sprite, frame, rotationIndex);
-            return Get(sprite, frame, rotationIndex, spectre: false, ActivePickupVariant);
+            if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
+                return default;
+            return Get(sprite, frame, rotationIndex, spectre: false,
+                ActivePickupVariant(sprite, refr.LumpIndex));
         }
 
         public SpriteMaterial GetEnemy(
@@ -204,13 +233,16 @@ namespace Doom.MapBuild
             if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
                 return default;
 
-            if (variant == WorldTextureVariant.EnhancedPickup8X)
+            if (variant == WorldTextureVariant.EnhancedPickup8X ||
+                variant == WorldTextureVariant.EnhancedDisplayRedraw)
                 pickupLumps.Add(refr.LumpIndex);
             if (variant == WorldTextureVariant.EnhancedEnemy8X)
                 enemyLumps.Add(refr.LumpIndex);
             if (variant == WorldTextureVariant.EnhancedWeapon8X)
                 weaponLumps.Add(refr.LumpIndex);
-            if (variant != WorldTextureVariant.Native)
+            // Display-redraw is requested explicitly; do not remap to EdgeMix.
+            if (variant != WorldTextureVariant.Native &&
+                variant != WorldTextureVariant.EnhancedDisplayRedraw)
                 variant = EnhancedVariantForLump(refr.LumpIndex);
 
             if (failedLumps.Contains(refr.LumpIndex))
@@ -370,6 +402,9 @@ namespace Doom.MapBuild
 
         Texture2D GetOrCreateTexture(int lumpIndex, WorldTextureVariant variant)
         {
+            if (variant == WorldTextureVariant.EnhancedDisplayRedraw)
+                return CreateDisplayRedrawTexture(lumpIndex);
+
             if (variant != WorldTextureVariant.Native &&
                 failedEnhancedLumps.Contains(lumpIndex))
                 return GetOrCreateTexture(lumpIndex, WorldTextureVariant.Native);
@@ -382,6 +417,90 @@ namespace Doom.MapBuild
                 return CreateNativeTexture(lumpIndex);
 
             return CreateEnhancedTexture(lumpIndex, variant);
+        }
+
+        Texture2D CreateDisplayRedrawTexture(int lumpIndex)
+        {
+            var key = (lumpIndex, WorldTextureVariant.EnhancedDisplayRedraw);
+            if (texByLumpVariant.TryGetValue(key, out var existing))
+                return existing;
+
+            if (lumpIndex < 0 || lumpIndex >= wad.Directory.Count)
+                return CreateNativeTexture(lumpIndex);
+
+            string lumpName = wad.Directory[lumpIndex].Name;
+            if (!DisplayRedrawAllowlist.Contains(lumpName))
+                return CreateNativeTexture(lumpIndex);
+
+            var resource = Resources.Load<Texture2D>(
+                DisplayRedrawAllowlist.ResourcesPath(lumpName));
+            if (resource == null)
+            {
+                Debug.LogWarning(
+                    $"SpriteCache: missing EnhancedSprites resource for {lumpName}");
+                return CreateNativeTexture(lumpIndex);
+            }
+
+            var header = headerByLump.TryGetValue(lumpIndex, out var h)
+                ? h
+                : Patch.ReadHeader(wad.ReadLump(lumpIndex));
+            headerByLump[lumpIndex] = header;
+
+            var canvas = TextureToDecodedTopDown(resource);
+            var subject = DisplayRedrawRegistration.ExtractSubjectRect(
+                canvas, header.Width, header.Height);
+            var tex = ToTexture2D(subject, forcePointFilter: true);
+            texByLumpVariant[key] = tex;
+            context?.RegisterTexture(tex);
+            enhancedVariantCount++;
+            enhancedTextureBytes += (long)tex.width * tex.height * 4L;
+            return tex;
+        }
+
+        static DecodedImage TextureToDecodedTopDown(Texture2D tex)
+        {
+            // Resources textures may be non-readable; blit via RenderTexture if needed.
+            Texture2D readable = tex;
+            RenderTexture rt = null;
+            if (!tex.isReadable)
+            {
+                rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.ARGB32);
+                UnityEngine.Graphics.Blit(tex, rt);
+                readable = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
+                var prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                readable.ReadPixels(new Rect(0, 0, tex.width, tex.height), 0, 0);
+                readable.Apply(false);
+                RenderTexture.active = prev;
+                RenderTexture.ReleaseTemporary(rt);
+            }
+
+            try
+            {
+                var pixels = readable.GetPixels32();
+                int w = readable.width, h = readable.height;
+                var rgba = new byte[w * h * 4];
+                for (int y = 0; y < h; y++)
+                {
+                    int srcRow = (h - 1 - y) * w;
+                    int dstRow = y * w;
+                    for (int x = 0; x < w; x++)
+                    {
+                        Color32 c = pixels[srcRow + x];
+                        int o = (dstRow + x) * 4;
+                        rgba[o] = c.r;
+                        rgba[o + 1] = c.g;
+                        rgba[o + 2] = c.b;
+                        rgba[o + 3] = c.a;
+                    }
+                }
+                return new DecodedImage(w, h, rgba);
+            }
+            finally
+            {
+                if (readable != tex)
+                    Object.Destroy(readable);
+            }
         }
 
         Texture2D CreateNativeTexture(int lumpIndex)
@@ -516,12 +635,12 @@ namespace Doom.MapBuild
             }
         }
 
-        private Texture2D ToTexture2D(DecodedImage img)
+        private Texture2D ToTexture2D(DecodedImage img, bool forcePointFilter = false)
         {
             int w = Mathf.Max(1, img.Width), h = Mathf.Max(1, img.Height);
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, mipChain: false, linear: false);
             tex.wrapMode = TextureWrapMode.Clamp;
-            tex.filterMode = materials.WorldFilterMode;
+            tex.filterMode = forcePointFilter ? FilterMode.Point : materials.WorldFilterMode;
             tex.anisoLevel = anisoLevel;
 
             var src = img.Rgba;

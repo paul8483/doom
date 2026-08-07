@@ -315,15 +315,20 @@ pickups, `COLUA0` лампа, `BAR1A0` бочка (с откатом к BEXP-б�
 gameplay/collision/save identity не тронуты. Статус —
 `docs/superpowers/plans/2026-08-06-trellis2-pickups.md`.
 
+**Сделано дополнительно ✅ 2026-08-07 (ветка `3d-toggle`):** переключатель
+«3D Objects On/Off» в Enhanced (default On) — три уровня представления
+(Classic native / Enhanced 2D display-grade redraws / Enhanced 3D meshes);
+Gate 0+1 SUCCESS; settings schema v3; EditMode **629** / PlayMode **160**;
+Windows standalone SUCCESS. Спека/план
+`2026-08-07-enhanced-3d-objects-toggle`. v2/45° shape-hints по-прежнему
+только для TRELLIS-conditioning, в игре не показываются.
+
 **Принятые направления (ещё не реализованы):**
 
-- переключатель «3D Objects On/Off» в Enhanced (default On): три уровня
-  представления — Classic native / Enhanced 2D (display-grade redraws) /
-  Enhanced 3D; v2 shape-hints — только для TRELLIS-conditioning, в игре
-  не показываются;
 - волна декимации Accepted-ассетов (~95k → 3–10k треугольников) перед
   production — гейт финализации, не итераций;
-- `ARM1A0` — следующий кандидат.
+- `ARM1A0` — GLB есть, runtime-роутинг меша ещё не сделан (2D redraw уже в
+  allowlist toggle).
 
 **Отдельные треки:** монстры (подготовлены v2 shape-hints POSS/SPOS/TROO/
 SARG/BOSS; нужен риггинг и анимация — статичный меш не заменит 8 ротаций ×

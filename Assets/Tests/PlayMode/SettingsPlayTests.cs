@@ -100,6 +100,54 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Options_3d_objects_hidden_in_Classic_visible_in_Enhanced_and_applies_hot()
+        {
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            yield return WaitForPlaying();
+
+            var gfx = new NoOpGraphicsModeAdapter();
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display, gfx);
+
+            settings.OpenOptions();
+            Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
+            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.False);
+            Assert.That(settings.VisibleOptionCount, Is.EqualTo(6));
+            Assert.That(settings.Current.Enhanced3DObjects, Is.True);
+
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.True);
+            Assert.That(settings.VisibleOptionCount, Is.EqualTo(7));
+
+            bool applied = false;
+            void OnApplied(GameSettingsData d)
+            {
+                if (!d.Enhanced3DObjects) applied = true;
+            }
+            SettingsController.SettingsApplied += OnApplied;
+            try
+            {
+                settings.SetEnhanced3DObjects(false);
+                Assert.That(settings.Current.Enhanced3DObjects, Is.False);
+                Assert.That(applied, Is.True);
+            }
+            finally
+            {
+                SettingsController.SettingsApplied -= OnApplied;
+            }
+
+            var reloaded = new SettingsStore(memory).Load();
+            Assert.That(reloaded.Enhanced3DObjects, Is.False);
+            Assert.That(reloaded.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+
+            settings.SetGraphicsMode(GraphicsMode.Classic);
+            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.False);
+            Assert.That(settings.VisibleOptionCount, Is.EqualTo(6));
+            // Value retained while hidden (Classic ignores presentation toggle).
+            Assert.That(settings.Current.Enhanced3DObjects, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator Options_close_keeps_immediate_changes()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);

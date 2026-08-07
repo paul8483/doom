@@ -2,7 +2,7 @@
 
 **Дата:** 2026-08-07  
 **Ветка:** `3d-toggle` от `main`  
-**Статус:** 🚧 планируется  
+**Статус:** ✅ CLOSED 2026-08-07 — Gate 0 + Gate 1 SUCCESS  
 **Unity:** `6000.4.8f1`  
 **Доктрина:** `docs/superpowers/specs/2026-08-07-enhanced-ai-derived-assets-design.md`
 (секция «Три уровня представления»)  
@@ -56,10 +56,10 @@ display-grade 2D. **Работаем с тем, что есть** — новая
   (`Assets/Resources/ExperimentalPickups/`).
 - **GLB без роутинга:** `ARM1A0` (2 кандидата в `Textures/Trellis2/GLB/`) —
   роутинг ARM1A0 не входит в эту фичу (отдельная задача по накатанной колее).
-- **Кандидаты в display-grade 2D** (одиночные хинты в
-  `Textures/Trellis2/ShapeHints/`): `ARM1A0`, `BAR1A0`, `BFUGA0`, `COLUA0`,
-  `CSAWA0`, `LAUNA0`, `MGUNA0`, `PLASA0`, `SHOTA0`, `STIMA0` (v3, спорный).
-  Финальный список утверждает пользователь на Gate 0.
+- **Display-grade 2D allowlist (Gate 0 ✅ 2026-08-07):** `ARM1A0`,
+  `BAR1A0`, `BFUGA0`, `COLUA0`, `CSAWA0`, `LAUNA0`, `MGUNA0`, `PLASA0`,
+  `SHOTA0`. Фильтрация: **Point**.
+  `STIMA0-cylinder-shapehint-v3.png` — Gate 0 REJECT, не display-grade.
 - **Заведомо не display-grade:** все `-v2` и `-45deg` хинты (деревья,
   монстры) — geometry-only conditioning.
 - **Нет 2D-перерисовки вовсе:** `MEDIA0`, `BON1A0` (кондиционились нативом) —
@@ -105,10 +105,10 @@ display-grade 2D. **Работаем с тем, что есть** — новая
 
 ## Гейты
 
-- **Gate 0 (классификация):** PNG-панели «native vs кандидат-redraw» по всем
-  кандидатам; пользователь утверждает display-grade список и фильтрацию.
-- **Gate 1 (интерактивный, standalone):** переключение 3D Objects в бою:
-  On — меши; Off — утверждённые redraw-билборды, остальное EdgeMix; Classic
-  без изменений; hot-switch без артефактов; вердикт пользователя.
-- **Автоматизация:** полные сьюты EditMode+PlayMode зелёные, Windows
-  standalone build SUCCESS.
+- **Gate 0 (классификация) ✅ 2026-08-07:** allowlist из 9 лумпов + Point;
+  `STIMA0-v3` REJECT.
+- **Gate 1 (интерактивный, standalone) ✅ 2026-08-07 SUCCESS:** переключение
+  3D Objects в бою: On — меши; Off — утверждённые redraw-билборды, остальное
+  EdgeMix; Classic без изменений; hot-switch без артефактов.
+- **Автоматизация ✅:** EditMode **629/629**, PlayMode **160/160**, Windows
+  standalone SUCCESS (~182 MB).

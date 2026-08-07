@@ -17,5 +17,7 @@ namespace Doom.MapBuild.Rendering
         EnhancedEnemy8X = 4,
         /// First-person weapon / muzzle-flash EdgeMix 8× sprite texture.
         EnhancedWeapon8X = 5,
+        /// Gate-0 display-grade redraw (Resources/EnhancedSprites) on native quad.
+        EnhancedDisplayRedraw = 6,
     }
 }

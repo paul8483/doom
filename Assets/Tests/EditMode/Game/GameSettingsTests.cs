@@ -17,7 +17,8 @@ namespace Doom.Game.Tests
             Assert.That(d.ResolutionWidth, Is.EqualTo(0));
             Assert.That(d.ResolutionHeight, Is.EqualTo(0));
             Assert.That(d.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
-            Assert.That(GameSettingsData.SchemaVersion, Is.EqualTo(2));
+            Assert.That(d.Enhanced3DObjects, Is.True);
+            Assert.That(GameSettingsData.SchemaVersion, Is.EqualTo(3));
         }
 
         [Test]
@@ -84,7 +85,8 @@ namespace Doom.Game.Tests
                 .WithSfxVolume(0.25f)
                 .WithMusicVolume(0.4f)
                 .WithMouseSensitivity(0.2f)
-                .WithGraphicsMode(GraphicsMode.Enhanced);
+                .WithGraphicsMode(GraphicsMode.Enhanced)
+                .WithEnhanced3DObjects(false);
 
             Assert.That(d.InvertY, Is.True);
             Assert.That(d.Fullscreen, Is.False);
@@ -94,9 +96,23 @@ namespace Doom.Game.Tests
             Assert.That(d.MusicVolume, Is.EqualTo(0.4f));
             Assert.That(d.MouseSensitivity, Is.EqualTo(0.2f));
             Assert.That(d.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(d.Enhanced3DObjects, Is.False);
             Assert.That(d, Is.EqualTo(d));
             Assert.That(d.GetHashCode(), Is.EqualTo(d.GetHashCode()));
             Assert.That(d, Is.Not.EqualTo(GameSettingsData.Defaults));
+        }
+
+        [Test]
+        public void Enhanced3DObjects_defaults_true_and_withers()
+        {
+            Assert.That(GameSettingsData.DefaultEnhanced3DObjects, Is.True);
+            Assert.That(GameSettingsData.Defaults.Enhanced3DObjects, Is.True);
+            Assert.That(GameSettingsData.Defaults.WithEnhanced3DObjects(false).Enhanced3DObjects,
+                Is.False);
+            Assert.That(
+                GameSettingsData.Defaults.WithEnhanced3DObjects(false)
+                    .WithEnhanced3DObjects(true).Enhanced3DObjects,
+                Is.True);
         }
     }
 }

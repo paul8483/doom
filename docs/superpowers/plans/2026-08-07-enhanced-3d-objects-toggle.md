@@ -2,7 +2,7 @@
 
 **Дата:** 2026-08-07  
 **Ветка:** `3d-toggle` от `main`  
-**Статус:** 🚧 не начат  
+**Статус:** ✅ CLOSED 2026-08-07 — Gate 1 SUCCESS (standalone)  
 **Спека:** `docs/superpowers/specs/2026-08-07-enhanced-3d-objects-toggle-design.md`
 
 Правила процесса: каждый Task с визуальным эффектом закрывается только
@@ -10,19 +10,27 @@
 «было/стало». Unity строго `6000.4.8f1`. Classic не трогаем; gameplay/
 collision/save identity остаются на оригинальных thing root.
 
-## Task 1 — Gate 0: классификация display-grade redraws ✅/❌ по лумпам
+## Task 1 — Gate 0: классификация display-grade redraws ✅
 
 1. Editor-меню `Tools > Doom > Dump 3D Toggle Gate Preview`: для каждого
    кандидата (`ARM1A0`, `BAR1A0`, `BFUGA0`, `COLUA0`, `CSAWA0`, `LAUNA0`,
-   `MGUNA0`, `PLASA0`, `SHOTA0`, `STIMA0-v3`) панель: native спрайт
+   `MGUNA0`, `PLASA0`, `SHOTA0`; `STIMA0-v3` снят) панель: native спрайт
    (nearest ×N) | кандидат-redraw | наложение silhouette-регистрации.
 2. Варианты фильтрации (Point vs Bilinear) на 2–3 репрезентативных лумпах.
 3. **Интерактивный вердикт пользователя:** утверждённый display-grade список
    + выбор фильтрации. Результат фиксируется здесь и в спеке.
 
+Вердикт Gate 0 (2026-08-07) ✅:
+- **Display-grade allowlist:** `ARM1A0`, `BAR1A0`, `BFUGA0`, `COLUA0`,
+  `CSAWA0`, `LAUNA0`, `MGUNA0`, `PLASA0`, `SHOTA0`.
+- ❌ `STIMA0-cylinder-shapehint-v3.png` — REJECT (не display-grade).
+- **Фильтрация:** Point (default спрайтов проекта; Bilinear не выбран).
+- **Runtime note:** `BAR1` имеет кадры A0+B0 → `isAnimated`; redraw для
+  `BAR1A0` не применяется, пока нет полного покрытия кадров (анти-моргание).
+
 Выход: утверждённый allowlist лумпов для 2D-уровня.
 
-## Task 2 — Импорт redraws как runtime-ресурсов
+## Task 2 — Импорт redraws как runtime-ресурсов ✅
 
 1. Скопировать утверждённые PNG в `Assets/Resources/EnhancedSprites/<LUMP>.png`
    с import-настройками (cutout alpha, mip, фильтрация из Task 1).
@@ -33,7 +41,7 @@ collision/save identity остаются на оригинальных thing roo
    silhouette bbox redraw ≈ native bbox после масштабирования (регрессия
    регистрации); мировой размер билборда равен нативному.
 
-## Task 3 — Настройка и меню
+## Task 3 — Настройка и меню ✅
 
 1. `GameSettingsData` + `Enhanced3DObjects` (bool, default true), schema bump;
    миграция старых файлов настроек (поле отсутствует → true).
@@ -44,7 +52,7 @@ collision/save identity остаются на оригинальных thing roo
 4. PlayMode-тест меню: пункт скрыт в Classic, виден в Enhanced, переключение
    меняет значение и применяется без перезагрузки.
 
-## Task 4 — Резолюция представления и роутинг
+## Task 4 — Резолюция представления и роутинг ✅
 
 1. Чистая C#-функция `(mode, toggle3D, hasMesh, hasDisplayRedraw, isAnimated)
    → Presentation {Mesh | RedrawBillboard | EdgeMixBillboard | NativeBillboard}`
@@ -61,17 +69,20 @@ collision/save identity остаются на оригинальных thing roo
    redraw-материалом; toggle On → меш; Classic не затронут; бочка после
    взрыва играет BEXP на билборде при обоих значениях toggle.
 
-## Task 5 — Полные сьюты и билд
+## Task 5 — Полные сьюты и билд ✅
 
 1. Полный EditMode + PlayMode (базовая точка: 617 + 155 до деревьев;
    актуализировать).
 2. `Tools > Doom > Build Windows Standalone` — SUCCESS.
 
-## Task 6 — Gate 1: интерактивная приёмка (standalone)
+## Task 6 — Gate 1: интерактивная приёмка (standalone) ✅
 
 1. PNG-панели «было/стало» по протоколу (аптечка/броня/монстр/дробовик +
-   лампа/бочка/дерево): EdgeMix vs redraw vs mesh.
+   лампа/бочка/дерево): EdgeMix vs redraw vs mesh → `Logs/3d-toggle-gate1/`.
 2. Живая проверка: hot-switch в бою, Classic-регрессия глазами, отсутствие
    «моргания» и размерных скачков.
-3. Вердикт пользователя. После SUCCESS — обновить CLAUDE.md, доктрину
-   (секция «Три уровня» → реализовано), мастер-план Этап 10 и статус-док.
+3. **Вердикт пользователя 2026-08-07: SUCCESS.**
+
+Автоматизация на закрытии: EditMode **629/629**, PlayMode **160/160**,
+Windows standalone SUCCESS (~182 MB). Settings schema **v3**
+(`Enhanced3DObjects`, default On).

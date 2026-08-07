@@ -88,5 +88,17 @@ namespace Doom.Graphics
             result = new SpriteFrameRef(lump, fr.Flip[rotationIndex]);
             return true;
         }
+
+        /// How many distinct frame letters exist for a sprite (A=0 …). Used to
+        /// refuse partial display-redraw coverage on animated pickups.
+        public int CountFrames(string sprite)
+        {
+            if (sprite == null) return 0;
+            string key = sprite.ToUpperInvariant();
+            int n = 0;
+            for (int f = 0; f < 26; f++)
+                if (frames.ContainsKey((key, f))) n++;
+            return n;
+        }
     }
 }

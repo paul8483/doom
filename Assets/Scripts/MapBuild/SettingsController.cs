@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Doom.Game;
@@ -11,10 +12,24 @@ namespace Doom.MapBuild
     {
         public static SettingsController Instance { get; private set; }
 
+        /// Fired after a committed settings change is applied (hot-switch consumers).
+        public static event System.Action<GameSettingsData> SettingsApplied;
+
         const int ItemX = 60;
         const int SkullX = 28;
         const int ThermoWidth = 16;
         const float ThermoCell = 8f;
+
+        enum OptionRow
+        {
+            SfxVolume,
+            MusicVolume,
+            MouseSens,
+            InvertY,
+            Fullscreen,
+            GraphicsMode,
+            Enhanced3DObjects,
+        }
 
         SettingsStore store;
         IDisplayAdapter display;
@@ -25,33 +40,33 @@ namespace Doom.MapBuild
         int selected;
         int skullTic;
         MenuKind returnMenuKind;
-
-        static readonly string[] Labels =
-        {
-            "SFX Volume",
-            "Music Volume",
-            "Mouse Sens",
-            "Invert Y",
-            "Fullscreen",
-            "Graphics Mode",
-        };
-
-        /// Virtual Y of each selectable row (label line; thermos sit below volumes).
-        static readonly float[] RowY =
-        {
-            36f,  // SFX
-            64f,  // Music
-            92f,  // Mouse
-            120f, // Invert Y
-            136f, // Fullscreen
-            152f, // Graphics Mode
-        };
+        readonly List<OptionRow> visibleRows = new List<OptionRow>(8);
 
         public GameSettingsData Current => current ?? GameSettingsData.Defaults;
         public bool IsEditing => editing;
         public int SelectedIndex => selected;
         public IDisplayAdapter Display => display;
         public IGraphicsModeAdapter Graphics => graphics;
+
+        /// Test seam: how many Options rows are currently listed.
+        public int VisibleOptionCount
+        {
+            get
+            {
+                RebuildVisibleRows();
+                return visibleRows.Count;
+            }
+        }
+
+        /// Test seam: whether the 3D Objects row is listed (Enhanced only).
+        public bool IsEnhanced3DObjectsOptionVisible
+        {
+            get
+            {
+                RebuildVisibleRows();
+                return visibleRows.Contains(OptionRow.Enhanced3DObjects);
+            }
+        }
 
         public static SettingsController Ensure()
         {
@@ -109,6 +124,7 @@ namespace Doom.MapBuild
             editing = true;
             selected = 0;
             skullTic = 0;
+            RebuildVisibleRows();
             flow.Menu?.Hide();
             enabled = true;
             ApplyRuntime(current);
@@ -118,7 +134,8 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(v, Current.MusicVolume, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    out var next, out _))
                 return;
             Commit(next);
         }
@@ -127,7 +144,8 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, v, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    out var next, out _))
                 return;
             Commit(next);
         }
@@ -136,7 +154,8 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, Current.MusicVolume, v,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, out var next, out _))
+                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    out var next, out _))
                 return;
             Commit(next);
         }
@@ -155,6 +174,14 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.IsDefinedGraphicsMode(mode)) return;
             Commit(Current.WithGraphicsMode(mode));
+            RebuildVisibleRows();
+            if (selected >= visibleRows.Count)
+                selected = visibleRows.Count - 1;
+        }
+
+        public void SetEnhanced3DObjects(bool enabled)
+        {
+            Commit(Current.WithEnhanced3DObjects(enabled));
         }
 
         public void CycleGraphicsMode(int dir)
@@ -165,6 +192,12 @@ namespace Doom.MapBuild
             // dir ignored for two-value toggle; kept for left/right symmetry.
             if (dir == 0) return;
             SetGraphicsMode(next);
+        }
+
+        public void CycleEnhanced3DObjects(int dir)
+        {
+            if (dir == 0) return;
+            SetEnhanced3DObjects(!Current.Enhanced3DObjects);
         }
 
         public void CloseOptions()
@@ -210,6 +243,7 @@ namespace Doom.MapBuild
 
             display?.Apply(data.Fullscreen, data.ResolutionWidth, data.ResolutionHeight);
             graphics?.Apply(data.GraphicsMode);
+            SettingsApplied?.Invoke(data);
         }
 
         static HudTextureCache ResolveTextures()
@@ -218,18 +252,48 @@ namespace Doom.MapBuild
             return loader != null ? loader.HudTextures : null;
         }
 
+        void RebuildVisibleRows()
+        {
+            visibleRows.Clear();
+            visibleRows.Add(OptionRow.SfxVolume);
+            visibleRows.Add(OptionRow.MusicVolume);
+            visibleRows.Add(OptionRow.MouseSens);
+            visibleRows.Add(OptionRow.InvertY);
+            visibleRows.Add(OptionRow.Fullscreen);
+            visibleRows.Add(OptionRow.GraphicsMode);
+            if (Current.GraphicsMode == GraphicsMode.Enhanced)
+                visibleRows.Add(OptionRow.Enhanced3DObjects);
+        }
+
+        /// Matches the pre-toggle Options layout for the first six rows; 3D Objects
+        /// sits just under Graphics Mode when Enhanced.
+        static float RowYForIndex(int index) => index switch
+        {
+            0 => 36f,  // SFX (+ thermo)
+            1 => 64f,  // Music (+ thermo)
+            2 => 92f,  // Mouse (+ thermo)
+            3 => 120f, // Invert Y
+            4 => 136f, // Fullscreen
+            5 => 152f, // Graphics Mode
+            6 => 168f, // 3D Objects (Enhanced only)
+            _ => 36f + index * 16f,
+        };
+
         void Update()
         {
             if (!editing) return;
             skullTic++;
+            RebuildVisibleRows();
+            if (selected >= visibleRows.Count)
+                selected = System.Math.Max(0, visibleRows.Count - 1);
 
             var kb = Keyboard.current;
             if (kb == null) return;
 
             if (kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame)
-                selected = (selected + Labels.Length - 1) % Labels.Length;
+                selected = (selected + visibleRows.Count - 1) % visibleRows.Count;
             if (kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame)
-                selected = (selected + 1) % Labels.Length;
+                selected = (selected + 1) % visibleRows.Count;
 
             if (kb.leftArrowKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame)
                 Nudge(-1);
@@ -244,24 +308,28 @@ namespace Doom.MapBuild
 
         void Nudge(int dir)
         {
-            switch (selected)
+            if (selected < 0 || selected >= visibleRows.Count) return;
+            switch (visibleRows[selected])
             {
-                case 0: SetSfxVolume(Current.SfxVolume + dir * 0.05f); break;
-                case 1: SetMusicVolume(Current.MusicVolume + dir * 0.05f); break;
-                case 2: SetMouseSensitivity(Current.MouseSensitivity + dir * 0.02f); break;
-                case 3: SetInvertY(!Current.InvertY); break;
-                case 4: SetFullscreen(!Current.Fullscreen); break;
-                case 5: CycleGraphicsMode(dir); break;
+                case OptionRow.SfxVolume: SetSfxVolume(Current.SfxVolume + dir * 0.05f); break;
+                case OptionRow.MusicVolume: SetMusicVolume(Current.MusicVolume + dir * 0.05f); break;
+                case OptionRow.MouseSens: SetMouseSensitivity(Current.MouseSensitivity + dir * 0.02f); break;
+                case OptionRow.InvertY: SetInvertY(!Current.InvertY); break;
+                case OptionRow.Fullscreen: SetFullscreen(!Current.Fullscreen); break;
+                case OptionRow.GraphicsMode: CycleGraphicsMode(dir); break;
+                case OptionRow.Enhanced3DObjects: CycleEnhanced3DObjects(dir); break;
             }
         }
 
         void ActivateSelected()
         {
-            switch (selected)
+            if (selected < 0 || selected >= visibleRows.Count) return;
+            switch (visibleRows[selected])
             {
-                case 3: SetInvertY(!Current.InvertY); break;
-                case 4: SetFullscreen(!Current.Fullscreen); break;
-                case 5: CycleGraphicsMode(1); break;
+                case OptionRow.InvertY: SetInvertY(!Current.InvertY); break;
+                case OptionRow.Fullscreen: SetFullscreen(!Current.Fullscreen); break;
+                case OptionRow.GraphicsMode: CycleGraphicsMode(1); break;
+                case OptionRow.Enhanced3DObjects: CycleEnhanced3DObjects(1); break;
             }
         }
 
@@ -282,11 +350,12 @@ namespace Doom.MapBuild
             else
                 DrawFallbackText(t, 0, 12, 320, "Options", centered: true);
 
-            for (int i = 0; i < Labels.Length; i++)
-                DrawRow(t, i);
+            RebuildVisibleRows();
+            for (int i = 0; i < visibleRows.Count; i++)
+                DrawRow(t, i, visibleRows[i]);
 
-            if (selected >= 0 && selected < RowY.Length)
-                DrawSkull(t, SkullX, RowY[selected] - 2f);
+            if (selected >= 0 && selected < visibleRows.Count)
+                DrawSkull(t, SkullX, RowYForIndex(selected) - 2f);
         }
 
         void DrawBackground(in VirtualScreenRenderer.Transform t)
@@ -304,38 +373,42 @@ namespace Doom.MapBuild
             GUI.color = prev;
         }
 
-        void DrawRow(in VirtualScreenRenderer.Transform t, int index)
+        void DrawRow(in VirtualScreenRenderer.Transform t, int index, OptionRow row)
         {
-            float y = RowY[index];
-            switch (index)
+            float y = RowYForIndex(index);
+            switch (row)
             {
-                case 0:
+                case OptionRow.SfxVolume:
                     if (!DrawPatch(t, "M_SFXVOL", ItemX, y))
-                        DrawFallbackText(t, ItemX, y, 200, Labels[0], centered: false);
+                        DrawFallbackText(t, ItemX, y, 200, "SFX Volume", centered: false);
                     DrawThermo(t, ItemX, y + 13f, ThermoDot01(Current.SfxVolume));
                     break;
-                case 1:
+                case OptionRow.MusicVolume:
                     if (!DrawPatch(t, "M_MUSVOL", ItemX, y))
-                        DrawFallbackText(t, ItemX, y, 200, Labels[1], centered: false);
+                        DrawFallbackText(t, ItemX, y, 200, "Music Volume", centered: false);
                     DrawThermo(t, ItemX, y + 13f, ThermoDot01(Current.MusicVolume));
                     break;
-                case 2:
+                case OptionRow.MouseSens:
                     if (!DrawPatch(t, "M_MSENS", ItemX, y))
-                        DrawFallbackText(t, ItemX, y, 200, Labels[2], centered: false);
+                        DrawFallbackText(t, ItemX, y, 200, "Mouse Sens", centered: false);
                     DrawThermo(t, ItemX, y + 13f, ThermoDotSensitivity(Current.MouseSensitivity));
                     break;
-                case 3:
+                case OptionRow.InvertY:
                     DrawHuString(t, ItemX, y, "INVERT Y");
                     DrawOnOff(t, ItemX + 120f, y, Current.InvertY);
                     break;
-                case 4:
+                case OptionRow.Fullscreen:
                     DrawHuString(t, ItemX, y, "FULLSCREEN");
                     DrawOnOff(t, ItemX + 120f, y, Current.Fullscreen);
                     break;
-                case 5:
+                case OptionRow.GraphicsMode:
                     DrawHuString(t, ItemX, y, "GRAPHICS MODE");
                     DrawHuString(t, ItemX + 140f, y,
                         Current.GraphicsMode == GraphicsMode.Enhanced ? "ENHANCED" : "CLASSIC");
+                    break;
+                case OptionRow.Enhanced3DObjects:
+                    DrawHuString(t, ItemX, y, "3D OBJECTS");
+                    DrawOnOff(t, ItemX + 120f, y, Current.Enhanced3DObjects);
                     break;
             }
         }
