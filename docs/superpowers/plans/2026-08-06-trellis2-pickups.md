@@ -188,6 +188,38 @@ Targeted PlayMode: model load/scale/swap + explode revert + pistol explode
 passed (3/3). Windows standalone build SUCCESS (176,774,743 bytes).
 Interactive verdict: **«результат отличный»**.
 
+## Monster and tree conditioning expansion — 2026-08-07
+
+Prepared native 512×512 TRELLIS inputs for the five unique E1 monster
+presentations: `POSSA1`, `SPOSA1`, `TROOA1`, `SARGA1` (shared by demon and
+spectre), and `BOSSA1`. Each has a front depth shape-hint and a separate
+front-right 45-degree variant. These are source-conditioning artifacts only;
+no monster GLB or runtime routing has passed a gate yet.
+
+Tree experiments used existing `TRE2A0` (dead tree) and `SMITA0` (leafy tree)
+front hints. Simply redrawing either tree at 45 degrees did not reliably
+communicate depth: TRELLIS still placed the silhouette in an almost planar
+mesh. Comparison with TRELLIS's successful built-in palm example showed that
+angle alone is not the useful signal. The important evidence is radial roots,
+branches distributed around the trunk circumference, strong foreshortening,
+front/rear overlap, exposed attachment points, layered foliage at different
+depths, and coherent natural shading.
+
+Front-facing v2 hints therefore prioritize explicit 3D topology rather than a
+nominal camera rotation:
+
+- `TRE2A0-depth-shapehint-v2.png` — **TRELLIS GEOMETRY SUCCESS**. The generated
+  mesh has volumetric trunk, roots and branches. Runtime/live style gate has
+  not been run.
+- initial `SMITA0` v2 — **REJECT**, still reconstructed as a flat card;
+- replacement `SMITA0-depth-shapehint-v2.png` — **CONDITIONAL SUCCESS**.
+  TRELLIS produced a properly volumetric tree after the hint moved to natural
+  broadleaf structure, radial roots and separated depth-layered boughs.
+  Identity fidelity is weaker than the original Freedoom sprite, so final
+  acceptance requires an Enhanced live gate for scale, silhouette, palette and
+  environmental style. Reject it even with good geometry if it looks foreign
+  in-game.
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
@@ -223,6 +255,9 @@ Shape-hints:
 - `Textures/Trellis2/ShapeHints/STIMA0-cylinder-shapehint-v3.png`
 - `Textures/Trellis2/ShapeHints/COLUA0-depth-shapehint.png`
 - `Textures/Trellis2/ShapeHints/BAR1A0-depth-shapehint.png`
+- `Textures/Trellis2/ShapeHints/TRE2A0-depth-shapehint-v2.png`
+- `Textures/Trellis2/ShapeHints/SMITA0-depth-shapehint-v2.png`
+- monster front/45-degree sets under `Textures/Trellis2/ShapeHints/`
 
 Original TRELLIS.2 exports:
 
@@ -231,10 +266,12 @@ Original TRELLIS.2 exports:
 - `Textures/Trellis2/GLB/ARM1A0_2026-08-06T194747.841.glb`
 - `Textures/Trellis2/GLB/ARM1A0_2026-08-06T200929.245.glb`
 - `Textures/Trellis2/GLB/CSAWA0_2026-08-07T003844.479.glb`
-- `Textures/Trellis2/GLB/SHOTA0_2026-08-07T002730.162.glb`
+- `Textures/Trellis2/GLB/SHOTA0_2026-08-07T084956.750.glb`
 - `Textures/Trellis2/GLB/MGUNA0_2026-08-07T003205.078.glb`
 - `Textures/Trellis2/GLB/LAUNA0_2026-08-07T003640.657.glb`
 - `Textures/Trellis2/GLB/PLASA0_2026-08-07T003038.870.glb`
 - `Textures/Trellis2/GLB/BFUGA0_2026-08-07T004316.500.glb`
 - `Textures/Trellis2/GLB/COLUA0_2026-08-06T235903.211.glb`
 - `Textures/Trellis2/GLB/BAR1A0_2026-08-07T001149.817.glb`
+- `Textures/Trellis2/GLB/TRE2A0_2026-08-07T133155.814.glb`
+- `Textures/Trellis2/GLB/SMITA0_2026-08-07T133844.641.glb`
