@@ -20,6 +20,8 @@ namespace Doom.MapBuild.Editor
             ("ARM1B0", "ARM1B0-armor-blink", true, false),
             ("POSSA1", "POSSA1-monster", false, false),
             ("SHOTA0", "SHOTA0-shotgun", true, true),
+            ("CLIPA0", "CLIPA0-bullet-clip", true, true),
+            ("SBOXA0", "SBOXA0-shell-box", true, true),
             ("COLUA0", "COLUA0-lamp", true, true),
             ("BAR1A0", "BAR1A0-barrel", true, true),
             ("BAR1B0", "BAR1B0-barrel-blink", true, false),

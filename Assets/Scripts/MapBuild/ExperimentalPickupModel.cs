@@ -95,11 +95,17 @@ namespace Doom.MapBuild
                 case 2006:
                     resource = ResourceRoot + "BFUGA0/BFUGA0";
                     return true;
+                case 2007:
+                    resource = ResourceRoot + "CLIPA0/CLIPA0";
+                    return true;
                 case 2012:
                     resource = ResourceRoot + "MEDIA0/MEDIA0";
                     return true;
                 case 2014:
                     resource = ResourceRoot + "BON1A0/BON1A0";
+                    return true;
+                case 2049:
+                    resource = ResourceRoot + "SBOXA0/SBOXA0";
                     return true;
                 case 2028:
                     resource = ResourceRoot + "COLUA0/COLUA0";
