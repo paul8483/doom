@@ -16,6 +16,7 @@ namespace Doom.MapBuild.Editor
         static readonly (string Lump, string Label, bool ExpectRedraw, bool ExpectMesh)[] Rows =
         {
             ("MEDIA0", "MEDIA0-medikit", false, true),
+            ("STIMA0", "STIMA0-stimpack", true, true),
             ("ARM1A0", "ARM1A0-armor", true, false),
             ("ARM1B0", "ARM1B0-armor-blink", true, true),
             ("POSSA1", "POSSA1-monster", false, false),

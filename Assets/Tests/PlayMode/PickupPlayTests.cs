@@ -220,6 +220,7 @@ namespace Doom.Stage3.PlayTests
                          2004, // plasma rifle
                          2005, // chainsaw
                          2006, // BFG9000
+                         2011, // stimpack
                          2012, // medikit
                          2014, // health bonus
                          2018, // green armor (mesh from ARM1B0 blink frame)

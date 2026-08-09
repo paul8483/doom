@@ -15,9 +15,9 @@ namespace Doom.Graphics.Tests
         const int AggressiveBBoxTolerance = 16;
 
         [Test]
-        public void Allowlist_has_twenty_one_lumps_and_excludes_stima()
+        public void Allowlist_has_twenty_two_lumps()
         {
-            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(21));
+            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(22));
             Assert.That(DisplayRedrawAllowlist.Contains("SHOTA0"), Is.True);
             // ARM1/BAR1 blink: both frames covered (2026-08-08).
             Assert.That(DisplayRedrawAllowlist.Contains("ARM1B0"), Is.True);
@@ -34,7 +34,9 @@ namespace Doom.Graphics.Tests
             Assert.That(DisplayRedrawAllowlist.Contains("CELPA0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("ROCKA0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("SHELA0"), Is.True);
-            Assert.That(DisplayRedrawAllowlist.Contains("STIMA0"), Is.False);
+            // STIMA0 accepted 2026-08-10 (depth shapehint; the old v3 redraw
+            // was rejected and never shipped).
+            Assert.That(DisplayRedrawAllowlist.Contains("STIMA0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("POSSA1"), Is.False);
         }
 

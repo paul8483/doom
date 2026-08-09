@@ -105,6 +105,9 @@ namespace Doom.MapBuild
                 case 2010:
                     resource = ResourceRoot + "ROCKA0/ROCKA0";
                     return true;
+                case 2011:
+                    resource = ResourceRoot + "STIMA0/STIMA0";
+                    return true;
                 case 2012:
                     resource = ResourceRoot + "MEDIA0/MEDIA0";
                     return true;
