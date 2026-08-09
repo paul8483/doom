@@ -35,6 +35,11 @@ collision/save identity остаются на оригинальных thing roo
 лумпы; бочка на pickup/redraw-пути + ваниллный idle-blink S_BAR1/S_BAR2.
 Suites: EditMode 614/614, PlayMode 161/161.
 
+**Дополнение 2026-08-09 ✅ SUCCESS:** ammo `AMMOA0`/`CELLA0`/`CELPA0`/
+`ROCKA0`/`SHELA0` — mesh + display-redraw в cascade 3D On/Off; interactive
+standalone gate SUCCESS (вместе с ранее заведёнными `CLIPA0`/`SBOXA0`).
+Display-redraw allowlist **21** лумп.
+
 ## Task 2 — Импорт redraws как runtime-ресурсов ✅
 
 1. Скопировать утверждённые PNG в `Assets/Resources/EnhancedSprites/<LUMP>.png`

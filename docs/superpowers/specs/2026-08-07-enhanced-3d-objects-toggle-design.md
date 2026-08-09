@@ -114,5 +114,8 @@ display-grade 2D. **Работаем с тем, что есть** — новая
 - **Gate 1 (интерактивный, standalone) ✅ 2026-08-07 SUCCESS:** переключение
   3D Objects в бою: On — меши; Off — утверждённые redraw-билборды, остальное
   EdgeMix; Classic без изменений; hot-switch без артефактов.
+- **Дополнение ammo ✅ 2026-08-09 SUCCESS:** `AMMOA0`/`CELLA0`/`CELPA0`/
+  `ROCKA0`/`SHELA0` (mesh + display-redraw) интерактивно приняты в standalone;
+  display-redraw allowlist **21**.
 - **Автоматизация ✅:** EditMode **629/629**, PlayMode **160/160**, Windows
   standalone SUCCESS (~182 MB).

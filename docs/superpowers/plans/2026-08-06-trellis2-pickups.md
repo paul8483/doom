@@ -2,13 +2,15 @@
 
 **Дата:** 2026-08-07  
 **Статус:** LIVE TEST SUCCESS — MEDIA0/BON1A0/weapons + COLUA0 floor lamp
-+ BAR1A0 exploding barrel + TRE2A0/SMITA0 trees wired in Enhanced.  
++ BAR1A0 exploding barrel + TRE2A0/SMITA0 trees + ammo set
+(CLIPA0/SBOXA0/AMMOA0/CELLA0/CELPA0/ROCKA0/SHELA0) wired in Enhanced.  
 **Runtime:** Enhanced routes medikit (2012), health bonus (2014), six weapon
-pickups (2001–2006), COLU floor lamp (2028), exploding barrel (2035),
-TRE2 large tree (54), and SMIT leafy tree (47) to textured TRELLIS.2 meshes;
-Classic keeps EdgeMix 8× billboards. Pickup gameplay, lamp sticky lights,
-and barrel explosion rules are unchanged. On barrel death the 3D mesh
-reverts to the BEXP billboard sequence.  
+pickups (2001–2006), ammo pickups (2007 CLIPA0, 2048 AMMOA0, 2008 SHELA0,
+2049 SBOXA0, 2010 ROCKA0, 2047 CELLA0, 17 CELPA0), COLU floor lamp (2028),
+exploding barrel (2035), TRE2 large tree (54), and SMIT leafy tree (47) to
+textured TRELLIS.2 meshes; Classic keeps native billboards. Pickup gameplay,
+lamp sticky lights, and barrel explosion rules are unchanged. On barrel death
+the 3D mesh reverts to the BEXP billboard sequence.  
 **Baseline:** MEDIA0/BON1A0 interactive verdict SUCCESS on 2026-08-06. The
 six-weapon Enhanced rollout passed automation, Windows build and interactive
 scale/orientation/brightness/pickup/performance sign-off on 2026-08-07.
@@ -16,7 +18,9 @@ COLUA0 interactive standalone/editor verdict SUCCESS on 2026-08-07
 («результат отличный»). BAR1A0 interactive standalone verdict SUCCESS on
 2026-08-07 («результат отличный»). TRE2A0/SMITA0 interactive standalone
 verdict SUCCESS on 2026-08-07 after WAD palette albedo correction and
-SectorFog support in `Doom/ExperimentalPickupUnlit`.
+SectorFog support in `Doom/ExperimentalPickupUnlit`. Ammo
+`AMMOA0`/`CELLA0`/`CELPA0`/`ROCKA0`/`SHELA0` interactive standalone gate
+**SUCCESS** 2026-08-09 (3D mesh + 2D display-redraw; Windows build).
 
 ## Goal
 
@@ -240,6 +244,23 @@ Same presentation component as decorations/pickups:
 
 Interactive standalone verdict: **SUCCESS**.
 
+## AMMOA0 / CELLA0 / CELPA0 / ROCKA0 / SHELA0 ammo runtime — SUCCESS 2026-08-09
+
+Latest TRELLIS.2 GLBs converted to textured OBJ Resources (no decimation) and
+allowlisted alongside display-grade redraws in `EnhancedSprites/`:
+
+| Lump | DoomedNum | Mesh Resources | Redraw |
+|------|-----------|----------------|--------|
+| SHELA0 | 2008 | `ExperimentalPickups/SHELA0/` | yes |
+| ROCKA0 | 2010 | `ExperimentalPickups/ROCKA0/` | yes |
+| CELLA0 | 2047 | `ExperimentalPickups/CELLA0/` | yes |
+| AMMOA0 | 2048 | `ExperimentalPickups/AMMOA0/` | yes |
+| CELPA0 | 17 | `ExperimentalPickups/CELPA0/` | yes |
+
+Same cascade as CLIPA0/SBOXA0: Enhanced + 3D On → mesh; Enhanced + 3D Off →
+display-redraw; Classic stays native. Interactive standalone verdict:
+**SUCCESS**.
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
@@ -277,6 +298,11 @@ Shape-hints:
 - `Textures/Trellis2/ShapeHints/BAR1A0-depth-shapehint.png`
 - `Textures/Trellis2/ShapeHints/TRE2A0-depth-shapehint-v2.png`
 - `Textures/Trellis2/ShapeHints/SMITA0-depth-shapehint-v2.png`
+- `Textures/Trellis2/ShapeHints/AMMOA0-depth-shapehint.png` (+ v2 conditioning)
+- `Textures/Trellis2/ShapeHints/CELLA0-depth-shapehint.png` (+ v2 conditioning)
+- `Textures/Trellis2/ShapeHints/CELPA0-depth-shapehint.png` (+ v2 conditioning)
+- `Textures/Trellis2/ShapeHints/ROCKA0-depth-shapehint.png` (+ v2 conditioning)
+- `Textures/Trellis2/ShapeHints/SHELA0-depth-shapehint.png` (+ v2 conditioning)
 - monster front/45-degree sets under `Textures/Trellis2/ShapeHints/`
 
 Original TRELLIS.2 exports:
@@ -295,3 +321,8 @@ Original TRELLIS.2 exports:
 - `Textures/Trellis2/GLB/BAR1A0_2026-08-07T001149.817.glb`
 - `Textures/Trellis2/GLB/TRE2A0_2026-08-07T133155.814.glb`
 - `Textures/Trellis2/GLB/SMITA0_2026-08-07T133844.641.glb`
+- `Textures/Trellis2/GLB/CELLA0_2026-08-09T163603.176.glb`
+- `Textures/Trellis2/GLB/CELPA0_2026-08-09T163826.095.glb`
+- `Textures/Trellis2/GLB/SHELA0_2026-08-09T164327.179.glb`
+- `Textures/Trellis2/GLB/ROCKA0_2026-08-09T165252.623.glb`
+- `Textures/Trellis2/GLB/AMMOA0_2026-08-09T173214.969.glb`
