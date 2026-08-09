@@ -106,22 +106,30 @@ namespace Doom.MapBuild
             return HasDisplayRedrawCoverage(sprite);
         }
 
-        /// True when every frame of the sprite is covered by the redraw
-        /// allowlist (ARM1/BAR1 blink, single-frame trees). Partial coverage
-        /// would flicker between redraw and native frames, so it routes native.
-        /// Used by ThingSpawner to put redraw-covered decorations on the
-        /// pickup/display path instead of the generic Super-xBR one.
+        /// True when every frame — and every populated rotation of each frame
+        /// — is covered by the redraw allowlist (ARM1/BAR1 blink, single-frame
+        /// trees). Partial coverage would flicker between redraw and native,
+        /// so it routes native; rotated sprites need all eight rotation lumps
+        /// allowlisted, not just the front. Used by ThingSpawner to put
+        /// redraw-covered decorations on the pickup/display path instead of
+        /// the generic Super-xBR one.
         public bool HasDisplayRedrawCoverage(string sprite)
         {
             int frames = sprites.CountFrames(sprite);
             if (frames == 0) return false;
             for (int f = 0; f < frames; f++)
             {
-                if (!sprites.TryGet(sprite, f, 0, out var refr))
-                    return false;
-                string frameLump = wad.Directory[refr.LumpIndex].Name;
-                if (!DisplayRedrawAllowlist.Contains(frameLump))
-                    return false;
+                bool anyRotation = false;
+                for (int rot = 0; rot < 8; rot++)
+                {
+                    if (!sprites.TryGet(sprite, f, rot, out var refr))
+                        continue;
+                    anyRotation = true;
+                    string frameLump = wad.Directory[refr.LumpIndex].Name;
+                    if (!DisplayRedrawAllowlist.Contains(frameLump))
+                        return false;
+                }
+                if (!anyRotation) return false;
             }
             return true;
         }

@@ -21,6 +21,7 @@ namespace Doom.MapBuild
         readonly List<Material> ownedMaterials = new List<Material>();
         bool lastUseMesh;
         bool lockedToBillboard;
+        bool settingsControllerSeen;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
@@ -266,7 +267,17 @@ namespace Doom.MapBuild
             }
         }
 
-        void Update() => RefreshVisibility(force: false);
+        /// SettingsApplied drives visibility once SettingsController is alive;
+        /// per-frame polling remains only as a boot/tests fallback while the
+        /// controller doesn't exist yet, plus one catch-up refresh on the
+        /// frame it appears.
+        void Update()
+        {
+            bool hasSettings = SettingsController.Instance != null;
+            if (hasSettings && settingsControllerSeen) return;
+            settingsControllerSeen = hasSettings;
+            RefreshVisibility(force: false);
+        }
 
         /// Barrel explode (and similar one-shots): drop the static 3D mesh and
         /// keep the billboard so BEXP / death frames stay visible in Enhanced.

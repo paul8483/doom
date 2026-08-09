@@ -28,6 +28,7 @@ namespace Doom.MapBuild.Editor
             Directory.CreateDirectory(absOutDir);
 
             int imported = 0;
+            using var wad = OpenFreedoom();
             foreach (string lump in DisplayRedrawAllowlist.Lumps)
             {
                 string src = Path.Combine(shapeHintsDir, DisplayRedrawAllowlist.ShapeHintFileName(lump));
@@ -45,7 +46,7 @@ namespace Doom.MapBuild.Editor
                     keyed = DisplayRedrawRegistration.RecolorLightEdgeRing(keyed);
                     // Tree shapehints overflow the ≤416 px subject contract;
                     // fit their silhouette into the runtime subject rect.
-                    var header = ReadPatchHeader(lump);
+                    var header = ReadPatchHeader(wad, lump);
                     canvas = DisplayRedrawRegistration.NormalizeSubjectToRect(
                         keyed, header.Width, header.Height);
                 }
@@ -65,11 +66,12 @@ namespace Doom.MapBuild.Editor
             Debug.Log($"EnhancedSpritesImport: imported {imported}/{DisplayRedrawAllowlist.Lumps.Length} → {ResourcesRel}");
         }
 
-        static PatchHeader ReadPatchHeader(string lump)
+        static WadFile OpenFreedoom() =>
+            WadFile.Open(Path.Combine(
+                Application.streamingAssetsPath, "wads", "freedoom1.wad"));
+
+        static PatchHeader ReadPatchHeader(WadFile wad, string lump)
         {
-            string wadPath = Path.Combine(
-                Application.streamingAssetsPath, "wads", "freedoom1.wad");
-            using var wad = WadFile.Open(wadPath);
             int idx = wad.FindLump(lump);
             if (idx < 0)
                 throw new IOException($"EnhancedSpritesImport: lump {lump} not in WAD");
@@ -84,11 +86,12 @@ namespace Doom.MapBuild.Editor
             string repoRoot = Path.GetDirectoryName(Application.dataPath);
             string outDir = Path.Combine(repoRoot, "Logs", "redraw-runtime");
             Directory.CreateDirectory(outDir);
+            using var wad = OpenFreedoom();
             foreach (string lump in DisplayRedrawAllowlist.Lumps)
             {
                 var res = Resources.Load<Texture2D>(DisplayRedrawAllowlist.ResourcesPath(lump));
                 if (res == null) continue;
-                var header = ReadPatchHeader(lump);
+                var header = ReadPatchHeader(wad, lump);
                 var canvas = LoadTexture(res);
                 var subject = DisplayRedrawRegistration.ExtractSubjectRect(
                     canvas, header.Width, header.Height);

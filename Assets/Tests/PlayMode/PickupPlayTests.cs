@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Doom.Game;
+using Doom.Graphics;
 using Doom.Map;
 using Doom.MapBuild;
 using Doom.Specials;
@@ -208,6 +209,9 @@ namespace Doom.Stage3.PlayTests
         [UnityTest]
         public IEnumerator Experimental_models_load_scale_and_swap_presentation()
         {
+            string wadPath = Path.Combine(
+                Application.streamingAssetsPath, "wads", "freedoom1.wad");
+            using var wad = WadFile.Open(wadPath);
             foreach (int doomedNum in new[]
                      {
                          2001, // shotgun
@@ -230,14 +234,24 @@ namespace Doom.Stage3.PlayTests
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
                 float worldScale = 1f / 32f;
                 // Trees normalize to the native sprite's visual height (patch
-                // px), not the shorter mobjinfo collision height.
-                float heightUnits = doomedNum switch
+                // px), not the shorter mobjinfo collision height. Read the
+                // expected height from the WAD so the runtime constants in
+                // ExperimentalPickupModel are pinned against the real patch.
+                string treeLump = doomedNum switch
                 {
-                    43 => 70f,
-                    54 => 124f,
-                    47 => 69f,
-                    _ => def.Height,
+                    43 => "TRE1A0",
+                    54 => "TRE2A0",
+                    47 => "SMITA0",
+                    _ => null,
                 };
+                float heightUnits = def.Height;
+                if (treeLump != null)
+                {
+                    int lumpIdx = wad.FindLump(treeLump);
+                    Assert.That(lumpIdx, Is.GreaterThanOrEqualTo(0),
+                        $"{treeLump} missing from freedoom1.wad");
+                    heightUnits = Patch.ReadHeader(wad.ReadLump(lumpIdx)).Height;
+                }
                 float expectedHeight = heightUnits * worldScale;
 
                 var go = new GameObject($"Experimental_{doomedNum}",

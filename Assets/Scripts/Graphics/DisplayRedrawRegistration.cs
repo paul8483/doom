@@ -221,10 +221,12 @@ namespace Doom.Graphics
         /// enclosed by the silhouette (e.g. a branch fork), and anti-aliased
         /// checkerboard remnants survive attached to the silhouette by AA
         /// pixel chains. Keys every light-backdrop pixel globally, peels light
-        /// gray remnants off the transparency edge, then drops opaque islands
-        /// smaller than ~1/16384 of the canvas that are detached from the
-        /// subject. Tree subjects keep their grays: measured interior gray
-        /// brightness tops out near 180 while checker remnants sit above it.
+        /// gray remnants off the transparency edge, then drops EVERY opaque
+        /// connected component smaller than ~1/16384 of the canvas — including
+        /// legitimate detached detail that small (accepted loss: after
+        /// registration it would shrink below a native texel anyway). Tree
+        /// subjects keep their grays: measured interior gray brightness tops
+        /// out near 180 while checker remnants sit above it.
         const int PeelIterations = 4;
         const int PeelMinBrightness = 180;
         const int PeelMaxSaturation = 30;
