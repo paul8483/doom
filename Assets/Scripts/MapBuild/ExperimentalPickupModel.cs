@@ -111,6 +111,12 @@ namespace Doom.MapBuild
                 case 2014:
                     resource = ResourceRoot + "BON1A0/BON1A0";
                     return true;
+                case 2018:
+                    // Green armor mesh generated from the B blink frame
+                    // (ARM1B0 conditioning accepted 2026-08-10); the static
+                    // mesh covers both A/B billboard frames like BAR1.
+                    resource = ResourceRoot + "ARM1B0/ARM1B0";
+                    return true;
                 case 2047:
                     resource = ResourceRoot + "CELLA0/CELLA0";
                     return true;

@@ -17,7 +17,7 @@ namespace Doom.MapBuild.Editor
         {
             ("MEDIA0", "MEDIA0-medikit", false, true),
             ("ARM1A0", "ARM1A0-armor", true, false),
-            ("ARM1B0", "ARM1B0-armor-blink", true, false),
+            ("ARM1B0", "ARM1B0-armor-blink", true, true),
             ("POSSA1", "POSSA1-monster", false, false),
             ("SHOTA0", "SHOTA0-shotgun", true, true),
             ("CLIPA0", "CLIPA0-bullet-clip", true, true),
