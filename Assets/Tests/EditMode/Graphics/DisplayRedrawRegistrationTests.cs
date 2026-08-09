@@ -12,13 +12,17 @@ namespace Doom.Graphics.Tests
         const int BBoxTolerance = 6;
 
         [Test]
-        public void Allowlist_has_eleven_lumps_and_excludes_stima()
+        public void Allowlist_has_fourteen_lumps_and_excludes_stima()
         {
-            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(11));
+            Assert.That(DisplayRedrawAllowlist.Lumps.Length, Is.EqualTo(14));
             Assert.That(DisplayRedrawAllowlist.Contains("SHOTA0"), Is.True);
             // ARM1/BAR1 blink: both frames covered (2026-08-08).
             Assert.That(DisplayRedrawAllowlist.Contains("ARM1B0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("BAR1B0"), Is.True);
+            // Trees (2026-08-08): single-frame decorations, full coverage.
+            Assert.That(DisplayRedrawAllowlist.Contains("TRE1A0"), Is.True);
+            Assert.That(DisplayRedrawAllowlist.Contains("TRE2A0"), Is.True);
+            Assert.That(DisplayRedrawAllowlist.Contains("SMITA0"), Is.True);
             Assert.That(DisplayRedrawAllowlist.Contains("STIMA0"), Is.False);
             Assert.That(DisplayRedrawAllowlist.Contains("POSSA1"), Is.False);
         }
@@ -92,6 +96,35 @@ namespace Doom.Graphics.Tests
                 Assert.That(System.Math.Abs(nb.maxY - rb.maxY), Is.LessThanOrEqualTo(BBoxTolerance),
                     $"{lump} maxY native={nb.maxY} redraw={rb.maxY}");
             }
+        }
+
+        [Test]
+        public void Aggressive_key_drops_enclosed_pockets_and_floating_islands()
+        {
+            // 16×16 transparent canvas: a 6×6 dark subject block with a
+            // near-white pocket inside it, plus a detached 2-px gray speckle.
+            const int S = 16;
+            var rgba = new byte[S * S * 4];
+            void Set(int x, int y, byte r, byte g, byte b)
+            {
+                int o = (y * S + x) * 4;
+                rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b; rgba[o + 3] = 255;
+            }
+            for (int y = 4; y < 10; y++)
+                for (int x = 4; x < 10; x++)
+                    Set(x, y, 121, 86, 52);    // bark subject (36 px component)
+            Set(6, 6, 245, 244, 240);          // enclosed backdrop pocket
+            Set(13, 2, 210, 208, 205);         // floating checker speckle
+            Set(14, 2, 214, 212, 209);
+
+            var keyed = DisplayRedrawRegistration.KeyOutBackdropAggressive(
+                new DecodedImage(S, S, rgba));
+
+            Assert.That(keyed.GetPixel(6, 6).a, Is.EqualTo(0), "pocket keyed");
+            Assert.That(keyed.GetPixel(13, 2).a, Is.EqualTo(0), "speckle keyed");
+            Assert.That(keyed.GetPixel(14, 2).a, Is.EqualTo(0), "speckle keyed");
+            Assert.That(keyed.GetPixel(4, 4).a, Is.EqualTo(255), "subject kept");
+            Assert.That(keyed.GetPixel(9, 9).a, Is.EqualTo(255), "subject kept");
         }
 
         [Test]

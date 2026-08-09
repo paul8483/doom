@@ -220,13 +220,23 @@ namespace Doom.Stage3.PlayTests
                          2014, // health bonus
                          2028, // COLU floor lamp
                          2035, // exploding barrel
+                         43,   // TRE1 burnt tree
                          54,   // TRE2 large brown tree
                          47,   // SMIT stalagmite / leafy tree
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
                 float worldScale = 1f / 32f;
-                float expectedHeight = def.Height * worldScale;
+                // Trees normalize to the native sprite's visual height (patch
+                // px), not the shorter mobjinfo collision height.
+                float heightUnits = doomedNum switch
+                {
+                    43 => 70f,
+                    54 => 124f,
+                    47 => 69f,
+                    _ => def.Height,
+                };
+                float expectedHeight = heightUnits * worldScale;
 
                 var go = new GameObject($"Experimental_{doomedNum}",
                     typeof(MeshFilter), typeof(MeshRenderer));

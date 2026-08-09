@@ -2,6 +2,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using Doom.Graphics;
+using Doom.Wad;
 
 namespace Doom.MapBuild.Editor
 {
@@ -37,7 +38,22 @@ namespace Doom.MapBuild.Editor
                 }
 
                 var keyed = DisplayRedrawRegistration.KeyOutLightBackground(LoadPng(src));
-                var canvas = DisplayRedrawRegistration.NormalizeToCanvas512(keyed);
+                DecodedImage canvas;
+                if (DisplayRedrawAllowlist.UsesAggressiveKey(lump))
+                {
+                    keyed = DisplayRedrawRegistration.KeyOutBackdropAggressive(keyed);
+                    keyed = DisplayRedrawRegistration.RecolorLightEdgeRing(keyed);
+                    // Tree shapehints overflow the ≤416 px subject contract;
+                    // fit their silhouette into the runtime subject rect.
+                    var header = ReadPatchHeader(lump);
+                    canvas = DisplayRedrawRegistration.NormalizeSubjectToRect(
+                        keyed, header.Width, header.Height);
+                }
+                else
+                {
+                    canvas = DisplayRedrawRegistration.NormalizeToCanvas512(keyed);
+                }
+                canvas = DisplayRedrawRegistration.PadTransparentRgb(canvas);
                 string dst = Path.Combine(absOutDir, lump + ".png");
                 WritePng(canvas, dst);
                 imported++;
@@ -47,6 +63,60 @@ namespace Doom.MapBuild.Editor
             ConfigureImporters();
             AssetDatabase.SaveAssets();
             Debug.Log($"EnhancedSpritesImport: imported {imported}/{DisplayRedrawAllowlist.Lumps.Length} → {ResourcesRel}");
+        }
+
+        static PatchHeader ReadPatchHeader(string lump)
+        {
+            string wadPath = Path.Combine(
+                Application.streamingAssetsPath, "wads", "freedoom1.wad");
+            using var wad = WadFile.Open(wadPath);
+            int idx = wad.FindLump(lump);
+            if (idx < 0)
+                throw new IOException($"EnhancedSpritesImport: lump {lump} not in WAD");
+            return Patch.ReadHeader(wad.ReadLump(idx));
+        }
+
+        /// Diagnostic: write the exact texture the runtime redraw path samples
+        /// (Resources → ExtractSubjectRect) to Logs/redraw-runtime/<LUMP>.png.
+        /// CLI: -executeMethod Doom.MapBuild.Editor.EnhancedSpritesImportMenu.DumpRuntimeTexturesCli -quit
+        public static void DumpRuntimeTexturesCli()
+        {
+            string repoRoot = Path.GetDirectoryName(Application.dataPath);
+            string outDir = Path.Combine(repoRoot, "Logs", "redraw-runtime");
+            Directory.CreateDirectory(outDir);
+            foreach (string lump in DisplayRedrawAllowlist.Lumps)
+            {
+                var res = Resources.Load<Texture2D>(DisplayRedrawAllowlist.ResourcesPath(lump));
+                if (res == null) continue;
+                var header = ReadPatchHeader(lump);
+                var canvas = LoadTexture(res);
+                var subject = DisplayRedrawRegistration.ExtractSubjectRect(
+                    canvas, header.Width, header.Height);
+                WritePng(subject, Path.Combine(outDir, lump + ".png"));
+            }
+            Debug.Log($"EnhancedSpritesImport: runtime dump → {outDir}");
+        }
+
+        static DecodedImage LoadTexture(Texture2D tex)
+        {
+            var pixels = tex.GetPixels32();
+            int w = tex.width, h = tex.height;
+            var rgba = new byte[w * h * 4];
+            for (int y = 0; y < h; y++)
+            {
+                int srcRow = (h - 1 - y) * w;
+                int dstRow = y * w;
+                for (int x = 0; x < w; x++)
+                {
+                    Color32 c = pixels[srcRow + x];
+                    int o = (dstRow + x) * 4;
+                    rgba[o] = c.r;
+                    rgba[o + 1] = c.g;
+                    rgba[o + 2] = c.b;
+                    rgba[o + 3] = c.a;
+                }
+            }
+            return new DecodedImage(w, h, rgba);
         }
 
         static void ConfigureImporters()

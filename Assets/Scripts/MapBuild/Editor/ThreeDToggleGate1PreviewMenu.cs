@@ -23,7 +23,9 @@ namespace Doom.MapBuild.Editor
             ("COLUA0", "COLUA0-lamp", true, true),
             ("BAR1A0", "BAR1A0-barrel", true, true),
             ("BAR1B0", "BAR1B0-barrel-blink", true, false),
-            ("TRE2A0", "TRE2A0-tree", false, true),
+            ("TRE1A0", "TRE1A0-burnt-tree", true, true),
+            ("TRE2A0", "TRE2A0-tree", true, true),
+            ("SMITA0", "SMITA0-leafy-tree", true, true),
         };
 
         const int DisplayScale = 4;

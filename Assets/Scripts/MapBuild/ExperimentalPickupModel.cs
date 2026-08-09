@@ -37,6 +37,10 @@ namespace Doom.MapBuild
                 return null;
 
             var presentation = pickupRoot.AddComponent<ExperimentalPickupModel>();
+            // Decoration meshes match the native sprite's visual height, not
+            // the (shorter) mobjinfo collision height — TRE2's patch is 124 px
+            // tall vs a 64-unit collision box, which dwarfed the 3D tree.
+            float heightUnits = SpriteHeightPx(doomedNum, def.Height);
             // TRELLIS textures contain their own baked presentation. The
             // Resources-loaded shader keeps them readable in dark sectors and
             // avoids standalone stripping that affected the original Lit pass.
@@ -47,12 +51,26 @@ namespace Doom.MapBuild
                 : null;
             presentation.Init(
                 resource,
-                Mathf.Max(0.01f, def.Height * worldScale),
+                Mathf.Max(0.01f, heightUnits * worldScale),
                 useUnlit,
                 emissionStrength,
                 pulseMaskResource,
                 billboard);
             return presentation.HasModel ? presentation : null;
+        }
+
+        /// Native patch heights (WAD pixels) for tree decorations whose sprite
+        /// stands taller than the mobjinfo collision height. Other things keep
+        /// the collision height that their accepted meshes were tuned to.
+        static float SpriteHeightPx(int doomedNum, float collisionHeight)
+        {
+            switch (doomedNum)
+            {
+                case 43: return 70f;  // TRE1A0
+                case 54: return 124f; // TRE2A0
+                case 47: return 69f;  // SMITA0
+                default: return collisionHeight;
+            }
         }
 
         static bool TryGetResource(int doomedNum, out string resource)
@@ -88,6 +106,9 @@ namespace Doom.MapBuild
                     return true;
                 case 2035:
                     resource = ResourceRoot + "BAR1A0/BAR1A0";
+                    return true;
+                case 43:
+                    resource = ResourceRoot + "TRE1A0/TRE1A0";
                     return true;
                 case 54:
                     resource = ResourceRoot + "TRE2A0/TRE2A0";

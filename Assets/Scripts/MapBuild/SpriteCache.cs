@@ -103,10 +103,18 @@ namespace Doom.MapBuild
             string lumpName = wad.Directory[lumpIndex].Name;
             if (!DisplayRedrawAllowlist.Contains(lumpName))
                 return false;
-            // Animated lumps (ARM1/BAR1 blink, BON1 A–D): every frame must
-            // have a redraw, otherwise the animation would flicker between
-            // redraw and native frames.
+            return HasDisplayRedrawCoverage(sprite);
+        }
+
+        /// True when every frame of the sprite is covered by the redraw
+        /// allowlist (ARM1/BAR1 blink, single-frame trees). Partial coverage
+        /// would flicker between redraw and native frames, so it routes native.
+        /// Used by ThingSpawner to put redraw-covered decorations on the
+        /// pickup/display path instead of the generic Super-xBR one.
+        public bool HasDisplayRedrawCoverage(string sprite)
+        {
             int frames = sprites.CountFrames(sprite);
+            if (frames == 0) return false;
             for (int f = 0; f < frames; f++)
             {
                 if (!sprites.TryGet(sprite, f, 0, out var refr))

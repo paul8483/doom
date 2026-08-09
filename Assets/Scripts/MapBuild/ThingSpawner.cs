@@ -77,8 +77,12 @@ namespace Doom.MapBuild
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
                 // The intact barrel rides the pickup/redraw path in Enhanced 2D;
                 // its BEXP explosion switches back to the generic effects path.
+                // Redraw-covered decorations (trees, lamp) ride it too — the
+                // generic Super-xBR path would smear their display redraws.
                 bool isBarrel = t.Type == BarrelRules.DoomEdNum;
-                bb.SetPickupUpscale(isPickup || isBarrel);
+                bool isRedrawDecoration = !isPickup && !isEnemy
+                    && cache.HasDisplayRedrawCoverage(def.Sprite);
+                bb.SetPickupUpscale(isPickup || isBarrel || isRedrawDecoration);
                 bb.SetEnemyUpscale(isEnemy);
                 if (t.Type == 58)
                     bb.SetSpectre(true);
@@ -91,7 +95,7 @@ namespace Doom.MapBuild
                 // Enhanced 4× is yielded later under ENHANCED SPRITES (not here).
                 for (int rot = 0; rot < 8; rot++)
                 {
-                    if (isPickup || isBarrel)
+                    if (isPickup || isBarrel || isRedrawDecoration)
                         cache.WarmNativePickup(def.Sprite, def.Frame, rot);
                     else if (isEnemy)
                         cache.WarmNativeEnemy(def.Sprite, def.Frame, rot);
