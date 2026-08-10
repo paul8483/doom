@@ -22,6 +22,8 @@ namespace Doom.MapBuild
         bool lastUseMesh;
         bool lockedToBillboard;
         bool settingsControllerSeen;
+        bool gemBlink;
+        int lastGemBlink = -1;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
@@ -47,29 +49,46 @@ namespace Doom.MapBuild
             // avoids standalone stripping that affected the original Lit pass.
             bool useUnlit = true;
             float emissionStrength = doomedNum == 2014 ? 0.65f : 0f;
-            string pulseMaskResource = doomedNum == 2012
-                ? ResourceRoot + "MEDIA0/MEDIA0_emission"
-                : null;
+            string pulseMaskResource = doomedNum switch
+            {
+                2012 => ResourceRoot + "MEDIA0/MEDIA0_emission",
+                // Green armor gem: vanilla ARM1 A/B blink (info.c, 6+6 tics).
+                2018 => ResourceRoot + "ARM1A0/ARM1A0_emission",
+                _ => null,
+            };
+            bool gemBlink = doomedNum == 2018;
             presentation.Init(
                 resource,
                 Mathf.Max(0.01f, heightUnits * worldScale),
                 useUnlit,
                 emissionStrength,
                 pulseMaskResource,
+                gemBlink,
                 billboard);
             return presentation.HasModel ? presentation : null;
         }
 
-        /// Native patch heights (WAD pixels) for tree decorations whose sprite
-        /// stands taller than the mobjinfo collision height. Other things keep
-        /// the collision height that their accepted meshes were tuned to.
+        /// Native patch heights (WAD pixels) when the accepted mesh should match
+        /// the billboard silhouette rather than the (often different) mobjinfo
+        /// collision height. Many pickups share height 16 in info.c while their
+        /// Freedoom patches differ (STIM 10 / MEDI 20 / SBOX 13 / …).
         static float SpriteHeightPx(int doomedNum, float collisionHeight)
         {
             switch (doomedNum)
             {
-                case 43: return 70f;  // TRE1A0
-                case 54: return 124f; // TRE2A0
-                case 47: return 69f;  // SMITA0
+                case 2007: return 12f; // CLIPA0
+                case 2008: return 10f; // SHELA0
+                case 2010: return 24f; // ROCKA0
+                case 2011: return 10f; // STIMA0
+                case 2012: return 20f; // MEDIA0
+                case 2018: return 28f; // ARM1A0
+                case 17: return 20f;   // CELPA0
+                case 2047: return 12f; // CELLA0
+                case 2048: return 16f; // AMMOA0 (matches collision height)
+                case 2049: return 13f; // SBOXA0
+                case 43: return 70f;   // TRE1A0
+                case 54: return 124f;  // TRE2A0
+                case 47: return 69f;   // SMITA0
                 default: return collisionHeight;
             }
         }
@@ -115,10 +134,9 @@ namespace Doom.MapBuild
                     resource = ResourceRoot + "BON1A0/BON1A0";
                     return true;
                 case 2018:
-                    // Green armor mesh generated from the B blink frame
-                    // (ARM1B0 conditioning accepted 2026-08-10); the static
-                    // mesh covers both A/B billboard frames like BAR1.
-                    resource = ResourceRoot + "ARM1B0/ARM1B0";
+                    // Green armor mesh from ARM1A0; gem blinks A/B via emission
+                    // mask synced to PickupAnimationTable (6+6 tics).
+                    resource = ResourceRoot + "ARM1A0/ARM1A0";
                     return true;
                 case 2047:
                     resource = ResourceRoot + "CELLA0/CELLA0";
@@ -159,10 +177,12 @@ namespace Doom.MapBuild
             bool useUnlit,
             float emissionStrength,
             string pulseMaskResource,
+            bool enableGemBlink,
             SpriteBillboard sourceBillboard)
         {
             billboard = sourceBillboard;
             billboardRenderer = GetComponent<MeshRenderer>();
+            gemBlink = enableGemBlink;
 
             var prefab = Resources.Load<GameObject>(resource);
             if (prefab == null)
@@ -192,6 +212,8 @@ namespace Doom.MapBuild
             ConfigureMaterials(useUnlit, emissionStrength, pulseMaskResource);
             SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
+            if (gemBlink)
+                ApplyGemBlink(force: true);
         }
 
         void OnSettingsApplied(GameSettingsData _) => RefreshVisibility(force: true);
@@ -254,8 +276,20 @@ namespace Doom.MapBuild
                         if (pulseMask != null)
                         {
                             material.SetTexture("_EmissionMask", pulseMask);
-                            material.SetFloat("_PulseStrength", 1.2f);
-                            material.SetFloat("_PulseSpeed", 8f);
+                            if (gemBlink)
+                            {
+                                // Discrete ARM1 A/B gem blink (not MEDIA0 sine).
+                                material.SetFloat("_BlinkMode", 1f);
+                                material.SetFloat("_Blink", 1f);
+                                material.SetFloat("_PulseStrength", 0.85f);
+                                material.SetFloat("_PulseSpeed", 0f);
+                            }
+                            else
+                            {
+                                material.SetFloat("_BlinkMode", 0f);
+                                material.SetFloat("_PulseStrength", 1.2f);
+                                material.SetFloat("_PulseSpeed", 8f);
+                            }
                         }
                     }
                     else
@@ -279,13 +313,54 @@ namespace Doom.MapBuild
         /// SettingsApplied drives visibility once SettingsController is alive;
         /// per-frame polling remains only as a boot/tests fallback while the
         /// controller doesn't exist yet, plus one catch-up refresh on the
-        /// frame it appears.
+        /// frame it appears. Gem blink always tracks the shared level tic.
         void Update()
         {
+            if (gemBlink && ModelVisible)
+                ApplyGemBlink(force: false);
+
             bool hasSettings = SettingsController.Instance != null;
             if (hasSettings && settingsControllerSeen) return;
             settingsControllerSeen = hasSettings;
             RefreshVisibility(force: false);
+        }
+
+        /// Same phase as PickupAnimator for ARM1 (info.c S_ARM1 / S_ARM1A, 6+6).
+        void ApplyGemBlink(bool force)
+        {
+            int gameTic = LevelStatsTracker.Instance != null
+                ? LevelStatsTracker.Instance.Stats.Tics
+                : 0;
+            int blink = 1;
+            if (PickupAnimationTable.TryGet(2018, out var animation) &&
+                animation.Frames != null && animation.Tics != null &&
+                animation.Frames.Length == animation.Tics.Length &&
+                animation.Frames.Length > 0)
+            {
+                int cycle = 0;
+                for (int i = 0; i < animation.Tics.Length; i++)
+                    cycle += System.Math.Max(1, animation.Tics[i]);
+                int phase = cycle > 0 ? ((gameTic % cycle) + cycle) % cycle : 0;
+                int next = 0;
+                while (next + 1 < animation.Frames.Length)
+                {
+                    int duration = System.Math.Max(1, animation.Tics[next]);
+                    if (phase < duration) break;
+                    phase -= duration;
+                    next++;
+                }
+                // Frame 0 (A) = bright gem; frame 1 (B) = dim.
+                blink = animation.Frames[next] == 0 ? 1 : 0;
+            }
+
+            if (!force && blink == lastGemBlink) return;
+            lastGemBlink = blink;
+            for (int i = 0; i < ownedMaterials.Count; i++)
+            {
+                var mat = ownedMaterials[i];
+                if (mat != null)
+                    mat.SetFloat("_Blink", blink);
+            }
         }
 
         /// Barrel explode (and similar one-shots): drop the static 3D mesh and

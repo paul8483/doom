@@ -8,6 +8,9 @@ Shader "Doom/ExperimentalPickupUnlit"
         _EmissionStrength ("Emission", Range(0, 2)) = 0
         _PulseStrength ("Pulse Strength", Range(0, 3)) = 0
         _PulseSpeed ("Pulse Speed", Range(0, 16)) = 8
+        // 0 = MEDIA0-style sine pulse; 1 = ARM1 A/B discrete blink via _Blink.
+        _BlinkMode ("Blink Mode", Range(0, 1)) = 0
+        _Blink ("Blink", Range(0, 1)) = 1
         _ColorTint ("Color Tint", Color) = (1, 1, 1, 1)
     }
 
@@ -45,6 +48,8 @@ Shader "Doom/ExperimentalPickupUnlit"
                 half _EmissionStrength;
                 half _PulseStrength;
                 half _PulseSpeed;
+                half _BlinkMode;
+                half _Blink;
                 half4 _ColorTint;
             CBUFFER_END
 
@@ -92,8 +97,14 @@ Shader "Doom/ExperimentalPickupUnlit"
                 albedo *= _ColorTint.rgb;
                 half mask = SAMPLE_TEXTURE2D(
                     _EmissionMask, sampler_EmissionMask, input.uv).r;
-                half pulse = 0.5h + 0.5h * sin(_Time.y * _PulseSpeed);
+                // Continuous sine (medikit cross) or discrete A/B (armor gem).
+                half pulse = _BlinkMode > 0.5h
+                    ? _Blink
+                    : (0.5h + 0.5h * sin(_Time.y * _PulseSpeed));
                 half3 color = albedo * (_Exposure + _EmissionStrength);
+                // ARM1B dims the red gem vs ARM1A — darken masked texels off-phase.
+                if (_BlinkMode > 0.5h)
+                    color = lerp(color, color * 0.62h, mask * (1.0h - pulse));
                 color += mask * _PulseStrength * pulse;
                 color = ApplyDoomFog(color, input.positionWS);
                 return half4(color, 1.0h);

@@ -15,10 +15,10 @@ namespace Doom.MapBuild.Editor
         // ARM1/BAR1 A+B frames both covered since 2026-08-08 (blink animation).
         static readonly (string Lump, string Label, bool ExpectRedraw, bool ExpectMesh)[] Rows =
         {
-            ("MEDIA0", "MEDIA0-medikit", false, true),
+            ("MEDIA0", "MEDIA0-medikit", true, true),
             ("STIMA0", "STIMA0-stimpack", true, true),
-            ("ARM1A0", "ARM1A0-armor", true, false),
-            ("ARM1B0", "ARM1B0-armor-blink", true, true),
+            ("ARM1A0", "ARM1A0-armor", true, true),
+            ("ARM1B0", "ARM1B0-armor-blink", true, false),
             ("POSSA1", "POSSA1-monster", false, false),
             ("SHOTA0", "SHOTA0-shotgun", true, true),
             ("CLIPA0", "CLIPA0-bullet-clip", true, true),

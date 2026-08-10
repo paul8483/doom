@@ -11,7 +11,8 @@ namespace Doom.Graphics
         /// coverage for the ARM1/BAR1 blink; trees SMITA0/TRE1A0/TRE2A0 added
         /// 2026-08-08; ammo CLIPA0/SBOXA0 added 2026-08-09; ammo AMMOA0/CELLA0/
         /// CELPA0/ROCKA0/SHELA0 added 2026-08-09; STIMA0 added 2026-08-10 from
-        /// the new depth shapehint — earlier STIMA0-v3 redraw was rejected).
+        /// the new depth shapehint — earlier STIMA0-v3 redraw was rejected;
+        /// MEDIA0 added 2026-08-11 from depth shapehint-v2 for Enhanced 2D).
         /// Monsters/out-of-scope excluded.
         public static readonly string[] Lumps =
         {
@@ -27,6 +28,7 @@ namespace Doom.Graphics
             "COLUA0",
             "CSAWA0",
             "LAUNA0",
+            "MEDIA0",
             "MGUNA0",
             "PLASA0",
             "ROCKA0",

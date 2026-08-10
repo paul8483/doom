@@ -223,8 +223,13 @@ namespace Doom.Stage3.PlayTests
                          2011, // stimpack
                          2012, // medikit
                          2014, // health bonus
-                         2018, // green armor (mesh from ARM1B0 blink frame)
+                         2018, // green armor (mesh from ARM1A0)
                          2007, // bullet clip
+                         2008, // shells
+                         2010, // rocket
+                         2047, // cell
+                         17,   // cell pack
+                         2048, // bullet box
                          2049, // shell box
                          2028, // COLU floor lamp
                          2035, // exploding barrel
@@ -235,23 +240,33 @@ namespace Doom.Stage3.PlayTests
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
                 float worldScale = 1f / 32f;
-                // Trees normalize to the native sprite's visual height (patch
-                // px), not the shorter mobjinfo collision height. Read the
-                // expected height from the WAD so the runtime constants in
-                // ExperimentalPickupModel are pinned against the real patch.
-                string treeLump = doomedNum switch
+                // Some meshes normalize to the native sprite's visual height
+                // (patch px), not mobjinfo collision height. Read the expected
+                // height from the WAD so ExperimentalPickupModel constants stay
+                // pinned against the real patch (ammo/health; trees).
+                string patchLump = doomedNum switch
                 {
+                    2007 => "CLIPA0",
+                    2008 => "SHELA0",
+                    2010 => "ROCKA0",
+                    2011 => "STIMA0",
+                    2012 => "MEDIA0",
+                    2018 => "ARM1A0",
+                    17 => "CELPA0",
+                    2047 => "CELLA0",
+                    2048 => "AMMOA0",
+                    2049 => "SBOXA0",
                     43 => "TRE1A0",
                     54 => "TRE2A0",
                     47 => "SMITA0",
                     _ => null,
                 };
                 float heightUnits = def.Height;
-                if (treeLump != null)
+                if (patchLump != null)
                 {
-                    int lumpIdx = wad.FindLump(treeLump);
+                    int lumpIdx = wad.FindLump(patchLump);
                     Assert.That(lumpIdx, Is.GreaterThanOrEqualTo(0),
-                        $"{treeLump} missing from freedoom1.wad");
+                        $"{patchLump} missing from freedoom1.wad");
                     heightUnits = Patch.ReadHeader(wad.ReadLump(lumpIdx)).Height;
                 }
                 float expectedHeight = heightUnits * worldScale;
