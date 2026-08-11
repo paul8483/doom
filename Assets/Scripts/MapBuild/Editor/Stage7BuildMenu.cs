@@ -102,6 +102,10 @@ namespace Doom.MapBuild.Editor
             BuildOptions buildOptions,
             bool exitBatchMode)
         {
+            // CLI/external tool edits (e.g. TRELLIS albedo paint) need an import pass
+            // before BuildPlayer or the player can ship stale Library textures.
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+
             if (!PreflightBuildInclusion(out string preflightError))
             {
                 Debug.LogError($"[Stage8] Build aborted: {preflightError}");
