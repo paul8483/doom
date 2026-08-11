@@ -17,7 +17,7 @@ namespace Doom.MapBuild
         public const string LampFlickerLumaProperty = "_LampFlickerLuma";
 
         // Packed Color: r=enable, g=grid/8, b=amp (~30% dim), a=speed/8.
-        // TLITE6_* is a 2×2 bulb tile; grid=2 keeps one phase per bulb.
+        // grid=2: independent phase per fixture cell (TLITE 2×2, FLAT2 strips, etc.).
         public static readonly Color DefaultLampFlickerParams = new Color(
             1f, 2f / 8f, 0.30f, 2.8f / 8f);
         public const float DefaultLampFlickerLuma = 0.32f;
@@ -246,12 +246,45 @@ namespace Doom.MapBuild
 
         void ApplyLampFlickerForSector(int sector, Transform root)
         {
-            var ceiling = FindCeilingRenderer(root);
-            if (ceiling == null) return;
+            int special = map.Sectors[sector].Special;
+            string ceilingFlat = map.Sectors[sector].CeilingFlat;
+            var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                var renderer = renderers[r];
+                if (renderer == null) continue;
 
-            var sec = map.Sectors[sector];
-            bool enable = EnhancedLampGlowRules.IsEligible(sec.CeilingFlat, sec.Special);
-            ApplyLampFlickerBlock(ceiling, enable);
+                bool enable;
+                if (renderer.gameObject.name == "Ceiling")
+                {
+                    // Prefer WAD ceiling flat — more reliable than runtime texture names.
+                    enable = EnhancedLampGlowRules.IsEligible(ceilingFlat, special);
+                }
+                else
+                {
+                    enable = EnhancedLampGlowRules.IsEligible(
+                        ResolveSurfaceName(renderer), special);
+                }
+
+                ApplyLampFlickerBlock(renderer, enable);
+            }
+        }
+
+        static string ResolveSurfaceName(MeshRenderer renderer)
+        {
+            // Wall_{index}_{TEXTURE} — texture may contain underscores.
+            string goName = renderer.gameObject.name;
+            if (goName.StartsWith("Wall_", StringComparison.Ordinal))
+            {
+                int first = goName.IndexOf('_');
+                int second = first >= 0 ? goName.IndexOf('_', first + 1) : -1;
+                if (second > 0 && second + 1 < goName.Length)
+                    return goName.Substring(second + 1);
+            }
+
+            if (renderer.sharedMaterial == null) return null;
+            var tex = renderer.sharedMaterial.mainTexture;
+            return tex != null ? tex.name : null;
         }
 
         static MeshRenderer FindCeilingRenderer(Transform root)
@@ -271,6 +304,25 @@ namespace Doom.MapBuild
             if (ceiling == null) return 0f;
             ceiling.GetPropertyBlock(mpb);
             return mpb.GetColor(LampFlickerParamsProperty).r;
+        }
+
+        /// Test helper: any light-surface renderer under the sector with flicker enabled.
+        public bool SectorHasLampFlicker(int sector)
+        {
+            if (geometry == null || map == null || sector < 0 || sector >= map.Sectors.Length)
+                return false;
+            var root = geometry.GetSectorRoot(sector);
+            if (root == null) return false;
+            var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                var renderer = renderers[r];
+                if (renderer == null) continue;
+                renderer.GetPropertyBlock(mpb);
+                if (mpb.GetColor(LampFlickerParamsProperty).r > 0.5f)
+                    return true;
+            }
+            return false;
         }
 
         void ApplyVisualsIfNeeded(bool force)

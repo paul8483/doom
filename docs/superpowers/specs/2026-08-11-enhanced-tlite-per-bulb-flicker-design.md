@@ -8,8 +8,9 @@
 
 ## Контекст и решение
 
-Freedoom «лампочки» на потолке — сектора с flat `TLITE*` и special 0. Sector
-Glow (special 8 / синтетический thinker) мерцает **всем пролётом** — REJECT.
+Freedoom потолочные «лампы» — сектора с light flats (`TLITE*`, `FLAT2`, …) и
+special 0. Sector Glow (special 8 / синтетический thinker) мерцает **всем
+пролётом** — REJECT.
 
 **Решение:** только в **Enhanced**, только на **Ceiling** mesh eligible-сектора:
 шейдер модулирует яркость/emission **каждой лампочки** по UV-ячейке + luminance
@@ -20,8 +21,9 @@ gate. Sector light / `_SectorAmbient` остаётся статичным WAD. *
 
 ## Scope
 
-Eligible: `CeilingFlat` starts with `TLITE` (ignore case) и WAD special не
-мапится на light kind (`EnhancedLampGlowRules`). Сектора с настоящим light
+Eligible: light ceiling flats (`TLITE*`, `FLAT2`, Freedoom panel `AQF010`/`AQF012`/…),
+**or** light wall textures (`AQLITE*`, `LITE*`), и WAD sector special не light-kind.
+Ceiling берёт WAD `CeilingFlat`; стены — имя текстуры. Сектора с настоящим light
 special не трогаем.
 
 ## Пользовательский контракт
@@ -29,7 +31,7 @@ special не трогаем.
 | Режим | Поведение |
 |-------|-----------|
 | Classic | Static WAD light; нет flicker |
-| Enhanced | Static sector ambient; Ceiling TLITE per-bulb smooth flicker |
+| Enhanced | Static sector ambient; Ceiling light-flat per-fixture smooth flicker |
 
 Hot-switch без reload. Нет Options-строки.
 
