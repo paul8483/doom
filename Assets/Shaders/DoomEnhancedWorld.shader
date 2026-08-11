@@ -10,6 +10,9 @@ Shader "Doom/EnhancedWorld"
         _EmissionStrength ("Emission", Range(0,2)) = 0
         _SectorAmbient ("Sector Ambient", Color) = (1,1,1,1)
         _SectorAmbientWeight ("Sector Ambient Weight", Range(0,1)) = 0
+        // Packed: r=enable, g=grid/8, b=amp, a=speed/8 — Color MPB is reliable in URP.
+        _LampFlickerParams ("Lamp Flicker Params", Color) = (0,0.75,0.30,0.35)
+        _LampFlickerLuma ("Lamp Flicker Luma", Float) = 0.32
     }
 
     SubShader
@@ -61,7 +64,52 @@ Shader "Doom/EnhancedWorld"
                 half _EmissionStrength;
                 half4 _SectorAmbient;
                 half _SectorAmbientWeight;
+                half4 _LampFlickerParams;
+                half _LampFlickerLuma;
             CBUFFER_END
+
+            float LampFlickerHash(float2 p)
+            {
+                float3 p3 = frac(float3(p.xyx) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return frac((p3.x + p3.y) * p3.z);
+            }
+
+            void ApplyLampFlicker(
+                float2 uv, inout half3 albedo,
+                inout half3 sectorAmbient, inout half emissionStrength)
+            {
+                // r=enable; g=grid/8; b=amp; a=speed/8
+                half enable = _LampFlickerParams.r;
+                if (enable < 0.5h) return;
+
+                float grid = max((float)_LampFlickerParams.g * 8.0, 1.0);
+                half amp = _LampFlickerParams.b;
+                float speed = max((float)_LampFlickerParams.a * 8.0, 0.1);
+
+                float2 tileUv = frac(uv);
+                float2 cell = floor(tileUv * grid);
+                float2 tileId = floor(uv);
+                float phase = LampFlickerHash(cell + tileId * 17.0) * 6.2831853;
+
+                // URP time (survives better than raw _Time in some batch modes).
+                float t = _TimeParameters.x * speed;
+                float pulse = 0.5 + 0.5 * sin(t + phase);
+                float pulse2 = 0.5 + 0.5 * sin(t * 1.73 + phase * 1.31);
+                pulse = lerp(pulse, pulse2, 0.35);
+
+                half luma = dot(albedo, half3(0.30h, 0.59h, 0.11h));
+                half thr = _LampFlickerLuma;
+                half gate = smoothstep(thr - 0.06h, thr + 0.10h, luma);
+
+                half dim = 1.0h - amp;          // amp 0.30 → ~30% darker when "off"
+                half bright = 1.0h;             // peak stays at baseline (rhythm unchanged)
+                half flicker = lerp(dim, bright, (half)pulse);
+                albedo = lerp(albedo, albedo * flicker, gate);
+                sectorAmbient *= lerp(1.0h, flicker, gate);
+                // Dim phase must nearly lose emission or the "off" read stays washed out.
+                emissionStrength += gate * lerp(0.0h, 1.15h, (half)pulse);
+            }
 
             struct Attributes
             {
@@ -177,9 +225,11 @@ Shader "Doom/EnhancedWorld"
                 float3 normalWS = NormalizeNormalPerPixel(TransformTangentToWorld(normalTS, tbn));
 
                 half3 sectorAmbient = lerp(input.color.rgb, _SectorAmbient.rgb, _SectorAmbientWeight);
+                half emissionStrength = _EmissionStrength;
+                ApplyLampFlicker(uv, albedo, sectorAmbient, emissionStrength);
                 half3 color = DoomShade(
                     albedo, sectorAmbient, normalWS, input.positionWS,
-                    _Roughness, _EmissionStrength);
+                    _Roughness, emissionStrength);
                 color = ApplyDoomFog(color, input.positionWS);
                 return half4(color, 1.0h);
             }

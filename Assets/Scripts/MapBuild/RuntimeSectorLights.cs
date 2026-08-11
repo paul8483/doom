@@ -13,6 +13,14 @@ namespace Doom.MapBuild
     {
         public const string SectorAmbientProperty = "_SectorAmbient";
         public const string SectorAmbientWeightProperty = "_SectorAmbientWeight";
+        public const string LampFlickerParamsProperty = "_LampFlickerParams";
+        public const string LampFlickerLumaProperty = "_LampFlickerLuma";
+
+        // Packed Color: r=enable, g=grid/8, b=amp (~30% dim), a=speed/8.
+        // TLITE6_* is a 2×2 bulb tile; grid=2 keeps one phase per bulb.
+        public static readonly Color DefaultLampFlickerParams = new Color(
+            1f, 2f / 8f, 0.30f, 2.8f / 8f);
+        public const float DefaultLampFlickerLuma = 0.32f;
 
         MapData map;
         SectorLightState[] states;
@@ -180,9 +188,7 @@ namespace Doom.MapBuild
             if (states == null || sector < 0 || sector >= states.Length) return;
             if (geometry == null) return;
 
-            bool enhanced = gfx != null
-                && gfx.ActiveProfile.Mode == GraphicsMode.Enhanced
-                && gfx.ActiveProfile.SectorAmbientBinding;
+            bool enhanced = IsEnhancedAmbient();
 
             var root = geometry.GetSectorRoot(sector);
             if (root == null) return;
@@ -204,7 +210,15 @@ namespace Doom.MapBuild
                 // that inherited a stale block after a lift rebuild).
                 ApplyAmbientBlock(renderer, level);
             }
+
+            if (enhanced)
+                ApplyLampFlickerForSector(sector, root);
         }
+
+        bool IsEnhancedAmbient() =>
+            gfx != null
+            && gfx.ActiveProfile.Mode == GraphicsMode.Enhanced
+            && gfx.ActiveProfile.SectorAmbientBinding;
 
         void ApplyAmbientBlock(MeshRenderer renderer, float level)
         {
@@ -214,14 +228,57 @@ namespace Doom.MapBuild
             renderer.SetPropertyBlock(mpb);
         }
 
+        void ApplyLampFlickerBlock(MeshRenderer ceiling, bool enable)
+        {
+            ceiling.GetPropertyBlock(mpb);
+            if (enable)
+            {
+                mpb.SetColor(LampFlickerParamsProperty, DefaultLampFlickerParams);
+                mpb.SetFloat(LampFlickerLumaProperty, DefaultLampFlickerLuma);
+            }
+            else
+            {
+                mpb.SetColor(LampFlickerParamsProperty, Color.clear);
+                mpb.SetFloat(LampFlickerLumaProperty, DefaultLampFlickerLuma);
+            }
+            ceiling.SetPropertyBlock(mpb);
+        }
+
+        void ApplyLampFlickerForSector(int sector, Transform root)
+        {
+            var ceiling = FindCeilingRenderer(root);
+            if (ceiling == null) return;
+
+            var sec = map.Sectors[sector];
+            bool enable = EnhancedLampGlowRules.IsEligible(sec.CeilingFlat, sec.Special);
+            ApplyLampFlickerBlock(ceiling, enable);
+        }
+
+        static MeshRenderer FindCeilingRenderer(Transform root)
+        {
+            var ceiling = root.Find("Ceiling");
+            return ceiling != null ? ceiling.GetComponent<MeshRenderer>() : null;
+        }
+
+        /// Test helper: lamp-flicker enable (packed Color.r) on a sector's Ceiling MPB.
+        public float GetCeilingLampFlicker(int sector)
+        {
+            if (geometry == null || map == null || sector < 0 || sector >= map.Sectors.Length)
+                return 0f;
+            var root = geometry.GetSectorRoot(sector);
+            if (root == null) return 0f;
+            var ceiling = FindCeilingRenderer(root);
+            if (ceiling == null) return 0f;
+            ceiling.GetPropertyBlock(mpb);
+            return mpb.GetColor(LampFlickerParamsProperty).r;
+        }
+
         void ApplyVisualsIfNeeded(bool force)
         {
             if (!force && !visualsDirty) return;
             visualsDirty = false;
 
-            bool enhanced = gfx != null
-                && gfx.ActiveProfile.Mode == GraphicsMode.Enhanced
-                && gfx.ActiveProfile.SectorAmbientBinding;
+            bool enhanced = IsEnhancedAmbient();
 
             if (geometry == null || states == null) return;
 
@@ -243,6 +300,9 @@ namespace Doom.MapBuild
 
                     ApplyAmbientBlock(renderer, level);
                 }
+
+                if (enhanced)
+                    ApplyLampFlickerForSector(s, root);
             }
         }
     }
