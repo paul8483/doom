@@ -22,6 +22,9 @@ namespace Doom.Specials.Tests
             Assert.IsTrue(EnhancedLampGlowRules.IsEligible("FLAT2", 0));
             Assert.IsTrue(EnhancedLampGlowRules.IsEligible("floor1_7", 0));
             Assert.IsTrue(EnhancedLampGlowRules.IsEligible("CEIL1_2", 0));
+            // Freedoom E1M5 canopy border panels.
+            Assert.IsTrue(EnhancedLampGlowRules.IsEligible("CEIL3_4", 0));
+            Assert.IsFalse(EnhancedLampGlowRules.IsEligible("CEIL3_3", 0));
         }
 
         [Test]

@@ -16,9 +16,11 @@ namespace Doom.MapBuild
         public const string LampFlickerParamsProperty = "_LampFlickerParams";
         public const string LampFlickerLumaProperty = "_LampFlickerLuma";
 
-        // Packed Color: r=enable, g=grid/8, b=amp (~30% dim), a=speed/8.
+        // Packed Vector4: x=enable, y=grid/8, z=amp (~30% dim), w=speed/8.
         // grid=2: independent phase per fixture cell (TLITE 2×2, FLAT2 strips, etc.).
-        public static readonly Color DefaultLampFlickerParams = new Color(
+        // MUST stay a Vector set via SetVector: SetColor sRGB→linear-converts rgb in
+        // Linear projects, crushing grid/amp until the flicker is invisible.
+        public static readonly Vector4 DefaultLampFlickerParams = new Vector4(
             1f, 2f / 8f, 0.30f, 2.8f / 8f);
         public const float DefaultLampFlickerLuma = 0.32f;
 
@@ -233,12 +235,12 @@ namespace Doom.MapBuild
             ceiling.GetPropertyBlock(mpb);
             if (enable)
             {
-                mpb.SetColor(LampFlickerParamsProperty, DefaultLampFlickerParams);
+                mpb.SetVector(LampFlickerParamsProperty, DefaultLampFlickerParams);
                 mpb.SetFloat(LampFlickerLumaProperty, DefaultLampFlickerLuma);
             }
             else
             {
-                mpb.SetColor(LampFlickerParamsProperty, Color.clear);
+                mpb.SetVector(LampFlickerParamsProperty, Vector4.zero);
                 mpb.SetFloat(LampFlickerLumaProperty, DefaultLampFlickerLuma);
             }
             ceiling.SetPropertyBlock(mpb);
@@ -303,7 +305,7 @@ namespace Doom.MapBuild
             var ceiling = FindCeilingRenderer(root);
             if (ceiling == null) return 0f;
             ceiling.GetPropertyBlock(mpb);
-            return mpb.GetColor(LampFlickerParamsProperty).r;
+            return mpb.GetVector(LampFlickerParamsProperty).x;
         }
 
         /// Test helper: any light-surface renderer under the sector with flicker enabled.
@@ -319,7 +321,7 @@ namespace Doom.MapBuild
                 var renderer = renderers[r];
                 if (renderer == null) continue;
                 renderer.GetPropertyBlock(mpb);
-                if (mpb.GetColor(LampFlickerParamsProperty).r > 0.5f)
+                if (mpb.GetVector(LampFlickerParamsProperty).x > 0.5f)
                     return true;
             }
             return false;

@@ -48,6 +48,9 @@ namespace Doom.Specials
                 case "FLOOR1_7":
                 case "CEIL1_2":
                 case "CEIL1_3":
+                // Freedoom CEIL3_4 is a double rectangular lamp panel (unlike
+                // vanilla Doom, where it is a plain ceiling).
+                case "CEIL3_4":
                 case "GRNLITE1":
                     return true;
                 default:

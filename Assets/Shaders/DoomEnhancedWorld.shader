@@ -10,8 +10,9 @@ Shader "Doom/EnhancedWorld"
         _EmissionStrength ("Emission", Range(0,2)) = 0
         _SectorAmbient ("Sector Ambient", Color) = (1,1,1,1)
         _SectorAmbientWeight ("Sector Ambient Weight", Range(0,1)) = 0
-        // Packed: r=enable, g=grid/8, b=amp, a=speed/8 — Color MPB is reliable in URP.
-        _LampFlickerParams ("Lamp Flicker Params", Color) = (0,0.75,0.30,0.35)
+        // Packed: x=enable, y=grid/8, z=amp, w=speed/8 — Vector, NOT Color:
+        // Color values get sRGB→linear-converted on set in Linear projects.
+        _LampFlickerParams ("Lamp Flicker Params", Vector) = (0,0.75,0.30,0.35)
         _LampFlickerLuma ("Lamp Flicker Luma", Float) = 0.32
     }
 
