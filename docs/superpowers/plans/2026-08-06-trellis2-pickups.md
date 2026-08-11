@@ -261,6 +261,18 @@ Same cascade as CLIPA0/SBOXA0: Enhanced + 3D On → mesh; Enhanced + 3D Off →
 display-redraw; Classic stays native. Interactive standalone verdict:
 **SUCCESS**.
 
+## Redraw refresh wave — SUCCESS 2026-08-12
+
+Refreshed display-grade redraws for `BAR1A0`/`BAR1B0`, `BFUGA0`, `COLUA0`,
+`CSAWA0`, `LAUNA0`, `MGUNA0`, `PLASA0` in `EnhancedSprites/`. The freshly
+generated `BAR1A0`/`BAR1B0` came back with a baked opaque light-gray backdrop
+(alpha 255 everywhere); transparency was restored via border-connected
+flood-fill keying (silhouette verified against the previous alpha, interior
+highlights untouched, stray specks removed). Interactive было/стало panel
+verdict on all eight: **SUCCESS** («принимаем все восемь»). New helper
+`Tools/doomify_shapehint.py` pixelates + palette-quantizes airbrushed GPT
+shape-hint redraws to the accepted chunky reference look.
+
 ## Current conclusion
 
 TRELLIS.2 уже доказал ценность для явно коробчатых pickups. Для неоднозначных
