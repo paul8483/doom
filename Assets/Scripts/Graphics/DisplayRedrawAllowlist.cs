@@ -12,7 +12,9 @@ namespace Doom.Graphics
         /// 2026-08-08; ammo CLIPA0/SBOXA0 added 2026-08-09; ammo AMMOA0/CELLA0/
         /// CELPA0/ROCKA0/SHELA0 added 2026-08-09; STIMA0 added 2026-08-10 from
         /// the new depth shapehint — earlier STIMA0-v3 redraw was rejected;
-        /// MEDIA0 added 2026-08-11 from depth shapehint-v2 for Enhanced 2D).
+        /// MEDIA0 added 2026-08-11 from depth shapehint-v2 for Enhanced 2D;
+        /// BON2A0–D0 added 2026-08-11 — A0 redraw reused for B/C/D so the
+        /// four-frame bonus animation stays fully covered).
         /// Monsters/out-of-scope excluded.
         public static readonly string[] Lumps =
         {
@@ -22,6 +24,10 @@ namespace Doom.Graphics
             "BAR1A0",
             "BAR1B0",
             "BFUGA0",
+            "BON2A0",
+            "BON2B0",
+            "BON2C0",
+            "BON2D0",
             "CELLA0",
             "CELPA0",
             "CLIPA0",

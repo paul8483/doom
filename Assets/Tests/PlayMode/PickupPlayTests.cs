@@ -223,6 +223,7 @@ namespace Doom.Stage3.PlayTests
                          2011, // stimpack
                          2012, // medikit
                          2014, // health bonus
+                         2015, // armor bonus (mesh from BON2A0)
                          2018, // green armor (mesh from ARM1A0)
                          2007, // bullet clip
                          2008, // shells
@@ -251,6 +252,7 @@ namespace Doom.Stage3.PlayTests
                     2010 => "ROCKA0",
                     2011 => "STIMA0",
                     2012 => "MEDIA0",
+                    2015 => "BON2A0",
                     2018 => "ARM1A0",
                     17 => "CELPA0",
                     2047 => "CELLA0",

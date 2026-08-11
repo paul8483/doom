@@ -52,11 +52,16 @@ namespace Doom.MapBuild
             string pulseMaskResource = doomedNum switch
             {
                 2012 => ResourceRoot + "MEDIA0/MEDIA0_emission",
+                // Armor bonus: smooth sine pulse on white glint + yellow bar.
+                2015 => ResourceRoot + "BON2A0/BON2A0_emission",
                 // Green armor gem: vanilla ARM1 A/B blink (info.c, 6+6 tics).
                 2018 => ResourceRoot + "ARM1A0/ARM1A0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018;
+            // BON2: slower sine than MEDIA0 so the stripe flicker reads smooth.
+            float pulseStrength = doomedNum == 2015 ? 1.0f : 1.2f;
+            float pulseSpeed = doomedNum == 2015 ? 4f : 8f;
             presentation.Init(
                 resource,
                 Mathf.Max(0.01f, heightUnits * worldScale),
@@ -64,6 +69,8 @@ namespace Doom.MapBuild
                 emissionStrength,
                 pulseMaskResource,
                 gemBlink,
+                pulseStrength,
+                pulseSpeed,
                 billboard);
             return presentation.HasModel ? presentation : null;
         }
@@ -81,6 +88,7 @@ namespace Doom.MapBuild
                 case 2010: return 24f; // ROCKA0
                 case 2011: return 10f; // STIMA0
                 case 2012: return 20f; // MEDIA0
+                case 2015: return 19f; // BON2A0
                 case 2018: return 28f; // ARM1A0
                 case 17: return 20f;   // CELPA0
                 case 2047: return 12f; // CELLA0
@@ -133,6 +141,10 @@ namespace Doom.MapBuild
                 case 2014:
                     resource = ResourceRoot + "BON1A0/BON1A0";
                     return true;
+                case 2015:
+                    // Armor bonus mesh; white/yellow stripes pulse via emission.
+                    resource = ResourceRoot + "BON2A0/BON2A0";
+                    return true;
                 case 2018:
                     // Green armor mesh from ARM1A0; gem blinks A/B via emission
                     // mask synced to PickupAnimationTable (6+6 tics).
@@ -178,6 +190,8 @@ namespace Doom.MapBuild
             float emissionStrength,
             string pulseMaskResource,
             bool enableGemBlink,
+            float pulseStrength,
+            float pulseSpeed,
             SpriteBillboard sourceBillboard)
         {
             billboard = sourceBillboard;
@@ -209,7 +223,7 @@ namespace Doom.MapBuild
             }
 
             NormalizeToPickup(targetHeight);
-            ConfigureMaterials(useUnlit, emissionStrength, pulseMaskResource);
+            ConfigureMaterials(useUnlit, emissionStrength, pulseMaskResource, pulseStrength, pulseSpeed);
             SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
             if (gemBlink)
@@ -245,7 +259,9 @@ namespace Doom.MapBuild
         void ConfigureMaterials(
             bool useUnlit,
             float emissionStrength,
-            string pulseMaskResource)
+            string pulseMaskResource,
+            float pulseStrength,
+            float pulseSpeed)
         {
             Shader shader = useUnlit
                 ? Resources.Load<Shader>(
@@ -287,8 +303,8 @@ namespace Doom.MapBuild
                             else
                             {
                                 material.SetFloat("_BlinkMode", 0f);
-                                material.SetFloat("_PulseStrength", 1.2f);
-                                material.SetFloat("_PulseSpeed", 8f);
+                                material.SetFloat("_PulseStrength", pulseStrength);
+                                material.SetFloat("_PulseSpeed", pulseSpeed);
                             }
                         }
                     }

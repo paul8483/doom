@@ -19,6 +19,7 @@ namespace Doom.MapBuild.Editor
             ("STIMA0", "STIMA0-stimpack", true, true),
             ("ARM1A0", "ARM1A0-armor", true, true),
             ("ARM1B0", "ARM1B0-armor-blink", true, false),
+            ("BON2A0", "BON2A0-armor-bonus", true, true),
             ("POSSA1", "POSSA1-monster", false, false),
             ("SHOTA0", "SHOTA0-shotgun", true, true),
             ("CLIPA0", "CLIPA0-bullet-clip", true, true),
