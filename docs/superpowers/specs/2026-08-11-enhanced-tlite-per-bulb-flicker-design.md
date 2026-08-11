@@ -1,7 +1,7 @@
 # Enhanced TLITE per-bulb flicker — дизайн
 
 **Дата:** 2026-08-11  
-**Статус:** 👀 interactive gate (awaiting eyeball)  
+**Статус:** ✅ SUCCESS (interactive gate 2026-08-12, slot-0 E1M5 standalone)  
 **Unity:** `6000.4.8f1`  
 **План:** `docs/superpowers/plans/2026-08-11-enhanced-tlite-per-bulb-flicker.md`  
 **Reject prior:** `docs/superpowers/specs/2026-08-11-enhanced-tlite-glow-design.md`
