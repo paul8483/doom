@@ -110,6 +110,12 @@ def decimate_with_uv(src_obj: Path, dst_obj: Path, target: int) -> int:
     import pymeshlab
     ms = pymeshlab.MeshSet()
     ms.load_new_mesh(str(src_obj))
+    # Weld the voxel-reconstruction micro-cracks first: otherwise the
+    # unlocked boundary edges drift during collapse and open visible slits
+    # (ARM1A0 pauldron finding, 2026-08-13).
+    before = ms.current_mesh().vertex_number()
+    ms.meshing_merge_close_vertices()
+    print(f"weld: {before} -> {ms.current_mesh().vertex_number()} verts")
     prev = ms.current_mesh().face_number()
     for _ in range(8):
         ms.meshing_decimation_quadric_edge_collapse_with_texture(
@@ -236,7 +242,8 @@ def main():
     p.add_argument("--lump", required=True)
     p.add_argument("--tris", type=int, default=20000)
     p.add_argument("--texcap", type=int, default=256)
-    p.add_argument("--palette", choices=["native", "playpal"], default="native")
+    # accepted preset (ARM1A0 gate 2026-08-12, variant F): 20k/256px/PLAYPAL
+    p.add_argument("--palette", choices=["native", "playpal"], default="playpal")
     p.add_argument("--out", default=None)
     a = p.parse_args()
 
