@@ -240,10 +240,11 @@ def compose(panels, labels, out: Path):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--lump", required=True)
-    p.add_argument("--tris", type=int, default=20000)
+    # accepted preset (ARM1A0 in-game gate 2026-08-13, variant A):
+    # 40k tris / 256px / native palette; import side: Point, no compression
+    p.add_argument("--tris", type=int, default=40000)
     p.add_argument("--texcap", type=int, default=256)
-    # accepted preset (ARM1A0 gate 2026-08-12, variant F): 20k/256px/PLAYPAL
-    p.add_argument("--palette", choices=["native", "playpal"], default="playpal")
+    p.add_argument("--palette", choices=["native", "playpal"], default="native")
     p.add_argument("--out", default=None)
     a = p.parse_args()
 
