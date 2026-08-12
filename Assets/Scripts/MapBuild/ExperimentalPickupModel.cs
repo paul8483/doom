@@ -55,7 +55,8 @@ namespace Doom.MapBuild
                 // Armor bonus: smooth sine pulse on white glint + yellow bar.
                 2015 => ResourceRoot + "BON2A0/BON2A0_emission",
                 // Green armor gem: vanilla ARM1 A/B blink (info.c, 6+6 tics).
-                2018 => ResourceRoot + "ARM1A0/ARM1A0_emission",
+                // Mask derived from the ARM1B0 albedo (red-dominant texels).
+                2018 => ResourceRoot + "ARM1B0/ARM1B0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018;
@@ -146,9 +147,10 @@ namespace Doom.MapBuild
                     resource = ResourceRoot + "BON2A0/BON2A0";
                     return true;
                 case 2018:
-                    // Green armor mesh from ARM1A0; gem blinks A/B via emission
-                    // mask synced to PickupAnimationTable (6+6 tics).
-                    resource = ResourceRoot + "ARM1A0/ARM1A0";
+                    // Green armor: the ARM1B0-frame mesh was preferred at the
+                    // 2026-08-13 gate; gem blinks A/B via emission mask synced
+                    // to PickupAnimationTable (6+6 tics).
+                    resource = ResourceRoot + "ARM1B0/ARM1B0";
                     return true;
                 case 2047:
                     resource = ResourceRoot + "CELLA0/CELLA0";
