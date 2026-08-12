@@ -105,7 +105,10 @@ Shader "Doom/ExperimentalPickupUnlit"
                 // ARM1B dims the red gem vs ARM1A — darken masked texels off-phase.
                 if (_BlinkMode > 0.5h)
                     color = lerp(color, color * 0.62h, mask * (1.0h - pulse));
-                color += mask * _PulseStrength * pulse;
+                // Discrete blink glows in the albedo's own hue: a white
+                // additive washed the quantized gem out to pale (2026-08-13).
+                half3 glowTint = _BlinkMode > 0.5h ? albedo : half3(1.0h, 1.0h, 1.0h);
+                color += glowTint * (mask * _PulseStrength * pulse);
                 color = ApplyDoomFog(color, input.positionWS);
                 return half4(color, 1.0h);
             }
