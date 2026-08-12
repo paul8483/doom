@@ -255,11 +255,15 @@ def main():
     print(f"palette: {a.palette} ({len(pal)} colors)")
 
     albedo = Image.open(src / f"{a.lump}_albedo.png")
+
+    # Decimate BEFORE writing the styled texture: pymeshlab's save copies the
+    # material's source texture next to the OBJ and silently clobbers a file
+    # with the same name (this shipped raw 1024px albedo twice, 2026-08-13).
+    n = decimate_with_uv(src / f"{a.lump}.obj", out / f"{a.lump}.obj", a.tris)
+
     new_tex = doomify_texture(albedo, pal, a.texcap)
     new_tex.save(out / f"{a.lump}_albedo.png")
     print(f"albedo: {albedo.size} -> {new_tex.size}")
-
-    n = decimate_with_uv(src / f"{a.lump}.obj", out / f"{a.lump}.obj", a.tris)
     verts, tris, cuv = load_obj(src / f"{a.lump}.obj")
     dv, dt, dcuv = load_obj(out / f"{a.lump}.obj")
     print(f"mesh: {len(tris)} -> {n} tris")
