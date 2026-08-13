@@ -35,6 +35,7 @@ namespace Doom.MapBuild
         Transform player;
         CapsuleCollider capsule;
         SpriteBillboard bb;
+        ExperimentalMonsterModel model;   // optional Enhanced 3D presentation
         EnemyHealth health;
         SoundSystem sound;
         float tickAccum;
@@ -63,6 +64,9 @@ namespace Doom.MapBuild
             brain = new MonsterBrain(def, rng, new WorldAdapter(this), ambush);
         }
 
+        /// Optional stop-motion 3D presentation (attached by ThingSpawner after Init).
+        public void SetExperimentalModel(ExperimentalMonsterModel m) => model = m;
+
         public void SetTarget(Transform t) => target = t != null ? t : player;
         public Transform TargetForTest => target;
         public void NotifyNoise() => brain.NotifyNoise();
@@ -79,6 +83,7 @@ namespace Doom.MapBuild
             if (dead || healthValue <= 0)
             {
                 dropSpawned = true;
+                if (model != null) model.RevertToBillboard();
                 if (health != null) health.RestoreHealth(0);
                 if (capsule != null) capsule.enabled = false;
                 if (brain != null)
@@ -96,6 +101,7 @@ namespace Doom.MapBuild
 
             if (health != null) health.RestoreHealth(healthValue);
             if (bb != null && frame >= 0) bb.SetFrame(frame);
+            if (model != null && frame >= 0) model.NotifyFrame(frame);
         }
 
         static float NormAngle(float deg)
@@ -116,7 +122,11 @@ namespace Doom.MapBuild
                 using (BrainTickMarker.Auto())
                     brain.Tick();
                 if (bb != null)
+                {
                     bb.NotifyGameplayPose(transform.position, bb.DoomAngleDegrees);
+                    if (model != null)
+                        model.NotifyGameplayPose(transform.position, bb.DoomAngleDegrees);
+                }
             }
             // Sprite rotation must track the target every render frame — not only on
             // 35 Hz brain ticks — otherwise the billboard lags between chase steps.
@@ -169,10 +179,17 @@ namespace Doom.MapBuild
                 using (MissileMarker.Auto())
                     c.Missile();
             }
-            public void SetFrame(int f) { if (c.bb != null) c.bb.SetFrame(f); }
+            public void SetFrame(int f)
+            {
+                if (c.bb != null) c.bb.SetFrame(f);
+                if (c.model != null) c.model.NotifyFrame(f);
+            }
             public void OnDeathStarted()
             {
                 if (c.capsule != null) c.capsule.enabled = false;
+                // Death frames live on the billboard (stop-motion meshes cover
+                // only stand/run/attack/pain) — switch before the H frame shows.
+                if (c.model != null) c.model.RevertToBillboard();
                 c.SpawnDeathDrop();
             }
             public void OnBecameCorpse()

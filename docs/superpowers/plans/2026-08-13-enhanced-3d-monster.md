@@ -1,0 +1,117 @@
+# Enhanced 3D monster pilot (POSS) — план
+
+**Спека:** `docs/superpowers/specs/2026-08-13-enhanced-3d-monster-design.md`
+**Ветка:** `3d-toggle`
+
+Workflow: генерации TRELLIS.2 (HF Space) и подготовку conditioning ведёт
+Claude через встроенный браузер; пользователь судит только гейты.
+
+## Task 1 — POSSA1: меш + стилевой гейт (Gate S1)
+
+- Условие: существующий принятый `POSSA1-depth-shapehint.png` (или v2).
+- HF Space `microsoft/TRELLIS.2`: Resolution 512, Decimation 100000,
+  Texture 1024; сохранить seed. GLB → `Textures/Trellis2/GLB/`.
+- `Tools/doomify3d.py` пресет A (weld → 40k tris → albedo 256 native
+  palette POSSA1) → OBJ.
+- Панели native vs doomified-меш (несколько ракурсов) → пользователю.
+- DoD: вердикт SUCCESS по стилю/идентичности.
+
+## Task 2 — Консистентность кадров (Gate S2)
+
+- POSSB1: подготовить native input (WAD → 512×512 канвас по протоколу).
+- Сначала conditioning на native кадре B; тот же seed, что у A.
+- Оценить: тот же персонаж? та же высота/пропорции? При дрейфе —
+  per-frame shape-hint (редрав кадра B с référence на принятый A-хинт).
+- Панель A vs B → пользователю.
+- DoD: вердикт SUCCESS = рецепт генерации кадров зафиксирован.
+
+## Task 3 — Кадры C–G + Doomify-волна (Gate S3)
+
+- Генерация POSSC1/D1/E1/F1/G1 по рецепту Task 2.
+- Doomify всех 7; per-frame высоты нативных патчей записать в план.
+- Панель всех кадров → пользователю.
+- DoD: вердикт SUCCESS; все GLB/OBJ в Git.
+
+## Task 4 — Runtime: ExperimentalMonsterModel
+
+- Новый компонент по образцу `ExperimentalPickupModel`: держит 7 мешей
+  (Resources `ExperimentalMonsters/POSS/POSS<X>1`), активен один.
+- Шов: `MonsterController.WorldAdapter.SetFrame` (+ `ApplySnapshotRestore`)
+  дополнительно уведомляет модель; кадры 0–6 → меш, кадры ≥7 (смерть,
+  `SetStaticFrame`, `OnBecameCorpse`) → revert to billboard навсегда.
+- Поворот: меш вращается по `bb.DoomAngleDegrees` (каждый кадр рендера,
+  как Face), билборд-выбор ротаций не используется.
+- Нормализация: масштаб по высоте нативного патча кадра A; один общий
+  масштаб для всех кадров (иначе дыхание размера при свапе).
+- Каскад: Enhanced+3D On → меш; Enhanced+3D Off и Classic → билборд;
+  hot-switch через SettingsApplied. Спавн через `ThingSpawner` для 3004.
+- Сейвы: кадр уже в снапшоте; restore проходит через тот же шов.
+- DoD: компилится, ручная проверка в редакторе.
+
+## Task 5 — Automation + standalone + финальный гейт (Gate Final)
+
+- Таргетные тесты: EditMode (роутер-каскад для монстра), PlayMode
+  (модель активна в Enhanced, свап кадров при ходьбе, смерть → билборд,
+  Classic не затронут).
+- Полные сьюты EditMode/PlayMode, Windows build.
+- Интерактив: E1M1 standalone, бой с зомби; панели было/стало до запуска
+  (протокол visual-verdict-workflow).
+- DoD: сьюты зелёные, build SUCCESS, интерактивный вердикт SUCCESS.
+
+## Ход работ
+
+**Task 1 закрыт ✅ 2026-08-13 (Gate S1 SUCCESS).** Находка: «mid-style»
+рефреш шейп-хинтов 5f20f88 (2026-08-10) сделал монстров нечитаемыми для
+TRELLIS — восстановлены оригинальные объёмные v2-рендеры из d908fcd
+(POSS/SPOS/TROO/SARG/BOSS; у всех запечённая шахматка, RGB без альфы —
+Space снимает фон сам). Генерация POSSA1: **seed 872506309**, 512/100k/1024,
+GLB `POSSA1_2026-08-13T174034.084.glb`. Doomify A: weld 70094→47739 verts,
+96 341→40 000 tris, albedo 256px/109 цветов. Меш в
+`Assets/Resources/ExperimentalMonsters/POSS/` (Point/uncompressed meta по
+шаблону ARM1B0). Native-входы кадров B–G сдамплены новым
+`Tools/dump_trellis_native_inputs.py` (протокол сверен пиксель-в-пиксель с
+закоммиченным POSSA1).
+
+Runtime (Task 4) написан заранее и компилится: `ExperimentalMonsterModel`
+(стоп-моушен свап, поза-интерп, каскад, all-or-nothing покрытие кадров),
+швы в `MonsterController`/`ThingSpawner`.
+
+**Task 2–3 закрыты ✅ 2026-08-13 (решение «идём в игру»).** Кадры B–G:
+пользовательские v2-редравы (référence: POSSA1-v2 оригинал + native-кадр
+позы; рецепт-промпт в переписке) → TRELLIS seed 872506309 → Doomify c
+`--palette-lump POSSA1` (общая палитра всех кадров, 109 цветов — без неё
+кадры квантовались в разные палитры и мигали бы). Gate S2 показал дрейф
+TRELLIS-генераций (шлем/воротник/тон рубахи гуляют; редравы при этом
+точные); решение пользователя — собрать все кадры и судить в движении.
+Сводные панели `Logs/doomify3d/POSS-allframes-*.png`: позы верные,
+анатомия чистая; выпадает скорее A (серый шлем без визора против
+бежевого с визором у C/D/E). Ре-ролл A (`POSSA1_2026-08-13T223222.247`)
+остался серым; принято решение идти в игру с ре-роллом — точечные
+перегенерации возможны потом (кадр ~минуты). Гоtcha: скачанный
+`POSSG1_...220936.glb` оказался байт-копией F (SHA-256 совпал) —
+перекачан. Все 7 мешей в `Assets/Resources/ExperimentalMonsters/POSS/`.
+
+## Статус
+
+- [x] Task 1 — POSSA1 меш + Gate S1 (SUCCESS 2026-08-13)
+- [x] Task 2 — консистентность A/B + Gate S2 (дрейф зафиксирован, решение
+      «сгенерировать все и судить в движении», 2026-08-13)
+- [x] Task 3 — кадры C–G + ре-ролл A, все меши в Resources (2026-08-13)
+- [x] Task 4 — runtime `ExperimentalMonsterModel` + швы (2026-08-13)
+- [x] Task 5 automation — таргетные PlayMode 4/4; полные сьюты EditMode
+      **624/624** + PlayMode **167/167**; Windows build Success, 188 МБ
+      (2026-08-14). CLI-гоtcha в память: PowerShell `&` не ждёт GUI-Unity —
+      только `Start-Process -Wait`, иначе шаги цепочки гоняются за локом.
+- [x] Task 5 интерактив — Gate Final SUCCESS 2026-08-14. Первый заход:
+      «выглядит очень даже неплохо», одно замечание — переливание цвета
+      туловища между кадрами (дрейф тона TRELLIS-albedo). Фикс:
+      `Tools/tone_match_albedo.py` — перенос mean/std статистики albedo
+      кадра A на B–G **только по маске рубашечной гаммы** (hue 10–70°,
+      sat > 0.08; глобальный перенос v1 отбраковали сами — уводил зелёные
+      штаны в коричневый), затем штатный кап 256 + общая палитра. Второй
+      заход: «переливание ушло, выглядит хорошо». Билд пересобран,
+      геометрия не менялась.
+- [ ] Task 2 — консистентность A/B + Gate S2
+- [ ] Task 3 — кадры C–G + Gate S3
+- [ ] Task 4 — runtime ExperimentalMonsterModel
+- [ ] Task 5 — automation + standalone + Gate Final

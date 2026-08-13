@@ -152,6 +152,11 @@ namespace Doom.MapBuild
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
                                 bb, col, eh, new DoomRandom(seedCounter++), t.Type, sound);
                         eh.SetController(mc);
+                        // Presentation-only stop-motion 3D monster (Enhanced+3D On).
+                        var monsterModel = ExperimentalMonsterModel.TryAttach(
+                            go, def.Sprite, worldScale, bb);
+                        if (monsterModel != null)
+                            mc.SetExperimentalModel(monsterModel);
                         foreach (var seq in new[]
                                  { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death, mdef.XDeath })
                         {

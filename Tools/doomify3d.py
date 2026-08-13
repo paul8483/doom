@@ -245,14 +245,23 @@ def main():
     p.add_argument("--tris", type=int, default=40000)
     p.add_argument("--texcap", type=int, default=256)
     p.add_argument("--palette", choices=["native", "playpal"], default="native")
+    # stop-motion monster frames must share ONE palette or textures flicker
+    # between frame meshes; pass the anchor frame's lump (e.g. POSSA1).
+    p.add_argument("--palette-lump", default=None,
+                   help="quantize to this lump's native palette instead of --lump's")
     p.add_argument("--out", default=None)
+    # monsters live under Assets/Resources/ExperimentalMonsters/<SPRITE>/
+    p.add_argument("--src", default=None,
+                   help="source dir with <lump>.obj + <lump>_albedo.png "
+                        "(default: Assets/Resources/ExperimentalPickups/<lump>)")
     a = p.parse_args()
 
-    src = PICKUPS / a.lump
+    src = Path(a.src) if a.src else PICKUPS / a.lump
     out = Path(a.out) if a.out else REPO / "Logs" / "doomify3d" / a.lump
     out.mkdir(parents=True, exist_ok=True)
 
-    pal = sprite_palette(a.lump) if a.palette == "native" else playpal()
+    pal = (sprite_palette(a.palette_lump or a.lump)
+           if a.palette == "native" else playpal())
     print(f"palette: {a.palette} ({len(pal)} colors)")
 
     albedo = Image.open(src / f"{a.lump}_albedo.png")
