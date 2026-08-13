@@ -91,3 +91,5 @@ Desktop.ini
 # WADs in Assets/StreamingAssets/wads/ are intentionally tracked
 # (Freedoom is freely redistributable; we want the project to be
 # runnable straight from a clean clone).
+
+Tools/__pycache__/
