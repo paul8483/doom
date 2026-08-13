@@ -45,6 +45,13 @@ namespace Doom.MapBuild
                 new[] { "A", "B", "C", "D", "E", "F", "G" },
                 new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f },
                 yawOffsetDeg: 0f),
+            // Attaches only once all 7 frame meshes land in Resources
+            // (TryAttach is all-or-nothing), so listing ahead is safe.
+            ["SPOS"] = new MonsterModelSet(
+                "SPOS",
+                new[] { "A", "B", "C", "D", "E", "F", "G" },
+                new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f },
+                yawOffsetDeg: 0f),
         };
 
         MonsterModelSet set;

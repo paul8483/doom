@@ -46,6 +46,40 @@ def shirt_mask(arr: np.ndarray) -> np.ndarray:
     return (sat > 0.08) & (hue >= 10) & (hue <= 70) & (mx > 0.15)
 
 
+def armor_mask(arr: np.ndarray) -> np.ndarray:
+    """Near-neutral texels (gray armor plate): low saturation, not near-black.
+    Excludes the red head, skin (warm, saturated) and green pants."""
+    rgb = arr[..., :3].astype(np.float64) / 255.0
+    mx = rgb.max(-1)
+    mn = rgb.min(-1)
+    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-9), 0)
+    return (sat <= 0.25) & (mx > 0.15)
+
+
+def pants_mask(arr: np.ndarray) -> np.ndarray:
+    """Green-hue texels (fatigue pants): hue 60-170, saturated enough to
+    exclude gray armor."""
+    rgb = arr[..., :3].astype(np.float64) / 255.0
+    mx = rgb.max(-1)
+    mn = rgb.min(-1)
+    delta = mx - mn
+    sat = np.where(mx > 0, delta / np.maximum(mx, 1e-9), 0)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        hue = np.zeros_like(mx)
+        m = delta > 1e-9
+        rm = m & (mx == r)
+        gm = m & (mx == g) & ~rm
+        bm = m & (mx == b) & ~rm & ~gm
+        hue[rm] = (60 * ((g - b) / delta) % 360)[rm]
+        hue[gm] = (60 * ((b - r) / delta) + 120)[gm]
+        hue[bm] = (60 * ((r - g) / delta) + 240)[bm]
+    return (sat > 0.12) & (hue >= 60) & (hue <= 170) & (mx > 0.1)
+
+
+MASKS = {"shirt": shirt_mask, "armor": armor_mask, "pants": pants_mask}
+
+
 def masked_stats(arr: np.ndarray, mask: np.ndarray):
     rgb = arr[..., :3].reshape(-1, 3).astype(np.float64)[mask.reshape(-1)]
     if len(rgb) < 64:
@@ -53,9 +87,9 @@ def masked_stats(arr: np.ndarray, mask: np.ndarray):
     return rgb.mean(0), rgb.std(0) + 1e-6
 
 
-def transfer(src: Image.Image, ref_mean, ref_std) -> Image.Image:
+def transfer(src: Image.Image, ref_mean, ref_std, mask_fn=shirt_mask) -> Image.Image:
     arr = np.asarray(src.convert("RGBA")).copy()
-    mask = shirt_mask(arr)
+    mask = mask_fn(arr)
     rgb = arr[..., :3].astype(np.float64)
     mean, std = masked_stats(arr, mask)
     corrected = (rgb - mean) / std * ref_std + ref_mean
@@ -72,18 +106,22 @@ def main():
     p.add_argument("--frames", nargs="+", required=True,
                    help="LUMP=path/to/raw_albedo.png pairs")
     p.add_argument("--out-resources", required=True)
+    p.add_argument("--mask", default="shirt",
+                   help="comma-separated region masks applied in order")
     a = p.parse_args()
 
+    mask_fns = [MASKS[name] for name in a.mask.split(",")]
     ref = Image.open(a.anchor)
     ref_arr = np.asarray(ref.convert("RGBA"))
-    ref_mean, ref_std = masked_stats(ref_arr, shirt_mask(ref_arr))
+    ref_stats = [masked_stats(ref_arr, fn(ref_arr)) for fn in mask_fns]
     pal = doomify3d.sprite_palette(a.palette_lump)
     out_dir = Path(a.out_resources)
 
     for pair in a.frames:
         lump, path = pair.split("=", 1)
-        raw = Image.open(path)
-        matched = transfer(raw, ref_mean, ref_std)
+        matched = Image.open(path)
+        for fn, (m, s) in zip(mask_fns, ref_stats):
+            matched = transfer(matched, m, s, fn)
         final = doomify3d.doomify_texture(matched, pal, a.texcap)
         dst = out_dir / f"{lump}_albedo.png"
         final.save(dst)

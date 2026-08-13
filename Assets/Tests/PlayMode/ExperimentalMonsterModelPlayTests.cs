@@ -85,8 +85,8 @@ namespace Doom.Stage3.PlayTests
         public IEnumerator Unknown_sprite_does_not_attach()
         {
             var go = NewMonsterRoot(out var bb);
-            Assert.That(ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb),
-                Is.Null, "SPOS has no accepted frame meshes yet");
+            Assert.That(ExperimentalMonsterModel.TryAttach(go, "TROO", 1f / 32f, bb),
+                Is.Null, "TROO has no accepted frame meshes yet");
             Object.Destroy(go);
             yield return null;
         }
