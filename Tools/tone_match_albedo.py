@@ -77,7 +77,28 @@ def pants_mask(arr: np.ndarray) -> np.ndarray:
     return (sat > 0.12) & (hue >= 60) & (hue <= 170) & (mx > 0.1)
 
 
-MASKS = {"shirt": shirt_mask, "armor": armor_mask, "pants": pants_mask}
+def flesh_mask(arr: np.ndarray) -> np.ndarray:
+    """Pink/red flesh (SARG worm): hue wrapping 330-360/0-25, saturated."""
+    rgb = arr[..., :3].astype(np.float64) / 255.0
+    mx = rgb.max(-1)
+    mn = rgb.min(-1)
+    delta = mx - mn
+    sat = np.where(mx > 0, delta / np.maximum(mx, 1e-9), 0)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        hue = np.zeros_like(mx)
+        m = delta > 1e-9
+        rm = m & (mx == r)
+        gm = m & (mx == g) & ~rm
+        bm = m & (mx == b) & ~rm & ~gm
+        hue[rm] = (60 * ((g - b) / delta) % 360)[rm]
+        hue[gm] = (60 * ((b - r) / delta) + 120)[gm]
+        hue[bm] = (60 * ((r - g) / delta) + 240)[bm]
+    return (sat > 0.12) & ((hue >= 330) | (hue <= 25)) & (mx > 0.1)
+
+
+MASKS = {"shirt": shirt_mask, "armor": armor_mask, "pants": pants_mask,
+         "flesh": flesh_mask}
 
 
 def masked_stats(arr: np.ndarray, mask: np.ndarray):

@@ -52,6 +52,14 @@ namespace Doom.MapBuild
                 new[] { "A", "B", "C", "D", "E", "F", "G" },
                 new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f },
                 yawOffsetDeg: 0f),
+            // Demon: melee attack spans E-F-G, pain is H (8 live frames).
+            // The spectre (58) never routes here — ThingSpawner keeps it on
+            // the MF_SHADOW billboard.
+            ["SARG"] = new MonsterModelSet(
+                "SARG",
+                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
+                new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f },
+                yawOffsetDeg: 0f),
         };
 
         MonsterModelSet set;

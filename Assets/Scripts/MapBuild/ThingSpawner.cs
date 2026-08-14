@@ -153,10 +153,15 @@ namespace Doom.MapBuild
                                 bb, col, eh, new DoomRandom(seedCounter++), t.Type, sound);
                         eh.SetController(mc);
                         // Presentation-only stop-motion 3D monster (Enhanced+3D On).
-                        var monsterModel = ExperimentalMonsterModel.TryAttach(
-                            go, def.Sprite, worldScale, bb);
-                        if (monsterModel != null)
-                            mc.SetExperimentalModel(monsterModel);
+                        // The spectre keeps its MF_SHADOW billboard: the shadow
+                        // effect lives in the sprite material, not the mesh path.
+                        if (t.Type != 58)
+                        {
+                            var monsterModel = ExperimentalMonsterModel.TryAttach(
+                                go, def.Sprite, worldScale, bb);
+                            if (monsterModel != null)
+                                mc.SetExperimentalModel(monsterModel);
+                        }
                         foreach (var seq in new[]
                                  { mdef.Stand, mdef.Run, mdef.Attack, mdef.Pain, mdef.Death, mdef.XDeath })
                         {
