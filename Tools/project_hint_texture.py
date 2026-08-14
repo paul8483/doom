@@ -31,6 +31,7 @@ from tone_match_albedo import armor_mask  # noqa: E402
 
 def rasterize_positions(verts, tris, cuv, size):
     pos = np.zeros((size, size, 3), np.float64)
+    nrm = np.zeros((size, size, 3), np.float64)
     filled = np.zeros((size, size), bool)
     for f, (i0, i1, i2) in enumerate(tris):
         uv = cuv[f]
@@ -54,8 +55,12 @@ def rasterize_positions(verts, tris, cuv, size):
         p3 = (w0[m, None] * verts[i0] + w1[m, None] * verts[i1]
               + w2[m, None] * verts[i2])
         pos[my, mx] = p3
+        n = np.cross(verts[i1] - verts[i0], verts[i2] - verts[i0])
+        ln = np.linalg.norm(n)
+        if ln > 1e-12:
+            nrm[my, mx] = n / ln
         filled[my, mx] = True
-    return pos, filled
+    return pos, nrm, filled
 
 
 def main():
@@ -65,6 +70,22 @@ def main():
                    help="LUMP=path/to/hint.png pairs")
     p.add_argument("--palette-lump", required=True)
     p.add_argument("--texcap", type=int, default=256)
+    # SPOS-specific: its design has no skin below the waist, so skin-like
+    # samples there are projection leaks. Monsters that ARE skin all over
+    # (TROO imp) must not pass this flag.
+    p.add_argument("--lower-skin-fix", action="store_true")
+    # TROO imp: golden belly plates are a FRONTAL feature; side-facing arm
+    # and torso-rim surfaces picking them up read as yellow leak spots.
+    p.add_argument("--side-accent-fix", action="store_true")
+    # Head region keeps the (palette-quantized) TRELLIS bake: projection
+    # smears the crest across the whole skull top, which reads as a second
+    # head flickering during the walk cycle. The bake's head is geometry-
+    # aligned (eyes on the actual face). Value = y_rel threshold.
+    p.add_argument("--head-from-bake", type=float, default=None)
+    p.add_argument("--bake-dir", default=None,
+                   help="dir with <lump>/<lump>_albedo.png doomify outputs")
+    p.add_argument("--raw-bake-dir", default=None,
+                   help="dir with <lump>-stage/<lump>_albedo.png raw TRELLIS bakes")
     a = p.parse_args()
 
     d = Path(a.dir)
@@ -104,7 +125,7 @@ def main():
         # triangles contend for one texel (hand colors landing on shins).
         # The BOX cap down to texcap happens in doomify_texture as usual.
         proj = 1024
-        pos, filled = rasterize_positions(v, tris, cuv, proj)
+        pos, nrm, filled = rasterize_positions(v, tris, cuv, proj)
         pts = pos[filled]
         # Row-by-row silhouette alignment: TRELLIS geometry is not
         # pixel-aligned with the hint, so a plain bbox mapping leaves ~25%
@@ -154,20 +175,44 @@ def main():
             sel = fg[row] & ~skin_px[row]
             if sel.sum() >= 8:
                 row_med[row] = np.median(hint[row, sel, :3], axis=0)
-        y_rel = (pts[:, 1] - y_min) / max(1e-9, y_max - y_min)
-        cf = cols.astype(np.float64)
-        skin_hit = (cf[:, 0] > 110) & (cf[:, 0] > cf[:, 2] + 8)
-        low = y_rel < 0.45
-        fix = skin_hit & low
-        cols[fix] = np.clip(row_med[wi2[fix]], 0, 255).astype(np.uint8)
-        # Residual light warm-grays on boots still quantize to palette pink:
-        # nothing below the waist is brighter than dark boot highlights, so
-        # cap lower-body luminance outright.
-        cf = cols.astype(np.float64)
-        lum = cf.mean(1)
-        hot = low & (lum > 120)
-        cols[hot] = np.clip(cf[hot] * (120.0 / lum[hot])[:, None],
-                            0, 255).astype(np.uint8)
+        if a.side_accent_fix:
+            # Suppress warm-gold accents on side-facing surfaces (|nz| small:
+            # neither the frontal belly nor the mirrored back), replacing with
+            # the row's median non-gold body color.
+            nz = nrm[filled][:, 2]
+            cf = cols.astype(np.float64)
+            gold = (cf[:, 0] > 130) & (cf[:, 1] > 95) & \
+                   (cf[:, 0] > cf[:, 2] + 50)
+            hfj = hint[..., :3].astype(np.float64)
+            gold_px = (hfj[..., 0] > 130) & (hfj[..., 1] > 95) & \
+                      (hfj[..., 0] > hfj[..., 2] + 50)
+            body_med = np.median(hint[..., :3][fg & ~gold_px], axis=0)
+            row_body = np.tile(body_med, (hint.shape[0], 1))
+            for row in np.unique(wi2):
+                sel = fg[row] & ~gold_px[row]
+                if sel.sum() >= 8:
+                    row_body[row] = np.median(hint[row, sel, :3], axis=0)
+            # Outward normals verified via signed volume: gold survives only
+            # on genuinely front-facing surfaces — sides AND the mirrored
+            # back both leaked at grazing angles (2026-08-14).
+            fixg = gold & (nz < 0.35)
+            cols[fixg] = np.clip(row_body[wi2[fixg]], 0, 255).astype(np.uint8)
+
+        if a.lower_skin_fix:
+            y_rel = (pts[:, 1] - y_min) / max(1e-9, y_max - y_min)
+            cf = cols.astype(np.float64)
+            skin_hit = (cf[:, 0] > 110) & (cf[:, 0] > cf[:, 2] + 8)
+            low = y_rel < 0.45
+            fix = skin_hit & low
+            cols[fix] = np.clip(row_med[wi2[fix]], 0, 255).astype(np.uint8)
+            # Residual light warm-grays on boots still quantize to palette
+            # pink: nothing below the waist is brighter than dark boot
+            # highlights, so cap lower-body luminance outright.
+            cf = cols.astype(np.float64)
+            lum = cf.mean(1)
+            hot = low & (lum > 120)
+            cols[hot] = np.clip(cf[hot] * (120.0 / lum[hot])[:, None],
+                                0, 255).astype(np.uint8)
 
         idx = np.argwhere(filled)
         out = np.zeros((proj, proj, 4), np.uint8)
@@ -175,6 +220,42 @@ def main():
         out[idx[:, 0], idx[:, 1], 3] = 255
 
         final = doomify3d.doomify_texture(Image.fromarray(out), pal, size)
+
+        if a.head_from_bake is not None and a.bake_dir:
+            y_rel_map = np.zeros((proj, proj), np.float64)
+            y_rel_map[filled] = (pts[:, 1] - y_min) / max(1e-9, y_max - y_min)
+            head1024 = (y_rel_map >= a.head_from_bake) & filled
+            head256 = np.asarray(Image.fromarray(
+                (head1024 * 255).astype(np.uint8), "L").resize(
+                    (size, size), Image.BOX)) > 127
+            bake = np.asarray(Image.open(
+                Path(a.bake_dir) / lump / f"{lump}_albedo.png").convert("RGBA"))
+            fin = np.asarray(final.convert("RGBA")).copy()
+            fin[head256] = bake[head256]
+            # Eye boost: the bake's yellow eyes are a few texels and die in
+            # quantization, leaving the face unreadable (the imp was reported
+            # as «walking backwards»). Find frontal bright-yellow head texels
+            # in the raw bake at 1024 and repaint them saturated at 256.
+            if a.raw_bake_dir:
+                raw_bake = np.asarray(Image.open(
+                    Path(a.raw_bake_dir) / f"{lump}-stage" / f"{lump}_albedo.png"
+                ).convert("RGB")).astype(np.float64)
+                if raw_bake.shape[0] != proj:
+                    raw_bake = np.asarray(Image.fromarray(
+                        raw_bake.astype(np.uint8)).resize(
+                            (proj, proj), Image.BOX)).astype(np.float64)
+                nz_map = np.zeros((proj, proj), np.float64)
+                nz_map[filled] = nrm[filled][:, 2]
+                eye1024 = head1024 & (nz_map > 0.15) & \
+                    (raw_bake[..., 0] > 135) & (raw_bake[..., 1] > 100) & \
+                    (raw_bake[..., 2] < 120) & \
+                    (raw_bake[..., 1] > raw_bake[..., 2] + 20)
+                eye256 = np.asarray(Image.fromarray(
+                    (eye1024 * 255).astype(np.uint8), "L").resize(
+                        (size, size), Image.BOX)) > 16
+                fin[eye256] = (255, 216, 48, 255)
+            final = Image.fromarray(fin)
+
         final.save(d / f"{lump}_albedo.png")
         blue = strong_blue(np.asarray(final.convert("RGBA")))
         Image.fromarray((blue * 255).astype(np.uint8), "L").save(

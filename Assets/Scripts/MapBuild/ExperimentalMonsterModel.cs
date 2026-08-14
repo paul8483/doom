@@ -60,6 +60,16 @@ namespace Doom.MapBuild
                 new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
                 new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f },
                 yawOffsetDeg: 0f),
+            // Imp: attack spans E-F-G (fireball launches on G), pain is H.
+            // Offset stays 0 like every monster (all TRELLIS meshes share
+            // the same forward): the 2026-08-14 «walks back-first» reports
+            // were the FACE being unreadable (eyes lost to quantization) —
+            // fixed by the eye-boost in project_hint_texture, not by yaw.
+            ["TROO"] = new MonsterModelSet(
+                "TROO",
+                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
+                new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f },
+                yawOffsetDeg: 0f),
         };
 
         MonsterModelSet set;
