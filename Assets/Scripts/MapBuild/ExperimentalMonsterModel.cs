@@ -99,16 +99,24 @@ namespace Doom.MapBuild
             if (!Sets.TryGetValue(sprite, out var set)) return null;
 
             var prefabs = new GameObject[set.FrameLetters.Length];
+            var emissionMasks = new Texture2D[set.FrameLetters.Length];
+            bool allMasks = true;
             for (int i = 0; i < set.FrameLetters.Length; i++)
             {
                 string resource =
                     ResourceRoot + set.Sprite + "/" + set.Sprite + set.FrameLetters[i] + "1";
                 prefabs[i] = Resources.Load<GameObject>(resource);
                 if (prefabs[i] == null) return null;
+                // Optional steady-glow masks (SPOS visor). All-or-nothing like
+                // the frame meshes: a partial set would strobe during walk.
+                emissionMasks[i] = Resources.Load<Texture2D>(resource + "_emission");
+                if (emissionMasks[i] == null) allMasks = false;
             }
+            if (!allMasks)
+                emissionMasks = null;
 
             var model = monsterRoot.AddComponent<ExperimentalMonsterModel>();
-            model.Init(set, prefabs, worldScale, billboard);
+            model.Init(set, prefabs, emissionMasks, worldScale, billboard);
             if (!model.HasModel)
             {
                 Destroy(model);
@@ -117,7 +125,8 @@ namespace Doom.MapBuild
             return model;
         }
 
-        void Init(MonsterModelSet set, GameObject[] prefabs, float worldScale,
+        void Init(MonsterModelSet set, GameObject[] prefabs,
+                  Texture2D[] emissionMasks, float worldScale,
                   SpriteBillboard sourceBillboard)
         {
             this.set = set;
@@ -152,7 +161,8 @@ namespace Doom.MapBuild
                 }
                 NormalizeFrame(instance, renderers,
                                set.PatchHeightsPx[i] * worldScale);
-                ConfigureMaterials(renderers);
+                ConfigureMaterials(renderers,
+                                   emissionMasks != null ? emissionMasks[i] : null);
                 instance.SetActive(false);
                 frameModels[i] = instance;
             }
@@ -195,8 +205,10 @@ namespace Doom.MapBuild
         }
 
         /// Same presentation stack as pickups/decorations: Resources-loaded
-        /// unlit shader (exposure 1.0, SectorFog aware), no model emission.
-        void ConfigureMaterials(Renderer[] renderers)
+        /// unlit shader (exposure 1.0, SectorFog aware). An optional emission
+        /// mask lights masked texels steadily in the albedo's own hue (blue
+        /// visor) — discrete-blink path with _Blink pinned to 1.
+        void ConfigureMaterials(Renderer[] renderers, Texture2D emissionMask)
         {
             Shader shader = Resources.Load<Shader>(
                 "ExperimentalPickups/DoomExperimentalPickupUnlit");
@@ -217,6 +229,14 @@ namespace Doom.MapBuild
                     material.SetFloat("_Exposure", 1f);
                     material.SetFloat("_EmissionStrength", 0f);
                     material.SetColor("_ColorTint", Color.white);
+                    if (emissionMask != null)
+                    {
+                        material.SetTexture("_EmissionMask", emissionMask);
+                        material.SetFloat("_BlinkMode", 1f);
+                        material.SetFloat("_Blink", 1f);
+                        material.SetFloat("_PulseStrength", 0.9f);
+                        material.SetFloat("_PulseSpeed", 0f);
+                    }
                     upgraded[i] = material;
                     ownedMaterials.Add(material);
                 }
