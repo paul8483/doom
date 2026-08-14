@@ -70,6 +70,12 @@ namespace Doom.MapBuild
                 new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
                 new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f },
                 yawOffsetDeg: 0f),
+            // Baron of Hell (E1M8 finale): attack E-F-G, pain H.
+            ["BOSS"] = new MonsterModelSet(
+                "BOSS",
+                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
+                new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f },
+                yawOffsetDeg: 0f),
         };
 
         MonsterModelSet set;
