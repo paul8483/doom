@@ -144,15 +144,14 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Spos_fall_frames_stay_on_the_mesh_then_hand_over()
+        public IEnumerator Spos_death_chain_stays_on_the_mesh_through_the_corpse()
         {
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
             var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
-            Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(4),
-                "SPOS has meshes for the fall H0-K0; the L0 corpse heap is "
-                + "still to be authored, so coverage stops there");
+            Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(5),
+                "SPOS covers its whole death chain H0-L0, corpse included");
 
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display,
@@ -165,17 +164,17 @@ namespace Doom.Stage3.PlayTests
             Assert.That(model.RevertedForTest, Is.False,
                 "a covered fall keeps the mesh");
 
-            // Death frames 7-10 (H0-K0) are covered and swap like live frames.
-            foreach (int frame in new[] { 7, 8, 9, 10 })
+            // Death frames 7-11 (H0-L0) are covered and swap like live frames.
+            foreach (int frame in new[] { 7, 8, 9, 10, 11 })
             {
                 model.NotifyFrame(frame);
                 Assert.That(model.CurrentFrameForTest, Is.EqualTo(frame));
                 Assert.That(model.ModelVisible, Is.True, $"frame {frame} on mesh");
             }
 
-            // L0 (11) is the corpse heap: no mesh yet, so it falls outside the
-            // covered prefix and hands over to the native sprite for good.
-            model.NotifyFrame(11);
+            // Frame 12 opens the xdeath gib sequence, which the table never
+            // covers — presentation hands over to the native sprite for good.
+            model.NotifyFrame(12);
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);
             Assert.That(mr.enabled, Is.True);
