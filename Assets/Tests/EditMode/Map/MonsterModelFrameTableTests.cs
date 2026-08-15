@@ -24,7 +24,7 @@ namespace Doom.Map.Tests
             Application.streamingAssetsPath, "wads", "freedoom1.wad");
 
         [Test]
-        public void Death_frames_continue_the_live_coverage_without_gaps()
+        public void Death_coverage_is_a_contiguous_prefix_of_the_death_sequence()
         {
             foreach (var (num, sprite) in Routed)
             {
@@ -43,12 +43,33 @@ namespace Doom.Map.Tests
                 for (int i = 1; i < death.Length; i++)
                     Assert.That(death[i], Is.EqualTo(death[i - 1] + 1),
                         $"{sprite}: death frames must be contiguous");
-                Assert.That(thing.CorpseFrame, Is.GreaterThanOrEqualTo(live));
-                Assert.That(lumps.Length,
-                    Is.EqualTo(Mathf.Max(death[death.Length - 1],
-                                         thing.CorpseFrame) + 1),
-                    $"{sprite}: the table must cover the death tail and the " +
-                    "corpse, and nothing beyond it (xdeath stays billboard)");
+
+                int covered = lumps.Length - live;
+                Assert.That(covered, Is.GreaterThan(0),
+                    $"{sprite}: at least the first fall frame is covered");
+                Assert.That(covered, Is.LessThanOrEqualTo(death.Length),
+                    $"{sprite}: coverage may only reach into the death " +
+                    "sequence — gore frames and the corpse stay billboard");
+                Assert.That(thing.CorpseFrame, Is.GreaterThanOrEqualTo(live),
+                    $"{sprite}: the corpse frame follows the live frames");
+            }
+        }
+
+        [Test]
+        public void Live_frames_keep_their_rotation_1_lumps()
+        {
+            foreach (var (_, sprite) in Routed)
+            {
+                Assert.That(ExperimentalMonsterModel.TryGetFrameTableForTest(
+                    sprite, out int live, out var lumps, out _), Is.True);
+                for (int i = 0; i < lumps.Length; i++)
+                {
+                    // Live frames are drawn per rotation, death frames once.
+                    string expected = i < live ? "1" : "0";
+                    Assert.That(lumps[i].Substring(lumps[i].Length - 1),
+                        Is.EqualTo(expected),
+                        $"{sprite}{lumps[i]}: frame {i} rotation suffix");
+                }
             }
         }
 

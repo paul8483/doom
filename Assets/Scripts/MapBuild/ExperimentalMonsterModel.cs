@@ -48,38 +48,51 @@ namespace Doom.MapBuild
         // Native patch heights (px) mirror the WAD patch headers per frame —
         // the billboard renders each frame at patch size, so per-frame mesh
         // normalization keeps the exact same silhouette scale behaviour. The
-        // death tail shrinks (POSS 55 → 19 px) because the zombie collapses:
-        // its meshes must be modelled lying down, or the height-driven scale
-        // blows them up.
+        // death tail shrinks as the body collapses, so those meshes must be
+        // modelled lying down or the height-driven scale blows them up.
+        //
+        // Death coverage stops at the last frame that still reads as a BODY:
+        // Freedoom kills dissolve into gore (POSS loses its head on H0, SARG
+        // is a puddle of chunks by K0, BOSS a heap of bone), and a 19-30 px
+        // flat splatter has no volume for TRELLIS to reconstruct. Coverage is
+        // therefore a contiguous PREFIX of the death sequence; the remaining
+        // frames and the corpse stay on the billboard, exactly as the whole
+        // death did before this stage.
         static readonly Dictionary<string, MonsterModelSet> Sets = new()
         {
+            // Death: H0 (hit, head bursting) and I0 (mid-collapse) still read
+            // as a zombie; J0 onward is a pile of boots.
             ["POSS"] = new MonsterModelSet(
                 "POSS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
-                        "H0", "I0", "J0", "K0", "L0" },
+                        "H0", "I0" },
                 new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f,
-                        55f, 42f, 34f, 27f, 19f },
+                        55f, 42f },
                 liveFrameCount: 7,
                 yawOffsetDeg: 0f),
             // Attaches only once all 7 live frame meshes land in Resources
-            // (TryAttach is all-or-nothing), so listing ahead is safe.
+            // (TryAttach is all-or-nothing), so listing ahead is safe. The
+            // sergeant has the cleanest fall of the roster — four death
+            // frames keep a body before L0 flattens.
             ["SPOS"] = new MonsterModelSet(
                 "SPOS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
-                        "H0", "I0", "J0", "K0", "L0" },
+                        "H0", "I0", "J0", "K0" },
                 new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f,
-                        60f, 53f, 39f, 34f, 20f },
+                        60f, 53f, 39f, 34f },
                 liveFrameCount: 7,
                 yawOffsetDeg: 0f),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
             // The spectre (58) never routes here — ThingSpawner keeps it on
             // the MF_SHADOW billboard.
+            // Death: the demon bursts — I0 and J0 are the last frames with a
+            // body, K0 onward is spraying gore.
             ["SARG"] = new MonsterModelSet(
                 "SARG",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0", "K0", "L0", "M0", "N0" },
+                        "I0", "J0" },
                 new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f,
-                        59f, 60f, 53f, 40f, 30f, 29f },
+                        59f, 60f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
             // Imp: attack spans E-F-G (fireball launches on G), pain is H.
@@ -87,23 +100,25 @@ namespace Doom.MapBuild
             // the same forward): the 2026-08-14 «walks back-first» reports
             // were the FACE being unreadable (eyes lost to quantization) —
             // fixed by the eye-boost in project_hint_texture, not by yaw.
+            // The imp holds its shape longest of the roster: I0-L0 are a
+            // twisting collapse, M0 is the flat heap.
             ["TROO"] = new MonsterModelSet(
                 "TROO",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0", "K0", "L0", "M0" },
+                        "I0", "J0", "K0", "L0" },
                 new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f,
-                        63f, 62f, 54f, 43f, 26f },
+                        63f, 62f, 54f, 43f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
-            // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Its last
-            // death frame IS the corpse frame (14 = O), so the death tail is
-            // seven meshes with no separate corpse entry.
+            // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Death I0-J0
+            // is the standing hit and the buckle; from K0 the baron is a heap
+            // of bone and meat.
             ["BOSS"] = new MonsterModelSet(
                 "BOSS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0", "K0", "L0", "M0", "N0", "O0" },
+                        "I0", "J0" },
                 new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f,
-                        73f, 69f, 67f, 52f, 46f, 38f, 24f },
+                        73f, 69f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
         };
