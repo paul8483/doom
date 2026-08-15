@@ -6,11 +6,13 @@ using Doom.MapBuild.Rendering;
 namespace Doom.MapBuild
 {
     /// Stop-motion TRELLIS.2 presentation for allowlisted monsters: one
-    /// doomified mesh per live animation frame (stand/walk/attack/pain),
-    /// switched on the 35 Hz brain tick like sprite frames. Death, gibs and
-    /// corpse revert to the billboard permanently (barrel BEXP pattern).
-    /// Gameplay, collision and save identity stay on the original thing
-    /// root; Classic and Enhanced+3D Off keep the sprite billboard.
+    /// doomified mesh per animation frame, switched on the 35 Hz brain tick
+    /// like sprite frames. Live frames (stand/walk/attack/pain) are covered
+    /// per monster; the death sequence and the corpse are covered too when
+    /// their whole mesh set is present, otherwise death falls back to the
+    /// billboard permanently (barrel BEXP pattern). Gibs (XDEATH) always
+    /// revert. Gameplay, collision and save identity stay on the original
+    /// thing root; Classic and Enhanced+3D Off keep the sprite billboard.
     public sealed class ExperimentalMonsterModel : MonoBehaviour
     {
         const string ResourceRoot = "ExperimentalMonsters/";
@@ -19,46 +21,66 @@ namespace Doom.MapBuild
         sealed class MonsterModelSet
         {
             public readonly string Sprite;
-            public readonly string[] FrameLetters;
+            // Full lump names per brain frame index — live frames carry
+            // rotation 1 (POSSA1), death frames are rotation-less (POSSH0).
+            public readonly string[] FrameLumps;
             public readonly float[] PatchHeightsPx;
+            /// Frames [0, LiveFrameCount) are stand/walk/attack/pain and are
+            /// mandatory for attaching; the rest are the death sequence plus
+            /// the corpse and are optional (all-or-nothing as a group).
+            public readonly int LiveFrameCount;
             // TRELLIS front view looks down -Z after Unity import; calibrated
             // per set at the import gate.
             public readonly float YawOffsetDeg;
 
-            public MonsterModelSet(string sprite, string[] letters,
-                                   float[] heightsPx, float yawOffsetDeg)
+            public MonsterModelSet(string sprite, string[] lumps,
+                                   float[] heightsPx, int liveFrameCount,
+                                   float yawOffsetDeg)
             {
                 Sprite = sprite;
-                FrameLetters = letters;
+                FrameLumps = lumps;
                 PatchHeightsPx = heightsPx;
+                LiveFrameCount = liveFrameCount;
                 YawOffsetDeg = yawOffsetDeg;
             }
         }
 
         // Native patch heights (px) mirror the WAD patch headers per frame —
         // the billboard renders each frame at patch size, so per-frame mesh
-        // normalization keeps the exact same silhouette scale behaviour.
+        // normalization keeps the exact same silhouette scale behaviour. The
+        // death tail shrinks (POSS 55 → 19 px) because the zombie collapses:
+        // its meshes must be modelled lying down, or the height-driven scale
+        // blows them up.
         static readonly Dictionary<string, MonsterModelSet> Sets = new()
         {
             ["POSS"] = new MonsterModelSet(
                 "POSS",
-                new[] { "A", "B", "C", "D", "E", "F", "G" },
-                new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f },
+                new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
+                        "H0", "I0", "J0", "K0", "L0" },
+                new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f,
+                        55f, 42f, 34f, 27f, 19f },
+                liveFrameCount: 7,
                 yawOffsetDeg: 0f),
-            // Attaches only once all 7 frame meshes land in Resources
+            // Attaches only once all 7 live frame meshes land in Resources
             // (TryAttach is all-or-nothing), so listing ahead is safe.
             ["SPOS"] = new MonsterModelSet(
                 "SPOS",
-                new[] { "A", "B", "C", "D", "E", "F", "G" },
-                new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f },
+                new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
+                        "H0", "I0", "J0", "K0", "L0" },
+                new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f,
+                        60f, 53f, 39f, 34f, 20f },
+                liveFrameCount: 7,
                 yawOffsetDeg: 0f),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
             // The spectre (58) never routes here — ThingSpawner keeps it on
             // the MF_SHADOW billboard.
             ["SARG"] = new MonsterModelSet(
                 "SARG",
-                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
-                new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f },
+                new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
+                        "I0", "J0", "K0", "L0", "M0", "N0" },
+                new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f,
+                        59f, 60f, 53f, 40f, 30f, 29f },
+                liveFrameCount: 8,
                 yawOffsetDeg: 0f),
             // Imp: attack spans E-F-G (fireball launches on G), pain is H.
             // Offset stays 0 like every monster (all TRELLIS meshes share
@@ -67,14 +89,22 @@ namespace Doom.MapBuild
             // fixed by the eye-boost in project_hint_texture, not by yaw.
             ["TROO"] = new MonsterModelSet(
                 "TROO",
-                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
-                new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f },
+                new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
+                        "I0", "J0", "K0", "L0", "M0" },
+                new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f,
+                        63f, 62f, 54f, 43f, 26f },
+                liveFrameCount: 8,
                 yawOffsetDeg: 0f),
-            // Baron of Hell (E1M8 finale): attack E-F-G, pain H.
+            // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Its last
+            // death frame IS the corpse frame (14 = O), so the death tail is
+            // seven meshes with no separate corpse entry.
             ["BOSS"] = new MonsterModelSet(
                 "BOSS",
-                new[] { "A", "B", "C", "D", "E", "F", "G", "H" },
-                new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f },
+                new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
+                        "I0", "J0", "K0", "L0", "M0", "N0", "O0" },
+                new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f,
+                        73f, 69f, 67f, 52f, 46f, 38f, 24f },
+                liveFrameCount: 8,
                 yawOffsetDeg: 0f),
         };
 
@@ -82,7 +112,11 @@ namespace Doom.MapBuild
         SpriteBillboard billboard;
         MeshRenderer billboardRenderer;
         Transform yawPivot;
+        GameObject[] framePrefabs;
+        Texture2D[] frameEmission;
         GameObject[] frameModels;
+        float worldScale;
+        bool deathCovered;
         readonly List<Material> ownedMaterials = new List<Material>();
 
         int currentFrame;
@@ -101,10 +135,13 @@ namespace Doom.MapBuild
         public bool ModelVisible => HasModel && yawPivot.gameObject.activeSelf;
         public int CurrentFrameForTest => currentFrame;
         public bool RevertedForTest => reverted;
+        public bool DeathCoveredForTest => deathCovered;
 
         /// Attach when every live frame of the sprite has an accepted mesh —
         /// all-or-nothing, same rule as the SpriteCache animation gate for
         /// display redraws (partial coverage would flicker between styles).
+        /// The death tail is a second all-or-nothing group: complete → the
+        /// kill stays 3D, incomplete → death hands over to the billboard.
         public static ExperimentalMonsterModel TryAttach(
             GameObject monsterRoot,
             string sprite,
@@ -114,25 +151,33 @@ namespace Doom.MapBuild
             if (monsterRoot == null || sprite == null) return null;
             if (!Sets.TryGetValue(sprite, out var set)) return null;
 
-            var prefabs = new GameObject[set.FrameLetters.Length];
-            var emissionMasks = new Texture2D[set.FrameLetters.Length];
-            bool allMasks = true;
-            for (int i = 0; i < set.FrameLetters.Length; i++)
+            var prefabs = new GameObject[set.FrameLumps.Length];
+            var emissionMasks = new Texture2D[set.FrameLumps.Length];
+            bool liveMasks = true;
+            bool deathCovered = true;
+            for (int i = 0; i < set.FrameLumps.Length; i++)
             {
+                bool live = i < set.LiveFrameCount;
                 string resource =
-                    ResourceRoot + set.Sprite + "/" + set.Sprite + set.FrameLetters[i] + "1";
+                    ResourceRoot + set.Sprite + "/" + set.Sprite + set.FrameLumps[i];
                 prefabs[i] = Resources.Load<GameObject>(resource);
-                if (prefabs[i] == null) return null;
+                if (prefabs[i] == null)
+                {
+                    if (live) return null;
+                    deathCovered = false;
+                    continue;
+                }
                 // Optional steady-glow masks (SPOS visor). All-or-nothing like
                 // the frame meshes: a partial set would strobe during walk.
                 emissionMasks[i] = Resources.Load<Texture2D>(resource + "_emission");
-                if (emissionMasks[i] == null) allMasks = false;
+                if (live && emissionMasks[i] == null) liveMasks = false;
             }
-            if (!allMasks)
+            if (!liveMasks)
                 emissionMasks = null;
 
             var model = monsterRoot.AddComponent<ExperimentalMonsterModel>();
-            model.Init(set, prefabs, emissionMasks, worldScale, billboard);
+            model.Init(set, prefabs, emissionMasks, deathCovered, worldScale,
+                       billboard);
             if (!model.HasModel)
             {
                 Destroy(model);
@@ -142,10 +187,14 @@ namespace Doom.MapBuild
         }
 
         void Init(MonsterModelSet set, GameObject[] prefabs,
-                  Texture2D[] emissionMasks, float worldScale,
-                  SpriteBillboard sourceBillboard)
+                  Texture2D[] emissionMasks, bool deathFramesCovered,
+                  float worldScaleUnits, SpriteBillboard sourceBillboard)
         {
             this.set = set;
+            framePrefabs = prefabs;
+            frameEmission = emissionMasks;
+            deathCovered = deathFramesCovered;
+            worldScale = worldScaleUnits;
             billboard = sourceBillboard;
             billboardRenderer = GetComponent<MeshRenderer>();
 
@@ -158,29 +207,19 @@ namespace Doom.MapBuild
             pivotGo.transform.rotation = Quaternion.identity;
             yawPivot = pivotGo.transform;
 
+            // Only the live frames are instantiated up front. Death meshes
+            // are needed once, by the monsters that actually die, so they
+            // are built on demand (a level's whole population would otherwise
+            // carry ~1.7× the GameObjects for frames most of them never show).
             frameModels = new GameObject[prefabs.Length];
-            for (int i = 0; i < prefabs.Length; i++)
+            for (int i = 0; i < set.LiveFrameCount; i++)
             {
-                var instance = Instantiate(prefabs[i], yawPivot);
-                instance.name = set.Sprite + set.FrameLetters[i] + "1";
-                instance.transform.localPosition = Vector3.zero;
-                instance.transform.localRotation = Quaternion.identity;
-                instance.transform.localScale = Vector3.one;
-                var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
-                if (renderers.Length == 0)
+                if (!EnsureFrameInstance(i))
                 {
-                    Debug.LogWarning(
-                        $"ExperimentalMonsterModel: '{instance.name}' has no renderers.");
                     Destroy(pivotGo);
                     yawPivot = null;
                     return;
                 }
-                NormalizeFrame(instance, renderers,
-                               set.PatchHeightsPx[i] * worldScale);
-                ConfigureMaterials(renderers,
-                                   emissionMasks != null ? emissionMasks[i] : null);
-                instance.SetActive(false);
-                frameModels[i] = instance;
             }
 
             currentFrame = 0;
@@ -191,6 +230,36 @@ namespace Doom.MapBuild
 
             SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
+        }
+
+        /// Build one frame's mesh instance (inactive). Returns false when the
+        /// prefab is missing or has no renderers.
+        bool EnsureFrameInstance(int index)
+        {
+            if (frameModels == null || yawPivot == null) return false;
+            if (frameModels[index] != null) return true;
+            if (framePrefabs[index] == null) return false;
+
+            var instance = Instantiate(framePrefabs[index], yawPivot);
+            instance.name = set.Sprite + set.FrameLumps[index];
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (renderers.Length == 0)
+            {
+                Debug.LogWarning(
+                    $"ExperimentalMonsterModel: '{instance.name}' has no renderers.");
+                Destroy(instance);
+                return false;
+            }
+            NormalizeFrame(instance, renderers,
+                           set.PatchHeightsPx[index] * worldScale);
+            ConfigureMaterials(renderers,
+                               frameEmission != null ? frameEmission[index] : null);
+            instance.SetActive(false);
+            frameModels[index] = instance;
+            return true;
         }
 
         /// Scale by the frame's native patch height and anchor feet at the
@@ -262,24 +331,42 @@ namespace Doom.MapBuild
 
         // ── Seams called from MonsterController ──────────────────────────────
 
-        /// Brain frame switch. Live frames (stand/run/attack/pain) select the
-        /// matching mesh; any frame outside coverage (death H+, xdeath) drops
-        /// to the billboard for good.
+        /// Brain frame switch. Frames inside the set select the matching mesh
+        /// (death frames build their instance on first use); any frame outside
+        /// coverage — an uncovered death tail, or xdeath gibs — drops to the
+        /// billboard for good.
         public void NotifyFrame(int frame)
         {
             if (reverted || frameModels == null) return;
-            if (frame < 0 || frame >= frameModels.Length)
+            if (frame < 0 || frame >= frameModels.Length ||
+                (frame >= set.LiveFrameCount && !deathCovered))
             {
                 RevertToBillboard();
                 return;
             }
             if (frame == currentFrame) return;
+            if (!EnsureFrameInstance(frame))
+            {
+                RevertToBillboard();
+                return;
+            }
             if (ModelVisible)
             {
-                frameModels[currentFrame].SetActive(false);
+                if (frameModels[currentFrame] != null)
+                    frameModels[currentFrame].SetActive(false);
                 frameModels[frame].SetActive(true);
             }
             currentFrame = frame;
+        }
+
+        /// The monster just started dying. A covered death tail keeps the mesh
+        /// (the frames arrive through NotifyFrame); gibs and monsters without
+        /// death meshes hand over to the billboard before the first fall frame.
+        public void NotifyDeathStarted(bool extremeDeath)
+        {
+            if (reverted) return;
+            if (extremeDeath || !deathCovered)
+                RevertToBillboard();
         }
 
         /// 35 Hz gameplay pose from MonsterController (position step + facing),
@@ -301,8 +388,9 @@ namespace Doom.MapBuild
             poseAlpha = 0f;
         }
 
-        /// Death / gib / corpse / save-restore-dead: hide the mesh forever and
-        /// hand presentation back to the billboard (barrel BEXP pattern).
+        /// Gibs / uncovered death / restore of a corpse outside coverage: hide
+        /// the mesh forever and hand presentation back to the billboard
+        /// (barrel BEXP pattern).
         public void RevertToBillboard()
         {
             reverted = true;
@@ -384,12 +472,33 @@ namespace Doom.MapBuild
                 yawPivot.gameObject.SetActive(useMesh);
                 if (useMesh && frameModels != null)
                     for (int i = 0; i < frameModels.Length; i++)
-                        frameModels[i].SetActive(i == currentFrame);
+                        if (frameModels[i] != null)
+                            frameModels[i].SetActive(i == currentFrame);
             }
             if (billboardRenderer != null)
                 billboardRenderer.enabled = !useMesh;
             if (billboard != null)
                 billboard.enabled = !useMesh;
+        }
+
+        /// Test seam: the frame table of a routed sprite. Frame index is the
+        /// brain's frame number, so the table must line up with MonsterTable's
+        /// death sequence and ThingTable's corpse frame.
+        public static bool TryGetFrameTableForTest(
+            string sprite, out int liveFrameCount,
+            out string[] frameLumps, out float[] patchHeightsPx)
+        {
+            if (sprite != null && Sets.TryGetValue(sprite, out var s))
+            {
+                liveFrameCount = s.LiveFrameCount;
+                frameLumps = (string[])s.FrameLumps.Clone();
+                patchHeightsPx = (float[])s.PatchHeightsPx.Clone();
+                return true;
+            }
+            liveFrameCount = 0;
+            frameLumps = null;
+            patchHeightsPx = null;
+            return false;
         }
 
         /// Test seam: force mesh on/off without going through settings.

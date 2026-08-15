@@ -116,6 +116,14 @@ namespace Doom.Stage3.PlayTests
                 Assert.That(model.ModelVisible, Is.True);
             }
 
+            // Death meshes are not in Resources yet, so the death tail is
+            // uncovered and the kill hands over to the billboard, as before.
+            Assert.That(model.DeathCoveredForTest, Is.False,
+                "POSS death meshes (H0-L0) are not authored yet");
+            model.NotifyDeathStarted(extremeDeath: false);
+            Assert.That(model.RevertedForTest, Is.True,
+                "uncovered death tail reverts before the first fall frame");
+
             // First death frame (H = 7) → billboard, permanently.
             model.NotifyFrame(7);
             Assert.That(model.RevertedForTest, Is.True);
@@ -129,6 +137,33 @@ namespace Doom.Stage3.PlayTests
             settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.False, "corpse never returns to mesh");
+            Assert.That(mr.enabled, Is.True);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Gibs_always_revert_even_with_covered_death()
+        {
+            var go = NewMonsterRoot(out var bb);
+            var mr = go.GetComponent<MeshRenderer>();
+            var model = ExperimentalMonsterModel.TryAttach(go, "POSS", 1f / 32f, bb);
+            Assert.That(model, Is.Not.Null);
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.SetEnhanced3DObjects(true);
+            yield return null;
+            Assert.That(model.ModelVisible, Is.True);
+
+            // XDEATH is a different anatomy (flying gibs) and is never covered
+            // by the stop-motion set, whatever the death tail holds.
+            model.NotifyDeathStarted(extremeDeath: true);
+            Assert.That(model.RevertedForTest, Is.True);
+            Assert.That(model.ModelVisible, Is.False);
             Assert.That(mr.enabled, Is.True);
 
             Object.Destroy(go);

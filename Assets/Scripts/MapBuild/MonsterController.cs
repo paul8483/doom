@@ -83,7 +83,6 @@ namespace Doom.MapBuild
             if (dead || healthValue <= 0)
             {
                 dropSpawned = true;
-                if (model != null) model.RevertToBillboard();
                 if (health != null) health.RestoreHealth(0);
                 if (capsule != null) capsule.enabled = false;
                 if (brain != null)
@@ -91,10 +90,15 @@ namespace Doom.MapBuild
                     brain.RestoreChaseBookkeeping(
                         MonsterState.Dead, 0, 0, Dir8.None, 0, 0, false, false);
                 }
-                if (bb != null)
+                int restoredCorpse = frame >= 0 ? frame : corpseFrame;
+                if (bb != null && restoredCorpse >= 0)
+                    bb.SetStaticFrame(restoredCorpse);
+                if (model != null)
                 {
-                    int corpse = frame >= 0 ? frame : corpseFrame;
-                    if (corpse >= 0) bb.SetStaticFrame(corpse);
+                    // A saved corpse restores onto its death mesh when covered;
+                    // gib corpses and uncovered sets fall back to the billboard.
+                    if (restoredCorpse >= 0) model.NotifyFrame(restoredCorpse);
+                    else model.RevertToBillboard();
                 }
                 return;
             }
@@ -187,18 +191,22 @@ namespace Doom.MapBuild
             public void OnDeathStarted()
             {
                 if (c.capsule != null) c.capsule.enabled = false;
-                // Death frames live on the billboard (stop-motion meshes cover
-                // only stand/run/attack/pain) — switch before the H frame shows.
-                if (c.model != null) c.model.RevertToBillboard();
+                // Monsters with a covered death tail keep the mesh through the
+                // fall; gibs and uncovered sets hand over to the billboard
+                // before the first death frame shows.
+                if (c.model != null)
+                    c.model.NotifyDeathStarted(c.brain.IsExtremeDeath);
                 c.SpawnDeathDrop();
             }
             public void OnBecameCorpse()
             {
-                if (c.bb == null) return;
                 int finalFrame = c.brain.IsExtremeDeath && c.def.XDeathCorpseFrame >= 0
                     ? c.def.XDeathCorpseFrame
                     : c.corpseFrame;
-                if (finalFrame >= 0) c.bb.SetStaticFrame(finalFrame);
+                if (finalFrame < 0) return;
+                if (c.bb != null) c.bb.SetStaticFrame(finalFrame);
+                // Outside coverage (xdeath corpse) this reverts to the billboard.
+                if (c.model != null) c.model.NotifyFrame(finalFrame);
             }
             public void PlaySound(MonsterSoundCue cue, int variant)
             {

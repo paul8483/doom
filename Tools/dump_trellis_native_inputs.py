@@ -117,15 +117,22 @@ def main():
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for frame in frames:
-        entry = sprite_lump(lumps, sprite, frame, "1")
+        # Live frames carry eight rotations (POSSA1); death frames are drawn
+        # once and live at rotation 0 (POSSH0).
+        rotation = "1"
+        entry = sprite_lump(lumps, sprite, frame, rotation)
         if entry is None:
-            print(f"  {sprite}{frame}1: NOT FOUND")
+            rotation = "0"
+            entry = sprite_lump(lumps, sprite, frame, rotation)
+        if entry is None:
+            print(f"  {sprite}{frame}: NOT FOUND")
             continue
         pos, _size, mirrored = entry
         img = decode_patch(data, pos, palette)
-        out = OUT_DIR / f"{sprite}{frame}1-trellis.png"
+        name = f"{sprite}{frame}{rotation}"
+        out = OUT_DIR / f"{name}-trellis.png"
         to_canvas(img, mirrored).save(out)
-        print(f"  {sprite}{frame}1 -> {out.name}"
+        print(f"  {name} -> {out.name}"
               f" ({img.width}x{img.height}{', mirrored' if mirrored else ''})")
     return 0
 
