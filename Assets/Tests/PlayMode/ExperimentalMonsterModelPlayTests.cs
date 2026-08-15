@@ -144,6 +144,46 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Spos_fall_frames_stay_on_the_mesh_then_hand_over()
+        {
+            var go = NewMonsterRoot(out var bb);
+            var mr = go.GetComponent<MeshRenderer>();
+            var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
+            Assert.That(model, Is.Not.Null);
+            Assert.That(model.DeathCoveredForTest, Is.True,
+                "SPOS fall meshes H0-K0 are authored");
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.SetEnhanced3DObjects(true);
+            yield return null;
+
+            model.NotifyDeathStarted(extremeDeath: false);
+            Assert.That(model.RevertedForTest, Is.False,
+                "a covered fall keeps the mesh");
+
+            // Death frames 7-10 (H0-K0) are covered and swap like live frames.
+            foreach (int frame in new[] { 7, 8, 9, 10 })
+            {
+                model.NotifyFrame(frame);
+                Assert.That(model.CurrentFrameForTest, Is.EqualTo(frame));
+                Assert.That(model.ModelVisible, Is.True, $"frame {frame} on mesh");
+            }
+
+            // L0 (11) is the flat gore heap — outside the covered prefix, so
+            // presentation hands over to the native sprite for good.
+            model.NotifyFrame(11);
+            Assert.That(model.RevertedForTest, Is.True);
+            Assert.That(model.ModelVisible, Is.False);
+            Assert.That(mr.enabled, Is.True);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator Gibs_always_revert_even_with_covered_death()
         {
             var go = NewMonsterRoot(out var bb);
