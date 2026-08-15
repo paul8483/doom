@@ -27,7 +27,7 @@ namespace Doom.MapBuild
             public readonly float[] PatchHeightsPx;
             /// Frames [0, LiveFrameCount) are stand/walk/attack/pain and are
             /// mandatory for attaching; the rest are the death sequence plus
-            /// the corpse and are optional (all-or-nothing as a group).
+            /// the corpse, covered as far as their meshes exist.
             public readonly int LiveFrameCount;
             // TRELLIS front view looks down -Z after Unity import; calibrated
             // per set at the import gate.
@@ -51,48 +51,45 @@ namespace Doom.MapBuild
         // death tail shrinks as the body collapses, so those meshes must be
         // modelled lying down or the height-driven scale blows them up.
         //
-        // Death coverage stops at the last frame that still reads as a BODY:
-        // Freedoom kills dissolve into gore (POSS loses its head on H0, SARG
-        // is a puddle of chunks by K0, BOSS a heap of bone), and a 19-30 px
-        // flat splatter has no volume for TRELLIS to reconstruct. Coverage is
-        // therefore a contiguous PREFIX of the death sequence; the remaining
-        // frames and the corpse stay on the billboard, exactly as the whole
-        // death did before this stage.
+        // The table declares the WHOLE death chain including the corpse
+        // frame; TryAttach covers it as far as the meshes on disk reach, so a
+        // monster can be filled in one frame at a time without its finished
+        // frames regressing to the billboard.
         static readonly Dictionary<string, MonsterModelSet> Sets = new()
         {
-            // Death: H0 (hit, head bursting) and I0 (mid-collapse) still read
-            // as a zombie; J0 onward is a pile of boots.
+            // Death H0-K0 plus the L0 corpse: the head bursts on H0 and the
+            // body is a pile of boots by J0, so the late frames lean on the
+            // lay-down bake (see Tools/lay_down_mesh.py).
             ["POSS"] = new MonsterModelSet(
                 "POSS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
-                        "H0", "I0" },
+                        "H0", "I0", "J0", "K0", "L0" },
                 new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f,
-                        55f, 42f },
+                        55f, 42f, 34f, 27f, 19f },
                 liveFrameCount: 7,
                 yawOffsetDeg: 0f),
             // Attaches only once all 7 live frame meshes land in Resources
-            // (TryAttach is all-or-nothing), so listing ahead is safe. The
-            // sergeant has the cleanest fall of the roster — four death
-            // frames keep a body before L0 flattens.
+            // (live coverage is all-or-nothing), so listing ahead is safe.
+            // H0-K0 are the accepted fall (Gate D1); L0 is the corpse heap.
             ["SPOS"] = new MonsterModelSet(
                 "SPOS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1",
-                        "H0", "I0", "J0", "K0" },
+                        "H0", "I0", "J0", "K0", "L0" },
                 new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f,
-                        60f, 53f, 39f, 34f },
+                        60f, 53f, 39f, 34f, 20f },
                 liveFrameCount: 7,
                 yawOffsetDeg: 0f),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
             // The spectre (58) never routes here — ThingSpawner keeps it on
             // the MF_SHADOW billboard.
-            // Death: the demon bursts — I0 and J0 are the last frames with a
-            // body, K0 onward is spraying gore.
+            // Death: the demon bursts — I0/J0 still have a body, K0-M0 are
+            // spraying gore and N0 is the corpse pool.
             ["SARG"] = new MonsterModelSet(
                 "SARG",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0" },
+                        "I0", "J0", "K0", "L0", "M0", "N0" },
                 new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f,
-                        59f, 60f },
+                        59f, 60f, 53f, 40f, 30f, 29f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
             // Imp: attack spans E-F-G (fireball launches on G), pain is H.
@@ -101,24 +98,25 @@ namespace Doom.MapBuild
             // were the FACE being unreadable (eyes lost to quantization) —
             // fixed by the eye-boost in project_hint_texture, not by yaw.
             // The imp holds its shape longest of the roster: I0-L0 are a
-            // twisting collapse, M0 is the flat heap.
+            // twisting collapse, M0 is the corpse heap.
             ["TROO"] = new MonsterModelSet(
                 "TROO",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0", "K0", "L0" },
+                        "I0", "J0", "K0", "L0", "M0" },
                 new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f,
-                        63f, 62f, 54f, 43f },
+                        63f, 62f, 54f, 43f, 26f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
             // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Death I0-J0
-            // is the standing hit and the buckle; from K0 the baron is a heap
-            // of bone and meat.
+            // is the standing hit and the buckle; from K0 the baron collapses
+            // into a heap of bone and meat, and O0 is both the last death
+            // frame and the corpse.
             ["BOSS"] = new MonsterModelSet(
                 "BOSS",
                 new[] { "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
-                        "I0", "J0" },
+                        "I0", "J0", "K0", "L0", "M0", "N0", "O0" },
                 new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f,
-                        73f, 69f },
+                        73f, 69f, 67f, 52f, 46f, 38f, 24f },
                 liveFrameCount: 8,
                 yawOffsetDeg: 0f),
         };
@@ -131,7 +129,9 @@ namespace Doom.MapBuild
         Texture2D[] frameEmission;
         GameObject[] frameModels;
         float worldScale;
-        bool deathCovered;
+        /// How many death frames after LiveFrameCount have meshes on disk —
+        /// presentation hands over to the billboard at the first frame past it.
+        int coveredDeathFrames;
         readonly List<Material> ownedMaterials = new List<Material>();
 
         int currentFrame;
@@ -150,7 +150,8 @@ namespace Doom.MapBuild
         public bool ModelVisible => HasModel && yawPivot.gameObject.activeSelf;
         public int CurrentFrameForTest => currentFrame;
         public bool RevertedForTest => reverted;
-        public bool DeathCoveredForTest => deathCovered;
+        public bool DeathCoveredForTest => coveredDeathFrames > 0;
+        public int CoveredDeathFramesForTest => coveredDeathFrames;
 
         /// Attach when every live frame of the sprite has an accepted mesh —
         /// all-or-nothing, same rule as the SpriteCache animation gate for
@@ -169,7 +170,12 @@ namespace Doom.MapBuild
             var prefabs = new GameObject[set.FrameLumps.Length];
             var emissionMasks = new Texture2D[set.FrameLumps.Length];
             bool liveMasks = true;
-            bool deathCovered = true;
+            // The death chain is covered up to its first missing mesh: the
+            // table declares the whole sequence, the assets on disk decide how
+            // far 3D reaches. A hole mid-chain would flip styles twice, so
+            // everything past the first gap stays on the billboard.
+            int coveredDeathFrames = 0;
+            bool deathChainOpen = true;
             for (int i = 0; i < set.FrameLumps.Length; i++)
             {
                 bool live = i < set.LiveFrameCount;
@@ -179,9 +185,10 @@ namespace Doom.MapBuild
                 if (prefabs[i] == null)
                 {
                     if (live) return null;
-                    deathCovered = false;
+                    deathChainOpen = false;
                     continue;
                 }
+                if (!live && deathChainOpen) coveredDeathFrames++;
                 // Optional steady-glow masks (SPOS visor). All-or-nothing like
                 // the frame meshes: a partial set would strobe during walk.
                 emissionMasks[i] = Resources.Load<Texture2D>(resource + "_emission");
@@ -191,7 +198,7 @@ namespace Doom.MapBuild
                 emissionMasks = null;
 
             var model = monsterRoot.AddComponent<ExperimentalMonsterModel>();
-            model.Init(set, prefabs, emissionMasks, deathCovered, worldScale,
+            model.Init(set, prefabs, emissionMasks, coveredDeathFrames, worldScale,
                        billboard);
             if (!model.HasModel)
             {
@@ -202,13 +209,13 @@ namespace Doom.MapBuild
         }
 
         void Init(MonsterModelSet set, GameObject[] prefabs,
-                  Texture2D[] emissionMasks, bool deathFramesCovered,
+                  Texture2D[] emissionMasks, int deathFramesCovered,
                   float worldScaleUnits, SpriteBillboard sourceBillboard)
         {
             this.set = set;
             framePrefabs = prefabs;
             frameEmission = emissionMasks;
-            deathCovered = deathFramesCovered;
+            coveredDeathFrames = deathFramesCovered;
             worldScale = worldScaleUnits;
             billboard = sourceBillboard;
             billboardRenderer = GetComponent<MeshRenderer>();
@@ -354,7 +361,7 @@ namespace Doom.MapBuild
         {
             if (reverted || frameModels == null) return;
             if (frame < 0 || frame >= frameModels.Length ||
-                (frame >= set.LiveFrameCount && !deathCovered))
+                frame >= set.LiveFrameCount + coveredDeathFrames)
             {
                 RevertToBillboard();
                 return;
@@ -380,7 +387,7 @@ namespace Doom.MapBuild
         public void NotifyDeathStarted(bool extremeDeath)
         {
             if (reverted) return;
-            if (extremeDeath || !deathCovered)
+            if (extremeDeath || coveredDeathFrames == 0)
                 RevertToBillboard();
         }
 

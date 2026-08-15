@@ -118,7 +118,7 @@ namespace Doom.Stage3.PlayTests
 
             // Death meshes are not in Resources yet, so the death tail is
             // uncovered and the kill hands over to the billboard, as before.
-            Assert.That(model.DeathCoveredForTest, Is.False,
+            Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(0),
                 "POSS death meshes (H0-L0) are not authored yet");
             model.NotifyDeathStarted(extremeDeath: false);
             Assert.That(model.RevertedForTest, Is.True,
@@ -150,8 +150,9 @@ namespace Doom.Stage3.PlayTests
             var mr = go.GetComponent<MeshRenderer>();
             var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
-            Assert.That(model.DeathCoveredForTest, Is.True,
-                "SPOS fall meshes H0-K0 are authored");
+            Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(4),
+                "SPOS has meshes for the fall H0-K0; the L0 corpse heap is "
+                + "still to be authored, so coverage stops there");
 
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display,
@@ -172,8 +173,8 @@ namespace Doom.Stage3.PlayTests
                 Assert.That(model.ModelVisible, Is.True, $"frame {frame} on mesh");
             }
 
-            // L0 (11) is the flat gore heap — outside the covered prefix, so
-            // presentation hands over to the native sprite for good.
+            // L0 (11) is the corpse heap: no mesh yet, so it falls outside the
+            // covered prefix and hands over to the native sprite for good.
             model.NotifyFrame(11);
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);

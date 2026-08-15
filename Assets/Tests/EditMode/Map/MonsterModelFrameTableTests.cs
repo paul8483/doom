@@ -24,7 +24,7 @@ namespace Doom.Map.Tests
             Application.streamingAssetsPath, "wads", "freedoom1.wad");
 
         [Test]
-        public void Death_coverage_is_a_contiguous_prefix_of_the_death_sequence()
+        public void Table_declares_the_whole_death_chain_including_the_corpse()
         {
             foreach (var (num, sprite) in Routed)
             {
@@ -44,14 +44,14 @@ namespace Doom.Map.Tests
                     Assert.That(death[i], Is.EqualTo(death[i - 1] + 1),
                         $"{sprite}: death frames must be contiguous");
 
-                int covered = lumps.Length - live;
-                Assert.That(covered, Is.GreaterThan(0),
-                    $"{sprite}: at least the first fall frame is covered");
-                Assert.That(covered, Is.LessThanOrEqualTo(death.Length),
-                    $"{sprite}: coverage may only reach into the death " +
-                    "sequence — gore frames and the corpse stay billboard");
                 Assert.That(thing.CorpseFrame, Is.GreaterThanOrEqualTo(live),
                     $"{sprite}: the corpse frame follows the live frames");
+                Assert.That(lumps.Length,
+                    Is.EqualTo(Mathf.Max(death[death.Length - 1],
+                                         thing.CorpseFrame) + 1),
+                    $"{sprite}: the table must declare the death sequence and " +
+                    "the corpse — how far 3D actually reaches is decided at " +
+                    "attach time by the meshes on disk");
             }
         }
 
