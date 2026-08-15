@@ -6,6 +6,23 @@ alwaysApply: false
 
 # TRELLIS.2 image workflow
 
+## Which image is which (read this first)
+
+Two files per lump share a name and have different jobs — mixing them up has
+already cost a round of confusion (2026-08-15):
+
+| File | Style | Consumer |
+|------|-------|----------|
+| `<LUMP>-depth-shapehint.png` | display-grade pixel art, 2D | `DisplayRedrawAllowlist` — the Enhanced + 3D **Off** redraw |
+| `<LUMP>-depth-shapehint-v2.png` | volumetric render | TRELLIS.2 conditioning, and the texture the mesh is painted with (`project_hint_texture.py`) |
+| `<LUMP>-depth-shapehint-45deg.png` | alternative conditioning | historical; the Space consumes one image |
+
+Since the monster track (2026-08-13) **v2 is the default conditioning**, not an
+escalation: monsters reconstruct flat from pixel-art hints. Monster frames
+therefore need v2 ONLY — monsters are excluded from the display-redraw
+allowlist, because that gate is rotation-aware (all eight rotation lumps per
+frame), so a lone v1 for one frame routes nowhere.
+
 ## Native inputs
 
 - Decode the original WAD sprite with the first `PLAYPAL`; do not use EdgeMix or Super-xBR.
