@@ -23,6 +23,20 @@ therefore need v2 ONLY — monsters are excluded from the display-redraw
 allowlist, because that gate is rotation-aware (all eight rotation lumps per
 frame), so a lone v1 for one frame routes nowhere.
 
+## Never point a shape at the camera
+
+A barrel, pipe or limb aimed straight at the viewer carries no length and no
+depth in a single image, and TRELLIS reconstructs it as a shapeless lump. The
+POSS pistol was drawn muzzle-on at the hip (frames A/B) and aimed at the player
+(E/F), and every generation of it came back as a blob (2026-08-15).
+
+Draw such parts in profile or three-quarter so the full length reads in the
+silhouette. Aiming direction is not lost: the mesh yaws to face its target in
+game, so a weapon angled 30-40 degrees across the body still reads as aimed.
+At DOOM distances the weapon is a few pixels — a deliberately simplified
+shape (grip block plus a clear side-on barrel) reconstructs better than a
+detailed one seen end-on.
+
 ## Native inputs
 
 - Decode the original WAD sprite with the first `PLAYPAL`; do not use EdgeMix or Super-xBR.
