@@ -34,7 +34,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import doomify3d  # noqa: E402
 from recolor_to_hint import hint_foreground  # noqa: E402
 
-HINTS = doomify3d.REPO / "Textures/Trellis2/ShapeHints"
+# 3D/ holds the volumetric conditioning renders; the 2D/ sibling
+# holds the display-grade redraws imported by DisplayRedrawAllowlist.
+HINTS = doomify3d.REPO / "Textures/Trellis2/ShapeHints/3D"
 ASPECT_TOLERANCE = 0.35
 
 

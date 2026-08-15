@@ -1,8 +1,10 @@
 namespace Doom.Graphics
 {
     /// Gate 0 approved display-grade redraw lumps for Enhanced + 3D Off.
-    /// Conditioning sources stay in Textures/Trellis2/ShapeHints/; runtime
-    /// copies live under Assets/Resources/EnhancedSprites/.
+    /// Sources live in Textures/Trellis2/ShapeHints/2D/ (the 3D/ sibling
+    /// holds the volumetric TRELLIS conditioning renders, which are a
+    /// different image for a different consumer); runtime copies land under
+    /// Assets/Resources/EnhancedSprites/.
     public static class DisplayRedrawAllowlist
     {
         public const string ResourcesFolder = "EnhancedSprites";
@@ -76,8 +78,12 @@ namespace Doom.Graphics
         public static string ResourcesPath(string lumpName) =>
             ResourcesFolder + "/" + lumpName;
 
-        /// ShapeHints file name for an allowlisted lump (import source).
+        /// Subfolder of Textures/Trellis2/ShapeHints holding the 2D redraws.
+        public const string ShapeHintFolder = "2D";
+
+        /// ShapeHints path for an allowlisted lump, relative to the ShapeHints
+        /// root (import source).
         public static string ShapeHintFileName(string lumpName) =>
-            lumpName + "-depth-shapehint.png";
+            ShapeHintFolder + "/" + lumpName + "-depth-shapehint.png";
     }
 }

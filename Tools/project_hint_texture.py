@@ -11,7 +11,7 @@ the usual single-view projection trade, fine at DOOM scales.
 Usage:
   python Tools/project_hint_texture.py --palette-lump SPOSA1 --texcap 256 \
       --dir Assets/Resources/ExperimentalMonsters/SPOS \
-      --frames SPOSA1=Textures/Trellis2/ShapeHints/SPOSA1-depth-shapehint-v2.png ...
+      --frames SPOSA1=Textures/Trellis2/ShapeHints/3D/SPOSA1-depth-shapehint-v2.png ...
 """
 from __future__ import annotations
 

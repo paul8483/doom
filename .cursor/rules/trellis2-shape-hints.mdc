@@ -13,9 +13,9 @@ already cost a round of confusion (2026-08-15):
 
 | File | Style | Consumer |
 |------|-------|----------|
-| `<LUMP>-depth-shapehint.png` | display-grade pixel art, 2D | `DisplayRedrawAllowlist` — the Enhanced + 3D **Off** redraw |
-| `<LUMP>-depth-shapehint-v2.png` | volumetric render | TRELLIS.2 conditioning, and the texture the mesh is painted with (`project_hint_texture.py`) |
-| `<LUMP>-depth-shapehint-45deg.png` | alternative conditioning | historical; the Space consumes one image |
+| `ShapeHints/2D/<LUMP>-depth-shapehint.png` | display-grade pixel art, 2D | `DisplayRedrawAllowlist` — the Enhanced + 3D **Off** redraw |
+| `ShapeHints/3D/<LUMP>-depth-shapehint-v2.png` | volumetric render | TRELLIS.2 conditioning, and the texture the mesh is painted with (`project_hint_texture.py`) |
+| `ShapeHints/3D/<LUMP>-depth-shapehint-45deg.png` | alternative conditioning | historical; the Space consumes one image |
 
 Since the monster track (2026-08-13) **v2 is the default conditioning**, not an
 escalation: monsters reconstruct flat from pixel-art hints. Monster frames
@@ -36,14 +36,14 @@ frame), so a lone v1 for one frame routes nowhere.
 - Preserve identity: silhouette, pose, proportions, palette, symbols, equipment, limb count, and recognizable asymmetry.
 - Add only useful 3D cues: rounded/cylindrical forms, side thickness, layered surfaces, limb separation, attachment points, and controlled highlights/shadows.
 - Keep crisp chunky pixel art, a hard readable contour, centered framing, and a transparent/checkerboard background. No floor, scenery, cast shadow, text, or invented rear design.
-- Save as `Textures/Trellis2/ShapeHints/<LUMP>-depth-shapehint.png`; never overwrite the native input.
+- Save as `Textures/Trellis2/ShapeHints/2D/<LUMP>-depth-shapehint.png`; never overwrite the native input.
 
 ## 45-degree variants
 
 - Reference the accepted front depth shape-hint, not the low-resolution native input.
 - Rotate about 45° around the vertical axis into a consistent front-right three-quarter view; expose side depth and overlap without becoming a full profile.
 - Keep the same design, pose, proportions, palette, equipment, and number/arrangement of limbs.
-- Save separately as `Textures/Trellis2/ShapeHints/<LUMP>-depth-shapehint-45deg.png`.
+- Save separately as `Textures/Trellis2/ShapeHints/3D/<LUMP>-depth-shapehint-45deg.png`.
 - Treat it as an alternative conditioning input: the standard TRELLIS.2 image workflow consumes one image, not front and 45° simultaneously.
 
 ## v2 escalation for planar results
@@ -52,7 +52,7 @@ frame), so a lone v1 for one frame routes nowhere.
 - Keep the overall presentation frontal and make topology explicit: radial roots, surfaces and branches around the full circumference, strong foreshortening, front/rear overlap, visible attachment points, and coherent contact shadows.
 - For leafy assets, split flat crowns into separated boughs at multiple depths: larger/brighter toward-camera masses, darker/smaller rear masses, edge-on clusters, and gaps exposing branch structure.
 - Prefer natural volumetric shading and readable geometry over strict pixel-art treatment. Preserve palette, major landmarks, and identity, but allow the outer silhouette to change when the original silhouette forces a card-like reconstruction.
-- Save as `Textures/Trellis2/ShapeHints/<LUMP>-depth-shapehint-v2.png`.
+- Save as `Textures/Trellis2/ShapeHints/3D/<LUMP>-depth-shapehint-v2.png`.
 - Judge the generated TRELLIS mesh, not only the conditioning image. Geometry success with substantial identity drift is `CONDITIONAL SUCCESS` until an in-game Enhanced gate confirms scale, silhouette, palette, and environmental style.
 
 Inspect every generated result for identity drift or invented anatomy before presenting it. Ambiguous single-view sprites require an interactive user gate.
