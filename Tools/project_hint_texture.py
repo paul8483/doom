@@ -5,8 +5,9 @@ however the tones are matched afterwards. The v2 hint redraws, in contrast,
 are one consistent set (same character, same colors, per-frame poses) — and
 TRELLIS matched each mesh's silhouette to its hint. So the hint IS the
 texture: every atlas texel takes the hint pixel at its projected front-view
-(x, y). Hidden/back surfaces inherit the frontmost color at that (x, y) —
-the usual single-view projection trade, fine at DOOM scales.
+(x, y). Hidden/back surfaces would inherit the frontmost color at that (x, y),
+which paints the spine with the chest — pass --back-from-bake to take those
+away-facing texels from TRELLIS' own (geometry-correct) bake instead.
 
 Usage:
   python Tools/project_hint_texture.py --palette-lump SPOSA1 --texcap 256 \
@@ -77,27 +78,23 @@ def main():
     # TROO imp: golden belly plates are a FRONTAL feature; side-facing arm
     # and torso-rim surfaces picking them up read as yellow leak spots.
     p.add_argument("--side-accent-fix", action="store_true")
-    # A single frontal projection also paints the BACK of the head with the
-    # front pixel at the same (x, y), so a glowing visor reappears on the
-    # skull behind it and the monster reads as facing you from every side
-    # (POSS, 2026-08-15: 41-51% of visor triangles faced backwards). Keep
-    # strong blue only where the surface actually faces the camera.
-    # EXPERIMENTAL, NOT PROVEN (2026-08-15). Both this and --back-from-bake
-    # depend on telling the mesh's front from its back, and that question is
-    # still open: triangle normals do not separate the sides after decimation
-    # (measured mean nz +0.04 front vs -0.02 back), and the texture cannot
-    # arbitrate because the projection has already painted the front onto the
-    # back. Rendering POSSA1 with these flags removed the visor from the face
-    # and left it on the skull, i.e. the sign was inverted somewhere. Settle
-    # the convention against Unity before trusting either flag.
-    p.add_argument("--visor-front-only", action="store_true")
     # A frontal projection has nothing to say about the back, so the rear of
     # the body inherits the front image: chest wounds, belt buckle and visor
     # all reappear behind, and the monster reads as facing you from every
     # angle (POSS, 2026-08-15). TRELLIS did generate a real back, so take
     # away-facing texels from its bake and keep the hint for what faces us.
     p.add_argument("--back-from-bake", default=None,
-                   help="dir with <lump>/<lump>_albedo.png doomify bakes")
+                   help="dir with <lump>-stage/<lump>_albedo.png raw TRELLIS "
+                        "bakes (the raw atlas survives decimation)")
+    p.add_argument("--back-depth-eps", type=float, default=0.06,
+                   help="cell-relative depth gap that counts as 'behind'")
+    p.add_argument("--back-grid", type=int, default=256,
+                   help="mesh-space occlusion grid; 256 leaves ~16 texels per "
+                        "cell on a 40k-tri frame (128 over-marks thin limbs, "
+                        "512 leaves rear texels alone in a cell again)")
+    p.add_argument("--dump-back-mask", action="store_true",
+                   help="also write <lump>_backmask.png (white = from bake); "
+                        "render it as an albedo to see the split on the mesh")
     # Head region keeps the (palette-quantized) TRELLIS bake: projection
     # smears the crest across the whole skull top, which reads as a second
     # head flickering during the walk cycle. The bake's head is geometry-
@@ -219,23 +216,6 @@ def main():
             fixg = gold & (nz < 0.35)
             cols[fixg] = np.clip(row_body[wi2[fixg]], 0, 255).astype(np.uint8)
 
-        if a.visor_front_only:
-            nz = nrm[filled][:, 2]
-            cf = cols.astype(np.float64)
-            vis = (cf[:, 2] > 100) & (cf[:, 2] > cf[:, 0] * 1.35) &                   (cf[:, 2] > cf[:, 1] * 1.2)
-            hb = hint[..., :3].astype(np.float64)
-            blue_px = (hb[..., 2] > 100) & (hb[..., 2] > hb[..., 0] * 1.35) &                       (hb[..., 2] > hb[..., 1] * 1.2)
-            helmet_med = np.median(hint[..., :3][fg & ~blue_px], axis=0)
-            row_helmet = np.tile(helmet_med, (hint.shape[0], 1))
-            for row in np.unique(wi2):
-                sel = fg[row] & ~blue_px[row]
-                if sel.sum() >= 8:
-                    row_helmet[row] = np.median(hint[row, sel, :3], axis=0)
-            # Outward normals point along +Z; the hint is projected from -Z,
-            # so anything not clearly facing the viewer loses the accent.
-            back = vis & (nz > -0.15)
-            cols[back] = np.clip(row_helmet[wi2[back]], 0, 255).astype(np.uint8)
-
         if a.lower_skin_fix:
             y_rel = (pts[:, 1] - y_min) / max(1e-9, y_max - y_min)
             cf = cols.astype(np.float64)
@@ -252,38 +232,47 @@ def main():
             cols[hot] = np.clip(cf[hot] * (120.0 / lum[hot])[:, None],
                                 0, 255).astype(np.uint8)
 
+        back_map = None
         if a.back_from_bake:
             bake_img = Image.open(
-                Path(a.back_from_bake) / f"{lump}_albedo.png").convert("RGB")
+                Path(a.back_from_bake) / f"{lump}-stage" /
+                f"{lump}_albedo.png").convert("RGB")
             if bake_img.size != (proj, proj):
                 bake_img = bake_img.resize((proj, proj), Image.NEAREST)
             bake_arr = np.asarray(bake_img)
             idx_all = np.argwhere(filled)
             # Triangle normals are unreliable after decimation (measured mean
             # nz +0.04 front vs -0.02 back — no separation), so classify by
-            # DEPTH instead: within one projected cell the nearest texel is the
-            # surface the hint actually describes, everything behind it is the
-            # back. Which way is "near" comes from the bake's own visor, whose
-            # placement is geometry-correct.
-            bz = bake_arr.astype(np.float64)
-            vis_tex = (bz[..., 2] > 100) & (bz[..., 2] > bz[..., 0] * 1.35) &                       (bz[..., 2] > bz[..., 1] * 1.2)
-            vis_here = vis_tex[idx_all[:, 0], idx_all[:, 1]]
-            zs = pts[:, 2]
-            # The hint is projected down -Z (TRELLIS' import orientation), so
-            # the near surface is the one with the SMALLER z; the bake's visor
-            # confirms it per mesh when it survived quantization.
-            front_sign = -1.0
-            if vis_here.sum() > 20:
-                front_sign = 1.0 if zs[vis_here].mean() > zs.mean() else -1.0
-            depth = zs * front_sign
-            cell = wi2.astype(np.int64) * (hint.shape[1] + 1) + ui2
-            _, inv = np.unique(cell, return_inverse=True)
+            # DEPTH: within one projected hint pixel the nearest surface is the
+            # one the hint describes, everything behind it is the back.
+            #
+            # Which way is near was settled 2026-08-15 by rendering a mesh with
+            # its own geometry-correct TRELLIS bake from both sides: yaw 0 in
+            # doomify3d.render (which keeps the LARGER z) shows the visor, the
+            # pistol and the chest wounds, yaw 180 a clean back — and the hint
+            # maps to that same view (x straight through). So FRONT IS +Z.
+            # The earlier experiment assumed -Z, i.e. it repainted the face
+            # with the back and kept the leak it was meant to remove.
+            depth = pts[:, 2]
+            # Bin in MESH space, not in hint pixels: the row-by-row alignment
+            # stretches the front and the back of a row differently, so 22% of
+            # rear texels landed in a hint cell of their own with no front
+            # surface to be occluded by — that is how a blue strap survived on
+            # the back of POSS' helmet after the sign was already fixed.
+            g = a.back_grid
+            gx = ((pts[:, 0] - pts[:, 0].min()) /
+                  max(1e-9, np.ptp(pts[:, 0])) * (g - 1)).round().astype(np.int64)
+            gy = ((pts[:, 1] - pts[:, 1].min()) /
+                  max(1e-9, np.ptp(pts[:, 1])) * (g - 1)).round().astype(np.int64)
+            _, inv = np.unique(gy * g + gx, return_inverse=True)
             cell_max = np.full(inv.max() + 1, -np.inf)
             np.maximum.at(cell_max, inv, depth)
             near = cell_max[inv]
             span = max(1e-6, depth.max() - depth.min())
-            back = (near - depth) > 0.06 * span
+            back = (near - depth) > a.back_depth_eps * span
             cols[back] = bake_arr[idx_all[back, 0], idx_all[back, 1]]
+            back_map = np.zeros((proj, proj), bool)
+            back_map[idx_all[back, 0], idx_all[back, 1]] = True
             print(f"  {lump}: back texels from bake "
                   f"{100 * back.mean():.0f}%", flush=True)
 
@@ -329,8 +318,38 @@ def main():
                 fin[eye256] = (255, 216, 48, 255)
             final = Image.fromarray(fin)
 
+        back256 = None
+        if back_map is not None:
+            back256 = np.asarray(Image.fromarray(
+                (back_map * 255).astype(np.uint8), "L").resize(
+                    (size, size), Image.BOX)) > 127
+            # TRELLIS wraps the visor band around the back of the helmet as a
+            # dark navy strap, and quantization to the sprite palette pulls it
+            # up to the visor's own bright blue — so the back of the head lit
+            # up again even with the projection fixed. Darken those texels and
+            # re-snap: the strap survives, the accent does not. Checked after
+            # quantization on purpose; the raw navy is too dark to detect.
+            fin = np.asarray(final.convert("RGBA")).copy()
+            bad = strong_blue(fin) & back256
+            if bad.any():
+                dim = (fin[bad].astype(np.float64) * np.array([0.4, 0.4, 0.5, 1]))
+                fin[bad] = doomify3d.quantize(
+                    dim.astype(np.uint8)[None, ...], pal)[0]
+                final = Image.fromarray(fin)
+            print(f"  {lump}: back-blue texels re-snapped {int(bad.sum())}")
+            if a.dump_back_mask:
+                Image.fromarray(
+                    np.where(back256, 255, 40).astype(np.uint8), "L").convert(
+                        "RGB").save(d / f"{lump}_backmask.png")
+
         final.save(d / f"{lump}_albedo.png")
         blue = strong_blue(np.asarray(final.convert("RGBA")))
+        if back256 is not None:
+            # The steady glow belongs to the visor, so it may only light
+            # surfaces that face the player; anything classified as back keeps
+            # its color but never emits (a glowing skull is what sent the
+            # 2026-08-15 POSS build back).
+            blue &= ~back256
         Image.fromarray((blue * 255).astype(np.uint8), "L").save(
             d / f"{lump}_emission.png")
         print(f"{lump}: {int(filled.sum())} texels, visor px {int(blue.sum())}")

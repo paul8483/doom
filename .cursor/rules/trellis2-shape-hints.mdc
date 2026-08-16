@@ -37,6 +37,26 @@ At DOOM distances the weapon is a few pixels — a deliberately simplified
 shape (grip block plus a clear side-on barrel) reconstructs better than a
 detailed one seen end-on.
 
+## Which way the generated mesh faces
+
+TRELLIS returns the conditioning image as the **+Z** side of the mesh, and the
+importers keep that: `doomify3d.render` at yaw 0 (it keeps the larger z) shows
+the face, the weapon and the chest, yaw 180 a clean back. Anything that has to
+tell front from back — `project_hint_texture.py --back-from-bake`, emission
+masks, side-accent fixes — reads that axis, never triangle normals, which do
+not separate the sides after decimation.
+
+Confirm it per wave the same way, in one command: render the mesh with its own
+TRELLIS bake (the bake is geometry-correct even when its colors drift) from
+both sides and look. Guessing the sign costs a whole gate — the 2026-08-15 POSS
+experiment assumed −Z and repainted the face with the back.
+
+Occlusion must be measured in **mesh space**, not in hint pixels: the hint
+lookup normalizes each row's x-span separately, so front and back of one row
+land in different hint columns and a rear texel can end up alone in its cell
+with nothing to be occluded by. That is what kept a glowing visor on the back
+of POSS' helmet after the axis was already right.
+
 ## Native inputs
 
 - Decode the original WAD sprite with the first `PLAYPAL`; do not use EdgeMix or Super-xBR.
