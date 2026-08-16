@@ -126,6 +126,16 @@ def decimate_with_uv(src_obj: Path, dst_obj: Path, target: int) -> int:
             break
         prev = n
     ms.save_current_mesh(str(dst_obj))
+    # pymeshlab writes `mtllib ./<lump>.obj.mtl`, but the repo keeps the
+    # material as `<lump>.mtl` — Unity then finds nothing and imports the
+    # frame with its default WHITE material, which no test used to notice
+    # (POSS death frames shipped white, 2026-08-16). Name it as it ships.
+    lines = dst_obj.read_text(encoding="utf-8", errors="ignore").splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("mtllib "):
+            lines[i] = f"mtllib {dst_obj.stem}.mtl"
+            break
+    dst_obj.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return ms.current_mesh().face_number()
 
 

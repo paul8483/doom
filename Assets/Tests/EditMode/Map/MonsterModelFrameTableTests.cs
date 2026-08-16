@@ -88,6 +88,59 @@ namespace Doom.Map.Tests
             }
         }
 
+        /// A mesh whose OBJ points at a material file that is not there
+        /// imports with Unity's default white material, and nothing else in
+        /// the suite notices — the model still attaches, still swaps frames
+        /// and still passes every visibility assert. That is exactly how the
+        /// POSS death frames shipped as white silhouettes (2026-08-16): the
+        /// decimator writes `mtllib ./<lump>.obj.mtl`, the repo keeps
+        /// `<lump>.mtl`. Pin the whole chain OBJ -> MTL -> albedo instead.
+        [Test]
+        public void Every_frame_mesh_resolves_its_material_and_albedo()
+        {
+            foreach (var (_, sprite) in Routed)
+            {
+                Assert.That(ExperimentalMonsterModel.TryGetFrameTableForTest(
+                    sprite, out _, out var lumps, out _), Is.True);
+                string dir = Path.Combine(Application.dataPath, "Resources",
+                    "ExperimentalMonsters", sprite);
+                foreach (string frame in lumps)
+                {
+                    string lump = sprite + frame;
+                    string obj = Path.Combine(dir, lump + ".obj");
+                    // Frames still to be authored simply have no files yet;
+                    // coverage is decided at attach time, not here.
+                    if (!File.Exists(obj)) continue;
+
+                    string mtlRef = null;
+                    foreach (string line in File.ReadLines(obj))
+                    {
+                        if (!line.StartsWith("mtllib ")) continue;
+                        mtlRef = line.Substring(7).Trim();
+                        break;
+                    }
+                    Assert.That(mtlRef, Is.EqualTo(lump + ".mtl"),
+                        $"{lump}.obj must name its own material file — a " +
+                        "dangling mtllib renders the frame plain white");
+
+                    string mtl = Path.Combine(dir, mtlRef);
+                    Assert.That(File.Exists(mtl), Is.True, $"{mtlRef} missing");
+
+                    string mapRef = null;
+                    foreach (string line in File.ReadLines(mtl))
+                    {
+                        if (!line.StartsWith("map_Kd ")) continue;
+                        mapRef = line.Substring(7).Trim();
+                        break;
+                    }
+                    Assert.That(mapRef, Is.EqualTo(lump + "_albedo.png"),
+                        $"{mtlRef}: albedo must be this frame's own texture");
+                    Assert.That(File.Exists(Path.Combine(dir, mapRef)), Is.True,
+                        $"{mapRef} missing");
+                }
+            }
+        }
+
         [Test]
         public void Frame_lumps_and_heights_match_the_wad_patches()
         {

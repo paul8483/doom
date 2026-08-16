@@ -92,11 +92,13 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Live_frames_swap_and_death_reverts_forever()
+        public IEnumerator Live_frames_swap_and_uncovered_death_reverts_forever()
         {
+            // TROO still has no death meshes, so it carries the "death tail is
+            // uncovered" case POSS used to carry before its H0-L0 wave landed.
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
-            var model = ExperimentalMonsterModel.TryAttach(go, "POSS", 1f / 32f, bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, "TROO", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
 
             var settings = SettingsController.Ensure();
@@ -119,13 +121,13 @@ namespace Doom.Stage3.PlayTests
             // Death meshes are not in Resources yet, so the death tail is
             // uncovered and the kill hands over to the billboard, as before.
             Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(0),
-                "POSS death meshes (H0-L0) are not authored yet");
+                "TROO death meshes (I0-M0) are not authored yet");
             model.NotifyDeathStarted(extremeDeath: false);
             Assert.That(model.RevertedForTest, Is.True,
                 "uncovered death tail reverts before the first fall frame");
 
-            // First death frame (H = 7) → billboard, permanently.
-            model.NotifyFrame(7);
+            // First death frame (I = 8) → billboard, permanently.
+            model.NotifyFrame(8);
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);
             Assert.That(mr.enabled, Is.True, "death shows billboard frames");
@@ -143,15 +145,19 @@ namespace Doom.Stage3.PlayTests
             yield return null;
         }
 
+        // Both zombies carry the same chain shape: 7 live frames, death H0-K0,
+        // corpse L0 — so a covered kill must stay on the mesh from the first
+        // fall frame to the body on the floor, and only gibs hand back.
         [UnityTest]
-        public IEnumerator Spos_death_chain_stays_on_the_mesh_through_the_corpse()
+        public IEnumerator Death_chain_stays_on_the_mesh_through_the_corpse(
+            [Values("POSS", "SPOS")] string sprite)
         {
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
-            var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, sprite, 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
             Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(5),
-                "SPOS covers its whole death chain H0-L0, corpse included");
+                $"{sprite} covers its whole death chain H0-L0, corpse included");
 
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display,
@@ -170,6 +176,19 @@ namespace Doom.Stage3.PlayTests
                 model.NotifyFrame(frame);
                 Assert.That(model.CurrentFrameForTest, Is.EqualTo(frame));
                 Assert.That(model.ModelVisible, Is.True, $"frame {frame} on mesh");
+            }
+
+            // Every instantiated frame must carry its own albedo: an OBJ that
+            // cannot resolve its .mtl imports with Unity's default material
+            // and the frame renders as a plain white silhouette in game —
+            // which is how the POSS death meshes first shipped (2026-08-16).
+            foreach (var r in go.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (r.gameObject == go) continue;   // the sprite billboard
+                foreach (var mat in r.sharedMaterials)
+                    Assert.That(mat != null && mat.mainTexture != null, Is.True,
+                        $"{sprite}: frame mesh '{r.transform.parent?.name}' " +
+                        "lost its albedo — it would render white");
             }
 
             // Frame 12 opens the xdeath gib sequence, which the table never

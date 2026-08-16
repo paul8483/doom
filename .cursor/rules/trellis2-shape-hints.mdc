@@ -57,6 +57,30 @@ land in different hint columns and a rear texel can end up alone in its cell
 with nothing to be occluded by. That is what kept a glowing visor on the back
 of POSS' helmet after the axis was already right.
 
+## Lying frames: measure the projection angle, do not assume it
+
+Death frames break the "the hint is the mesh's front view" shortcut, because
+TRELLIS lays SOME of them down and leaves others standing — in the POSS H0-L0
+wave (2026-08-16) H0 and K0 came back upright, I0 and L0 already flat, from
+the same kind of drawing. The hint only paints correctly in the orientation
+where the mesh's +Z view matches it, so find that orientation per frame:
+compare the hint's foreground mask against the mesh silhouette over a pitch
+sweep, both stretched into a common square (the projection normalizes y
+globally and x per row, so the comparison must drop aspect too). POSS measured
+H0/I0/K0 at 0, J0 at -35, L0 at +20. Project there, then bake the pose pitch
+(`lay_down_mesh.py`) — for J0 the two coincided, so it was laid down first and
+painted after.
+
+Do not reason the angle out instead of measuring it: a laid-down mesh looks
+like it should be painted from above, and for L0 that top view does match the
+hint one-to-one — but the texture came out worse, because the drawing
+foreshortens the body and the global y mapping cannot reproduce that.
+
+One cost has no fix inside a single projection: on a body lying flat, top and
+bottom surfaces are separated along Y, not along the view axis, so the
+occlusion grid puts them in different cells and the underside takes hint color
+instead of the bake. Standing frames never show this.
+
 ## Native inputs
 
 - Decode the original WAD sprite with the first `PLAYPAL`; do not use EdgeMix or Super-xBR.
