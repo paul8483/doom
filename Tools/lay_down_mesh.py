@@ -37,24 +37,56 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--obj", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--pitch", type=float, required=True,
+    p.add_argument("--pitch", type=float, default=0.0,
                    help="degrees about X; negative lays the figure onto its "
                         "back with the head away from the camera")
+    # A corpse frame is a body PRESSED to the floor, but a top-down drawing
+    # carries no thickness, so TRELLIS returns a rounded mound: TROOM0 came
+    # back 0.97 x 0.72 x 0.98 and rendered 35 px wide where the sprite is 57
+    # (the corpse would shrink at the very frame the sprite spreads out).
+    # Rotation cannot fix it — the mound has no thin axis to turn toward the
+    # camera — so squash Y until the silhouette matches the sprite's own
+    # aspect. Applied AFTER projection: UVs and textures stay valid.
+    p.add_argument("--flatten-to-aspect", type=float, default=None,
+                   help="scale Y so that X/Y equals this (native patch "
+                        "width/height); use on mound-shaped corpse frames")
     a = p.parse_args()
 
     c, s = math.cos(math.radians(a.pitch)), math.sin(math.radians(a.pitch))
     src, dst = Path(a.obj), Path(a.out)
     dst.parent.mkdir(parents=True, exist_ok=True)
+    lines = src.read_text(encoding="utf-8", errors="ignore").splitlines()
+
+    verts = []
+    for line in lines:
+        if line.startswith("v "):
+            _, sx, sy, sz = line.split()[:4]
+            verts.append(rotate_x(float(sx), float(sy), float(sz), c, s))
+
+    scale_y = 1.0
+    if a.flatten_to_aspect is not None and verts:
+        xs = [v[0] for v in verts]
+        ys = [v[1] for v in verts]
+        span_x = max(xs) - min(xs)
+        span_y = max(ys) - min(ys)
+        if span_x > 0 and span_y > 0:
+            scale_y = (span_x / a.flatten_to_aspect) / span_y
+
     out = []
-    for line in src.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for line in lines:
         if line.startswith("v ") or line.startswith("vn "):
             tag, sx, sy, sz = line.split()[:4]
             x, y, z = rotate_x(float(sx), float(sy), float(sz), c, s)
+            # Positions squash; normals only rotate — scaling a normal is not
+            # the inverse-transpose it would need, and the shader is unlit.
+            if tag == "v":
+                y *= scale_y
             out.append(f"{tag} {x:.6f} {y:.6f} {z:.6f}")
         else:
             out.append(line)
     dst.write_text("\n".join(out) + "\n", encoding="utf-8")
-    print(f"{dst.name}: pitched {a.pitch:+.0f}deg")
+    note = f", flattened Y x{scale_y:.2f}" if scale_y != 1.0 else ""
+    print(f"{dst.name}: pitched {a.pitch:+.0f}deg{note}")
 
 
 if __name__ == "__main__":

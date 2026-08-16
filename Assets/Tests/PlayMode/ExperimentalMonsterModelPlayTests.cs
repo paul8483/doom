@@ -94,11 +94,11 @@ namespace Doom.Stage3.PlayTests
         [UnityTest]
         public IEnumerator Live_frames_swap_and_uncovered_death_reverts_forever()
         {
-            // TROO still has no death meshes, so it carries the "death tail is
+            // SARG still has no death meshes, so it carries the "death tail is
             // uncovered" case POSS used to carry before its H0-L0 wave landed.
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
-            var model = ExperimentalMonsterModel.TryAttach(go, "TROO", 1f / 32f, bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, "SARG", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
 
             var settings = SettingsController.Ensure();
@@ -121,7 +121,7 @@ namespace Doom.Stage3.PlayTests
             // Death meshes are not in Resources yet, so the death tail is
             // uncovered and the kill hands over to the billboard, as before.
             Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(0),
-                "TROO death meshes (I0-M0) are not authored yet");
+                "SARG death meshes (I0-N0) are not authored yet");
             model.NotifyDeathStarted(extremeDeath: false);
             Assert.That(model.RevertedForTest, Is.True,
                 "uncovered death tail reverts before the first fall frame");
@@ -145,19 +145,23 @@ namespace Doom.Stage3.PlayTests
             yield return null;
         }
 
-        // Both zombies carry the same chain shape: 7 live frames, death H0-K0,
-        // corpse L0 — so a covered kill must stay on the mesh from the first
-        // fall frame to the body on the floor, and only gibs hand back.
+        // The three monsters whose chains are fully authored: a covered kill
+        // must stay on the mesh from the first fall frame to the body on the
+        // floor, and only gibs hand back. Frame numbers come from the table
+        // itself — the zombies fall from frame 7, the imp from frame 8.
         [UnityTest]
         public IEnumerator Death_chain_stays_on_the_mesh_through_the_corpse(
-            [Values("POSS", "SPOS")] string sprite)
+            [Values("POSS", "SPOS", "TROO")] string sprite)
         {
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
             var model = ExperimentalMonsterModel.TryAttach(go, sprite, 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
-            Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(5),
-                $"{sprite} covers its whole death chain H0-L0, corpse included");
+            Assert.That(ExperimentalMonsterModel.TryGetFrameTableForTest(
+                sprite, out int live, out var lumps, out _), Is.True);
+            Assert.That(model.CoveredDeathFramesForTest,
+                Is.EqualTo(lumps.Length - live),
+                $"{sprite} covers its whole death chain, corpse included");
 
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display,
@@ -170,8 +174,8 @@ namespace Doom.Stage3.PlayTests
             Assert.That(model.RevertedForTest, Is.False,
                 "a covered fall keeps the mesh");
 
-            // Death frames 7-11 (H0-L0) are covered and swap like live frames.
-            foreach (int frame in new[] { 7, 8, 9, 10, 11 })
+            // The whole death tail is covered and swaps like live frames.
+            for (int frame = live; frame < lumps.Length; frame++)
             {
                 model.NotifyFrame(frame);
                 Assert.That(model.CurrentFrameForTest, Is.EqualTo(frame));
@@ -191,9 +195,10 @@ namespace Doom.Stage3.PlayTests
                         "lost its albedo — it would render white");
             }
 
-            // Frame 12 opens the xdeath gib sequence, which the table never
-            // covers — presentation hands over to the native sprite for good.
-            model.NotifyFrame(12);
+            // The frame right after the corpse opens the xdeath gib sequence,
+            // which the table never covers — presentation hands over to the
+            // native sprite for good.
+            model.NotifyFrame(lumps.Length);
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);
             Assert.That(mr.enabled, Is.True);
