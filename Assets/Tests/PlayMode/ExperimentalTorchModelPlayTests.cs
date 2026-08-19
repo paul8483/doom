@@ -250,6 +250,38 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Candelabra_routes_its_metal_and_three_caged_fires()
+        {
+            yield return LoadLevel();
+            Enhanced3D(memory, display);
+            yield return null;
+
+            ExperimentalCandelabraModel model = null;
+            foreach (var candidate in Object.FindObjectsByType<ExperimentalCandelabraModel>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                model = candidate;
+
+            // Pins the rule, not today's assets: CBRA's metal is generated —
+            // a candelabra is not a solid of revolution, so there is no
+            // computed fallback and it stays a billboard until a mesh lands.
+            bool expected = ExperimentalCandelabraModel.HasGeneratedStand();
+            Assert.That(model != null, Is.EqualTo(expected),
+                expected
+                    ? "the candelabra has a generated mesh but took no 3D"
+                    : "the candelabra must stay a billboard until its metal exists");
+            if (model == null) yield break;
+
+            model.SetEnhancedForTest(true);
+            yield return null;
+            Assert.That(model.FireCountForTest, Is.EqualTo(3));
+            Assert.That(model.ModelRootForTest.Find("Metal"), Is.Not.Null);
+            foreach (var renderer in model.ModelRootForTest
+                         .GetComponentsInChildren<Renderer>(true))
+                Assert.That(renderer.sharedMaterial.mainTexture, Is.Not.Null,
+                    $"{renderer.name} lost its texture");
+        }
+
+        [UnityTest]
         public IEnumerator Billboard_flame_flickers_in_classic_too()
         {
             yield return LoadLevel();

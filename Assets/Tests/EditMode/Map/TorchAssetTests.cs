@@ -257,6 +257,83 @@ namespace Doom.Map.Tests
             }
         }
 
+        [Test]
+        public void Candelabra_ships_three_caged_fires_and_their_anchors()
+        {
+            // CBRA is the torches' odd cousin: its fires sit inside steel
+            // cages, so the metal is generated whole and only the fires are
+            // computed — three of them, each with its own spine, placed by the
+            // table the generator writes beside the meshes.
+            string dir = AssetDir(ExperimentalCandelabraModel.Sprite);
+            string table = Path.Combine(dir, "CBRA_fires.txt");
+            Assert.That(File.Exists(table), Is.True, "CBRA_fires.txt missing");
+
+            int count = 0;
+            foreach (string raw in File.ReadAllLines(table))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0) continue;
+                string[] fields = line.Split(' ');
+                Assert.That(fields.Length, Is.EqualTo(4),
+                    "each line is <name> <offsetX> <bottomY> <rows>");
+                count++;
+
+                string name = fields[0];
+                Assert.That(File.Exists(Path.Combine(dir, name + ".obj")), Is.True);
+                Assert.That(File.Exists(Path.Combine(dir, name + "_profile.png")), Is.True);
+                Assert.That(File.Exists(Path.Combine(dir, name + "_spine.png")), Is.True);
+                Assert.That(FirstToken(Path.Combine(dir, name + ".obj"), "mtllib "),
+                    Is.EqualTo(name + ".mtl"));
+
+                string resource = "ExperimentalTorches/CBRA/" + name;
+                Assert.That(Resources.Load<GameObject>(resource), Is.Not.Null, resource);
+                Assert.That(Resources.Load<Texture2D>(resource + "_profile"),
+                    Is.Not.Null, resource + "_profile");
+                Assert.That(Resources.Load<Texture2D>(resource + "_spine"),
+                    Is.Not.Null, resource + "_spine");
+
+                // Anchors live in patch pixels; a fire outside the sprite would
+                // hang in the air next to the candelabra.
+                float offsetX = float.Parse(fields[1], CultureInfo.InvariantCulture);
+                float bottomY = float.Parse(fields[2], CultureInfo.InvariantCulture);
+                float rows = float.Parse(fields[3], CultureInfo.InvariantCulture);
+                Assert.That(Mathf.Abs(offsetX), Is.LessThan(16f));
+                Assert.That(bottomY, Is.GreaterThan(0f).And.LessThan(61f));
+                Assert.That(rows, Is.GreaterThan(1f).And.LessThan(61f));
+            }
+            Assert.That(count, Is.EqualTo(3), "the sprite draws three lanterns");
+            Assert.That(
+                Resources.Load<TextAsset>("ExperimentalTorches/CBRA/CBRA_fires"),
+                Is.Not.Null, "the anchor table must load as a TextAsset");
+        }
+
+        [Test]
+        public void Candelabra_fires_sit_inside_the_patch_the_sprite_draws()
+        {
+            string path = WadPath();
+            if (!File.Exists(path)) Assert.Ignore("freedoom1.wad missing");
+            using var wad = WadFile.Open(path);
+            var header = Patch.ReadHeader(wad.ReadLump("CBRAA0"));
+
+            // The runtime hangs everything off the patch, so the anchors and
+            // the patch must agree: fires inside the picture, metal as tall as
+            // the whole sprite.
+            Assert.That(header.TopOffset, Is.EqualTo(header.Height));
+            foreach (string raw in File.ReadAllLines(
+                         Path.Combine(AssetDir("CBRA"), "CBRA_fires.txt")))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0) continue;
+                string[] fields = line.Split(' ');
+                float offsetX = float.Parse(fields[1], CultureInfo.InvariantCulture);
+                float bottomY = float.Parse(fields[2], CultureInfo.InvariantCulture);
+                float rows = float.Parse(fields[3], CultureInfo.InvariantCulture);
+                Assert.That(Mathf.Abs(offsetX),
+                    Is.LessThanOrEqualTo(header.Width * 0.5f + 1f));
+                Assert.That(bottomY + rows, Is.LessThanOrEqualTo(header.Height));
+            }
+        }
+
         static string FirstToken(string file, string prefix)
         {
             Assert.That(File.Exists(file), Is.True, $"{file} missing");

@@ -91,6 +91,9 @@ namespace Doom.MapBuild
                 // Firesticks are computed, not generated: lathe stand plus a
                 // plume per flame frame, both drawn by Doom/ExperimentalTorch.
                 ExperimentalTorchModel.TryAttach(go, t.Type, cache, worldScale, bb);
+                // The candelabra's fires are caged, so its metal is generated
+                // and only its three fires are computed.
+                ExperimentalCandelabraModel.TryAttach(go, t.Type, cache, worldScale, bb);
 
                 // Vanilla decoration flicker (info.c). The port never ran it,
                 // so every torch stood on frame A in Classic as well.

@@ -53,6 +53,13 @@ SPLIT_ROW = {
 
 FRAMES = "ABCD"
 
+# The candelabra is not a torch: its three fires sit INSIDE metal lantern
+# cages, so a row split would hand the bars to the flame. Its metal is
+# everything except warm, bright texels above the lantern floor — measured
+# once, like the split rows above.
+LANTERN_ROW = {"CBRA": 18}
+
+
 
 def read_directory(data):
     ident, numlumps, infotableofs = struct.unpack_from("<4sii", data, 0)
@@ -116,8 +123,54 @@ def cut(img, row, keep):
     return out
 
 
+def fire_mask(img, floor_row):
+    """Warm, bright texels above the lantern floor — the caged fire only.
+
+    The candelabra's brass is warm too, so colour alone takes half the stand
+    with it; the floor row is what separates a lantern's inside from the bowls
+    below. Above it the only warm thing is the fire, because the cage bars are
+    grey steel.
+    """
+    px = img.load()
+    mask = [[False] * img.width for _ in range(img.height)]
+    for y in range(min(floor_row, img.height)):
+        for x in range(img.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            lum = 0.30 * r + 0.59 * g + 0.11 * b
+            if r > b + 50 and lum > 80:
+                mask[y][x] = True
+    return mask
+
+
+def apply_mask(img, mask, keep_masked):
+    out = img.copy()
+    px = out.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            if mask[y][x] != keep_masked:
+                px[x, y] = (0, 0, 0, 0)
+    return out
+
+
+def split_lantern(base, img, floor_row):
+    """The candelabra: metal (cages included) versus the fire inside them."""
+    mask = fire_mask(img, floor_row)
+    fire = apply_mask(img, mask, keep_masked=True)
+    metal = apply_mask(img, mask, keep_masked=False)
+    fire.save(FLAME_DIR / f"{base}A0-fire.png")
+    metal.save(FLAME_DIR / f"{base}A0-stand-native.png")
+    out = NATIVE_DIR / f"{base}A0-stand-trellis.png"
+    to_canvas(metal).save(out)
+    lit = sum(row.count(True) for row in mask)
+    print(f"  {base}: {lit} fire texels below row {floor_row} -> "
+          f"{out.name} + {base}A0-fire.png")
+
+
 def main():
-    names = [a.upper() for a in sys.argv[1:]] or list(SPLIT_ROW)
+    names = [a.upper() for a in sys.argv[1:]] or (
+        list(SPLIT_ROW) + list(LANTERN_ROW))
     data = WAD_PATH.read_bytes()
     lumps = read_directory(data)
     palette = read_palette(data, lumps)
@@ -125,6 +178,10 @@ def main():
     FLAME_DIR.mkdir(parents=True, exist_ok=True)
 
     for base in names:
+        if base in LANTERN_ROW:
+            split_lantern(base, decode_patch(data, lumps[f"{base}A0"][0], palette),
+                          LANTERN_ROW[base])
+            continue
         if base not in SPLIT_ROW:
             print(f"  {base}: no measured split row")
             continue

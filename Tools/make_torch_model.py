@@ -49,7 +49,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from split_torch_sprite import (  # noqa: E402
-    SPLIT_ROW, FRAMES, WAD_PATH, read_directory, read_palette, decode_patch)
+    SPLIT_ROW, LANTERN_ROW, FRAMES, WAD_PATH, read_directory, read_palette,
+    decode_patch, fire_mask)
 
 REPO = Path(__file__).resolve().parent.parent
 OUT_ROOT = REPO / "Assets" / "Resources" / "ExperimentalTorches"
@@ -347,13 +348,96 @@ def write_part(out_dir, name, rows, centre, radius, axis, about_centroid):
     return len(tris), max(radius)
 
 
+def fire_clusters(img, floor_row):
+    """The candelabra's three caged fires, as separate column clusters.
+
+    Each lantern is its own little plume with its own spine, so they cannot
+    share one table: the shader reads a single axis offset per height, and
+    three fires sit at three different x.
+    """
+    mask = fire_mask(img, floor_row)
+    px = img.load()
+    width, height = img.size
+    columns = [x for x in range(width)
+               if any(mask[y][x] for y in range(height))]
+    if not columns:
+        return []
+
+    groups, current = [], [columns[0]]
+    for x in columns[1:]:
+        if x - current[-1] <= 1:
+            current.append(x)
+        else:
+            groups.append(current)
+            current = [x]
+    groups.append(current)
+
+    clusters = []
+    for group in groups:
+        lo, hi = group[0], group[-1]
+        rows = []
+        for y in range(height):
+            line = [(x, px[x, y][:3]) for x in range(lo, hi + 1) if mask[y][x]]
+            rows.append(line)
+        used = [y for y, line in enumerate(rows) if line]
+        if not used:
+            continue
+        top, bottom = used[0], used[-1]
+        clusters.append({
+            "rows": rows[top:bottom + 1],
+            "top": top,
+            "bottom": bottom,
+            "centre": (lo + hi + 1) / 2.0,
+        })
+    return clusters
+
+
+def build_lantern(base, img, floor_row, patch, out_dir):
+    """The candelabra: three fires, each an independent part, plus the table
+    the runtime places them by. The metal — stand, arms and the cages the
+    fires sit in — is a generated mesh, because a candelabra is not a solid of
+    revolution and the lathe would smear its arms into a disc."""
+    width, height, leftoff, topoff = patch
+    clusters = fire_clusters(img, floor_row)
+    lines = []
+    summary = []
+    for index, cluster in enumerate(clusters):
+        rows = cluster["rows"]
+        centre, radius = spine(rows, len(rows), cluster["centre"])
+        name = f"{base}_fire{index}"
+        tris, rmax = write_part(out_dir, name, rows, centre, radius,
+                                cluster["centre"], about_centroid=True)
+        # Anchors in patch pixels: x from the thing's axis, y from its feet.
+        offset_x = cluster["centre"] - leftoff
+        bottom_y = height - 1 - cluster["bottom"]
+        lines.append(f"{name} {offset_x:.3f} {bottom_y} {len(rows)}")
+        summary.append(f"{index}:{tris}t/x{offset_x:+.1f}/y{bottom_y}")
+
+    table = out_dir / f"{base}_fires.txt"
+    table.write_text("\n".join(lines) + "\n", encoding="ascii")
+    write_meta(table, "BAL1.mtl.meta")
+    print(f"  {base}: patch {width}x{height} off=({leftoff},{topoff}), "
+          f"{len(clusters)} caged fires -> " + " ".join(summary))
+
+
 def main():
-    names = [a.upper() for a in sys.argv[1:]] or list(SPLIT_ROW)
+    names = [a.upper() for a in sys.argv[1:]] or (
+        list(SPLIT_ROW) + list(LANTERN_ROW))
     data = WAD_PATH.read_bytes()
     lumps = read_directory(data)
     palette = read_palette(data, lumps)
 
     for base in names:
+        if base in LANTERN_ROW:
+            pos = lumps[f"{base}A0"][0]
+            out_dir = OUT_ROOT / base
+            out_dir.mkdir(parents=True, exist_ok=True)
+            build_lantern(base,
+                          decode_patch(data, pos, palette),
+                          LANTERN_ROW[base],
+                          patch_header(data, pos),
+                          out_dir)
+            continue
         if base not in SPLIT_ROW:
             print(f"  {base}: no measured split row")
             continue
