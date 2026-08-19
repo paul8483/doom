@@ -18,6 +18,7 @@ namespace Doom.Map.Tests
         {
             (30, "COL1A0", 56),
             (31, "COL2A0", 41),
+            (32, "COL3A0", 55),
         };
 
         static string AssetDir(string lump) => Path.Combine(
