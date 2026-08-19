@@ -108,6 +108,34 @@ mip усреднил бы ядро на дистанции, Repeat заверн�
   лицом к `TBLU`, остальные светильники в 350–550 юнитах вокруг), проверить
   Enhanced + 3D Objects On/Off и Classic.
 
+## Task 8 — стойки через TRELLIS.2 (решение пользователя 2026-08-19)
+
+Пламя принято на панели («огонь выглядит классно»), стойку решено поднять до
+генерации: токарное тело повторяет силуэт точно, но фронтальное украшение
+головы у него становится кольцом, а модель его вылепит.
+
+- Рантайм уже готов: `ExperimentalTorchModel` грузит
+  `ExperimentalTorches/<BASE>/<BASE>_stand_mesh` и, если он есть, ставит его
+  вместо токарного (шейдер `Doom/ExperimentalPickupUnlit`, масштаб по
+  измеренным bounds под высоту стойки из патча). PlayMode-тест пиннит ПРАВИЛО,
+  а не сегодняшнее состояние: `UsesGeneratedStandForTest ==
+  HasGeneratedStand(sprite)`, поэтому меши доедут без правок кода.
+- Пламя остаётся вычисляемым в любом случае — бейк не удержит градиент,
+  у которого ядро внутри объёма.
+- Конденсинг: канвы стоек уже лежат в
+  `Textures/Trellis2/NativeInputs/<BASE>A0-stand-trellis.png`, пламя с них
+  срезано. Эскизы рисуются ОДНИМ набором из шести (правило волн 2026-08-16),
+  сохраняются как
+  `Textures/Trellis2/ShapeHints/3D/<BASE>A0-stand-depth-shapehint-v2.png`.
+- Пит после Space:
+  ```
+  python Tools/convert_trellis_glb_to_obj.py --glb <файл>.glb       --out-dir Assets/Resources/ExperimentalTorches/<BASE> --lump <BASE>_stand_mesh
+  python Tools/doomify3d.py --lump <BASE>_stand_mesh       --src Assets/Resources/ExperimentalTorches/<BASE>       --out Assets/Resources/ExperimentalTorches/<BASE>       --palette-image Textures/Trellis2/TorchFlames/<BASE>A0-stand-native.png
+  ```
+  Новый ключ `--palette-image` появился ради этой волны: стойка делит лампу с
+  пламенем, и квантование по `TBLUA0` предложило бы латуни все синие и белые
+  цвета огня.
+
 ## Статус
 
 - [x] Task 0 — разделение спрайта
@@ -117,4 +145,5 @@ mip усреднил бы ядро на дистанции, Repeat заверн�
 - [x] Task 4 — ванильная анимация билборда
 - [x] Task 5 — тесты
 - [x] Task 6 — панель гейта
-- [ ] Task 7 — интерактивный гейт в standalone (слот 1, E1M5)
+- [x] Task 7 — гейт пламени: SUCCESS («огонь выглядит классно», 2026-08-19)
+- [ ] Task 8 — стойки через TRELLIS.2 (рантайм и пит готовы, ждут эскизов + Space)

@@ -214,6 +214,28 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Generated_stand_wins_over_the_computed_one_when_present()
+        {
+            yield return LoadLevel();
+            Enhanced3D(memory, display);
+            foreach (var pair in ExperimentalTorchModel.RoutedForTest)
+            {
+                var model = Torches()[pair.Key];
+                // Pins the rule, not today's assets: while no TRELLIS stand is
+                // on disk the lathe carries the torch, and the day one is
+                // dropped in it takes over without another code change.
+                Assert.That(model.UsesGeneratedStandForTest,
+                    Is.EqualTo(ExperimentalTorchModel.HasGeneratedStand(pair.Value)),
+                    $"{pair.Value} routes the wrong stand");
+                var stand = model.ModelRootForTest.Find("Stand");
+                Assert.That(stand, Is.Not.Null, $"{pair.Value} has no stand at all");
+                foreach (var renderer in stand.GetComponentsInChildren<Renderer>(true))
+                    Assert.That(renderer.sharedMaterial.mainTexture, Is.Not.Null,
+                        $"{pair.Value} stand lost its texture");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Billboard_flame_flickers_in_classic_too()
         {
             yield return LoadLevel();

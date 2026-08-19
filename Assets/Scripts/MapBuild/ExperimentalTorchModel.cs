@@ -45,11 +45,19 @@ namespace Doom.MapBuild
         int testTic = -1;
         bool lastUseMesh;
         bool settingsControllerSeen;
+        bool usesTrellisStand;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.gameObject.activeSelf;
         public int CurrentFrameForTest => currentFrame;
         public Transform ModelRootForTest => modelRoot;
+        public bool UsesGeneratedStandForTest => usesTrellisStand;
+
+        /// True when a generated (TRELLIS) stand has been dropped in for this
+        /// sprite; the computed lathe stand carries it until then.
+        public static bool HasGeneratedStand(string sprite) =>
+            sprite != null &&
+            Resources.Load<GameObject>(ResourceRoot + sprite + "/" + sprite + "_stand_mesh") != null;
 
         public static bool IsRoutedForTest(int doomEdNum) => Routed.ContainsKey(doomEdNum);
 
@@ -76,6 +84,13 @@ namespace Doom.MapBuild
             var standSpine = Resources.Load<Texture2D>(dir + sprite + "_stand_spine");
             if (standMesh == null || standProfile == null || standSpine == null)
                 return null;
+
+            // A generated stand outranks the computed one when it exists: the
+            // lathe reproduces the silhouette exactly but turns the head's
+            // frontal ornament into a ring, which only modelled geometry can
+            // carry. The flame stays computed either way — no bake can hold a
+            // gradient whose core is inside the volume.
+            var trellisStand = Resources.Load<GameObject>(dir + sprite + "_stand_mesh");
 
             var flameMeshes = new GameObject[FrameCount];
             var flameProfiles = new Texture2D[FrameCount];
@@ -105,7 +120,7 @@ namespace Doom.MapBuild
             float bottomY = (patch.TopOffset - patch.Height) * worldScale;
             model.Init(
                 billboard,
-                standMesh, standProfile, standSpine,
+                standMesh, standProfile, standSpine, trellisStand,
                 flameMeshes, flameProfiles, flameSpines,
                 bottomY: bottomY,
                 standHeight: standRows * worldScale,
@@ -121,6 +136,7 @@ namespace Doom.MapBuild
         void Init(
             SpriteBillboard sourceBillboard,
             GameObject standMesh, Texture2D standProfile, Texture2D standSpine,
+            GameObject trellisStand,
             GameObject[] flameMeshes, Texture2D[] flameProfiles, Texture2D[] flameSpines,
             float bottomY, float standHeight, float flameHeight)
         {
@@ -141,13 +157,17 @@ namespace Doom.MapBuild
             rootGo.transform.localScale = Vector3.one;
             modelRoot = rootGo.transform;
 
-            if (!Spawn(standMesh, standProfile, standSpine, shader,
-                       bottomY, standHeight, "Stand", out _))
+            bool standOk = trellisStand != null
+                ? SpawnTrellisStand(trellisStand, bottomY, standHeight)
+                : Spawn(standMesh, standProfile, standSpine, shader,
+                        bottomY, standHeight, "Stand", out _);
+            if (!standOk)
             {
                 Destroy(rootGo);
                 modelRoot = null;
                 return;
             }
+            usesTrellisStand = trellisStand != null;
 
             flameFrames = new GameObject[flameMeshes.Length];
             for (int i = 0; i < flameMeshes.Length; i++)
@@ -166,6 +186,81 @@ namespace Doom.MapBuild
             ApplyFrame(FrameForTic(CurrentTic()));
             SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
+        }
+
+        /// A generated stand carries its own baked albedo, so it goes through
+        /// the pickup's unlit shader and is measured, not assumed: TRELLIS
+        /// meshes come back at whatever scale the reconstruction chose.
+        bool SpawnTrellisStand(GameObject prefab, float bottomY, float height)
+        {
+            var pivotGo = new GameObject("Stand");
+            pivotGo.transform.SetParent(modelRoot, worldPositionStays: false);
+            pivotGo.transform.localPosition = new Vector3(0f, bottomY, 0f);
+            pivotGo.transform.localRotation = Quaternion.identity;
+            pivotGo.transform.localScale = Vector3.one;
+
+            var instance = Instantiate(prefab, pivotGo.transform);
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+
+            var renderers = instance.GetComponentsInChildren<Renderer>(
+                includeInactive: true);
+            if (renderers.Length == 0)
+            {
+                Debug.LogWarning("ExperimentalTorchModel: generated stand has no renderers.");
+                Destroy(pivotGo);
+                return false;
+            }
+
+            var shader = Resources.Load<Shader>(
+                "ExperimentalPickups/DoomExperimentalPickupUnlit");
+            if (shader == null)
+            {
+                Debug.LogWarning("ExperimentalTorchModel: pickup shader missing.");
+                Destroy(pivotGo);
+                return false;
+            }
+
+            foreach (var renderer in renderers)
+            {
+                var source = renderer.sharedMaterials;
+                var upgraded = new Material[Mathf.Max(1, source.Length)];
+                for (int i = 0; i < upgraded.Length; i++)
+                {
+                    var origin = i < source.Length ? source[i] : null;
+                    var material = origin != null
+                        ? new Material(origin) : new Material(shader);
+                    Texture albedo = material.mainTexture;
+                    material.shader = shader;
+                    material.mainTexture = albedo;
+                    material.SetFloat("_Exposure", 1f);
+                    material.SetFloat("_EmissionStrength", 0f);
+                    material.SetColor("_ColorTint", Color.white);
+                    ownedMaterials.Add(material);
+                    upgraded[i] = material;
+                }
+                renderer.sharedMaterials = upgraded;
+            }
+
+            // Scale to the sprite's own stand height, then sit the mesh on the
+            // floor with its axis on the thing's axis.
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            if (bounds.size.y > 0.0001f)
+            {
+                instance.transform.localScale *= height / bounds.size.y;
+                bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+            }
+            Vector3 anchor = pivotGo.transform.position;
+            instance.transform.position += new Vector3(
+                anchor.x - bounds.center.x,
+                anchor.y - bounds.min.y,
+                anchor.z - bounds.center.z);
+            return true;
         }
 
         /// One part: the OBJ is normalized (axis at x=z=0, bottom at y=0,

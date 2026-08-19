@@ -73,6 +73,21 @@ def sprite_palette(lump: str) -> np.ndarray:
     return playpal()[sorted(used)]
 
 
+def image_palette(path: Path) -> np.ndarray:
+    """Palette entries actually used by an opaque region of a PNG.
+
+    A torch stand shares its lump with the flame above it, so quantizing to
+    `sprite_palette("TBLUA0")` would offer the brass every blue and white the
+    fire uses. Pointing this at the stand-only crop written by
+    `Tools/split_torch_sprite.py` keeps the metal in metal colours.
+    """
+    arr = np.asarray(Image.open(path).convert("RGBA"))
+    rgb = arr[arr[..., 3] > 0][:, :3]
+    if len(rgb) == 0:
+        raise SystemExit(f"palette image {path} is empty")
+    return np.unique(rgb.reshape(-1, 3), axis=0)
+
+
 # --- texture pass ----------------------------------------------------------
 
 def quantize(arr: np.ndarray, palette: np.ndarray) -> np.ndarray:
@@ -259,6 +274,9 @@ def main():
     # between frame meshes; pass the anchor frame's lump (e.g. POSSA1).
     p.add_argument("--palette-lump", default=None,
                    help="quantize to this lump's native palette instead of --lump's")
+    p.add_argument("--palette-image", default=None,
+                   help="quantize to the colors of this PNG's opaque texels "
+                        "(for parts that share a lump, e.g. a torch stand)")
     p.add_argument("--out", default=None)
     # monsters live under Assets/Resources/ExperimentalMonsters/<SPRITE>/
     p.add_argument("--src", default=None,
@@ -270,9 +288,13 @@ def main():
     out = Path(a.out) if a.out else REPO / "Logs" / "doomify3d" / a.lump
     out.mkdir(parents=True, exist_ok=True)
 
-    pal = (sprite_palette(a.palette_lump or a.lump)
-           if a.palette == "native" else playpal())
-    print(f"palette: {a.palette} ({len(pal)} colors)")
+    if a.palette_image:
+        pal = image_palette(Path(a.palette_image))
+        print(f"palette: image {Path(a.palette_image).name} ({len(pal)} colors)")
+    else:
+        pal = (sprite_palette(a.palette_lump or a.lump)
+               if a.palette == "native" else playpal())
+        print(f"palette: {a.palette} ({len(pal)} colors)")
 
     albedo = Image.open(src / f"{a.lump}_albedo.png")
 
