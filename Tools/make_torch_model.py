@@ -49,8 +49,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from split_torch_sprite import (  # noqa: E402
-    SPLIT_ROW, LANTERN_ROW, FRAMES, WAD_PATH, read_directory, read_palette,
-    decode_patch, fire_mask)
+    SPLIT_ROW, LANTERN_ROW, CANDLE_ROW, FRAMES, WAD_PATH, read_directory,
+    read_palette, decode_patch, fire_mask)
 
 REPO = Path(__file__).resolve().parent.parent
 OUT_ROOT = REPO / "Assets" / "Resources" / "ExperimentalTorches"
@@ -420,14 +420,57 @@ def build_lantern(base, img, floor_row, patch, out_dir):
           f"{len(clusters)} caged fires -> " + " ".join(summary))
 
 
+def build_candle(base, img, split, patch, out_dir):
+    """The candle: a wax cylinder and one small flame that never animates.
+
+    It needs no Space either — the wax is as much a lathe body as a firestick's
+    pole — but it ships in the candelabra's shape rather than the torch's,
+    because vanilla `CAND` is a single frame: one anchored fire beside the
+    body, no four-frame flicker.
+    """
+    _width, height, leftoff, _topoff = patch
+    axis = float(leftoff)
+
+    body = stand_rows(img, split)
+    bcentre, bradius = lathe(body, axis)
+    tris, _r = write_part(out_dir, f"{base}_stand", body, bcentre, bradius,
+                          axis, about_centroid=False)
+
+    rows = flame_rows(img, split)
+    fcentre, fradius = spine(rows, len(rows), axis)
+    fire_tris, _fr = write_part(out_dir, f"{base}_fire0", rows, fcentre,
+                                fradius, axis, about_centroid=True)
+
+    # Anchor in patch pixels: x from the thing's axis, y from the sprite's own
+    # bottom row, which is where the runtime hangs the body from.
+    offset_x = (row_centre(rows[-1]) or axis) - axis
+    bottom_y = height - split
+    table = out_dir / f"{base}_fires.txt"
+    table.write_text(
+        f"{base}_fire0 {offset_x:.3f} {bottom_y} {len(rows)}\n", encoding="ascii")
+    write_meta(table, "BAL1.mtl.meta")
+    print(f"  {base}: wax {len(body)} rows/{tris}t + flame {len(rows)} rows/"
+          f"{fire_tris}t at x{offset_x:+.1f}/y{bottom_y}")
+
+
 def main():
     names = [a.upper() for a in sys.argv[1:]] or (
-        list(SPLIT_ROW) + list(LANTERN_ROW))
+        list(SPLIT_ROW) + list(LANTERN_ROW) + list(CANDLE_ROW))
     data = WAD_PATH.read_bytes()
     lumps = read_directory(data)
     palette = read_palette(data, lumps)
 
     for base in names:
+        if base in CANDLE_ROW:
+            pos = lumps[f"{base}A0"][0]
+            out_dir = OUT_ROOT / base
+            out_dir.mkdir(parents=True, exist_ok=True)
+            build_candle(base,
+                         decode_patch(data, pos, palette),
+                         CANDLE_ROW[base],
+                         patch_header(data, pos),
+                         out_dir)
+            continue
         if base in LANTERN_ROW:
             pos = lumps[f"{base}A0"][0]
             out_dir = OUT_ROOT / base

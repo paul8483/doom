@@ -21,8 +21,10 @@ namespace Doom.MapBuild.Editor
     public static class CandelabraGatePreviewMenu
     {
         const int Cell = 320;
-        const string Sprite = "CBRA";
-        const string Root = "ExperimentalTorches/" + Sprite + "/";
+        const string Root = "ExperimentalTorches/";
+        // The two lights whose fire never animates: the candelabra over a
+        // generated body, the candle over a computed one.
+        static readonly string[] Sprites = { "CBRA", "CAND" };
         static readonly float[] Yaws = { 0f, 45f, 90f, 150f };
 
         [MenuItem("Tools/Doom/Dump Candelabra Gate Preview")]
@@ -38,11 +40,9 @@ namespace Doom.MapBuild.Editor
                 "ExperimentalTorches/DoomExperimentalTorch");
             var metalShader = Resources.Load<Shader>(
                 "ExperimentalPickups/DoomExperimentalPickupUnlit");
-            var metal = Resources.Load<GameObject>(Root + Sprite + "_stand_mesh");
-            var table = Resources.Load<TextAsset>(Root + Sprite + "_fires");
-            if (fireShader == null || metalShader == null || metal == null || table == null)
+            if (fireShader == null || metalShader == null)
             {
-                Debug.LogError("CandelabraGatePreview: assets missing.");
+                Debug.LogError("CandelabraGatePreview: shaders missing.");
                 return;
             }
 
@@ -50,25 +50,39 @@ namespace Doom.MapBuild.Editor
                 Application.streamingAssetsPath, "wads", "freedoom1.wad");
             using var wad = WadFile.Open(wadPath);
             var palette = new Palette(wad.ReadLump("PLAYPAL"));
-            var native = Patch.Decode(wad.ReadLump(Sprite + "A0"), palette);
-
             Shader.SetGlobalVector("_DoomFogParams", Vector4.zero);
 
             var background = new Color32(18, 18, 18, 255);
-            var sheet = new Texture2D((1 + Yaws.Length) * Cell, Cell,
+            int cols = 1 + Yaws.Length;
+            var sheet = new Texture2D(cols * Cell, Sprites.Length * Cell,
                                       TextureFormat.RGBA32, false);
             var clear = new Color32[Cell * Cell];
             for (int i = 0; i < clear.Length; i++) clear[i] = background;
-            for (int c = 0; c < 1 + Yaws.Length; c++)
-                sheet.SetPixels32(c * Cell, 0, Cell, Cell, clear);
+            for (int c = 0; c < cols; c++)
+                for (int r = 0; r < Sprites.Length; r++)
+                    sheet.SetPixels32(c * Cell, r * Cell, Cell, Cell, clear);
 
-            Blit(sheet, NativePanel(native, background), 0, 0);
-            for (int y = 0; y < Yaws.Length; y++)
+            for (int s = 0; s < Sprites.Length; s++)
             {
-                var shot = Render(metal, metalShader, fireShader, table.text,
-                                  native.Height, Yaws[y], background);
-                Blit(sheet, shot, (1 + y) * Cell, 0);
-                Object.DestroyImmediate(shot);
+                string sprite = Sprites[s];
+                int row = Sprites.Length - 1 - s;   // SetPixels32 draws bottom-up
+                var table = Resources.Load<TextAsset>(
+                    Root + sprite + "/" + sprite + "_fires");
+                if (table == null)
+                {
+                    Debug.LogError($"CandelabraGatePreview: {sprite} has no fire table.");
+                    continue;
+                }
+                var native = Patch.Decode(wad.ReadLump(sprite + "A0"), palette);
+                Blit(sheet, NativePanel(native, background), 0, row * Cell);
+                for (int y = 0; y < Yaws.Length; y++)
+                {
+                    var shot = Render(sprite, metalShader, fireShader, table.text,
+                                      native.Height, Yaws[y], background);
+                    if (shot == null) continue;
+                    Blit(sheet, shot, (1 + y) * Cell, row * Cell);
+                    Object.DestroyImmediate(shot);
+                }
             }
 
             sheet.Apply();
@@ -77,7 +91,8 @@ namespace Doom.MapBuild.Editor
             Object.DestroyImmediate(sheet);
 
             File.WriteAllText(Path.Combine(outDir, "README.txt"),
-                "Enhanced 3D candelabra — gate panel\n\n" +
+                "Enhanced 3D static-fire lights — gate panel\n\n" +
+                "Rows: " + string.Join(", ", Sprites) + " (top to bottom).\n" +
                 "Columns: native sprite, then the assembled object at yaw " +
                 string.Join("/", Yaws) + " degrees.\n\n" +
                 "What to judge: each fire must sit INSIDE its cage with the\n" +
@@ -87,41 +102,68 @@ namespace Doom.MapBuild.Editor
             Debug.Log($"CandelabraGatePreview: wrote {path}");
         }
 
-        static Texture2D Render(GameObject metal, Shader metalShader, Shader fireShader,
+        static Texture2D Render(string sprite, Shader metalShader, Shader fireShader,
                                 string table, int patchHeight, float yaw,
                                 Color32 background)
         {
-            var holder = new GameObject("CandelabraPreview");
+            string dir = Root + sprite + "/";
+            var holder = new GameObject("StaticFirePreview");
             holder.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
             // The whole sprite is one unit tall here, exactly as the runtime
             // scales it by the patch height.
             float unit = 1f / patchHeight;
-            var pivot = new GameObject("Metal");
+            var generated = Resources.Load<GameObject>(dir + sprite + "_stand_mesh");
+            var pivot = new GameObject("Body");
             pivot.transform.SetParent(holder.transform, worldPositionStays: false);
-            var instance = Object.Instantiate(metal, pivot.transform);
-            var renderers = instance.GetComponentsInChildren<Renderer>(true);
-            foreach (var renderer in renderers)
+            if (generated != null)
             {
-                var material = new Material(renderer.sharedMaterial);
-                Texture albedo = material.mainTexture;
-                material.shader = metalShader;
-                material.mainTexture = albedo;
-                material.SetFloat("_Exposure", 1f);
-                material.SetFloat("_EmissionStrength", 0f);
-                material.SetColor("_ColorTint", Color.white);
-                renderer.sharedMaterial = material;
+                var instance = Object.Instantiate(generated, pivot.transform);
+                var renderers = instance.GetComponentsInChildren<Renderer>(true);
+                foreach (var renderer in renderers)
+                {
+                    var material = new Material(renderer.sharedMaterial);
+                    Texture albedo = material.mainTexture;
+                    material.shader = metalShader;
+                    material.mainTexture = albedo;
+                    material.SetFloat("_Exposure", 1f);
+                    material.SetFloat("_EmissionStrength", 0f);
+                    material.SetColor("_ColorTint", Color.white);
+                    renderer.sharedMaterial = material;
+                }
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+                if (bounds.size.y > 0.0001f)
+                    instance.transform.localScale *= 1f / bounds.size.y;
+                bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+                instance.transform.position += new Vector3(
+                    -bounds.center.x, -bounds.min.y, -bounds.center.z);
             }
-            Bounds bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
-                bounds.Encapsulate(renderers[i].bounds);
-            if (bounds.size.y > 0.0001f)
-                instance.transform.localScale *= 1f / bounds.size.y;
-            bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
-                bounds.Encapsulate(renderers[i].bounds);
-            instance.transform.position += new Vector3(
-                -bounds.center.x, -bounds.min.y, -bounds.center.z);
+            else
+            {
+                // A computed body is normalized, so the scale IS its height in
+                // patch pixels — the candle's wax, for instance.
+                var lathe = Resources.Load<GameObject>(dir + sprite + "_stand");
+                var profile = Resources.Load<Texture2D>(dir + sprite + "_stand_profile");
+                var spine = Resources.Load<Texture2D>(dir + sprite + "_stand_spine");
+                if (lathe == null || profile == null || spine == null)
+                {
+                    Object.DestroyImmediate(holder);
+                    return null;
+                }
+                pivot.transform.localScale = Vector3.one * (profile.height * unit);
+                var instance = Object.Instantiate(lathe, pivot.transform);
+                var material = new Material(fireShader);
+                material.mainTexture = profile;
+                material.SetTexture("_SpineTex", spine);
+                material.SetFloat("_SpineRange", 0.5f);
+                material.SetFloat("_Exposure", 1f);
+                foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                    renderer.sharedMaterial = material;
+            }
 
             foreach (string raw in table.Split('\n'))
             {
@@ -129,9 +171,9 @@ namespace Doom.MapBuild.Editor
                 if (line.Length == 0) continue;
                 string[] f = line.Split(' ');
                 if (f.Length != 4) continue;
-                var mesh = Resources.Load<GameObject>(Root + f[0]);
-                var profile = Resources.Load<Texture2D>(Root + f[0] + "_profile");
-                var spine = Resources.Load<Texture2D>(Root + f[0] + "_spine");
+                var mesh = Resources.Load<GameObject>(dir + f[0]);
+                var profile = Resources.Load<Texture2D>(dir + f[0] + "_profile");
+                var spine = Resources.Load<Texture2D>(dir + f[0] + "_spine");
                 if (mesh == null || profile == null || spine == null) continue;
 
                 float x = float.Parse(f[1], CultureInfo.InvariantCulture) * unit;

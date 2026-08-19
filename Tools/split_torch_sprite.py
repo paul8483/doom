@@ -59,6 +59,12 @@ FRAMES = "ABCD"
 # once, like the split rows above.
 LANTERN_ROW = {"CBRA": 18}
 
+# The candle is a torch in miniature and needs no Space at all: rows 0-5 are
+# its flame, the rest is a wax cylinder — a lathe body like the firesticks’.
+# Its fire does not animate (vanilla CAND is a single frame), so it ships as
+# one anchored fire beside the body, the same shape the candelabra uses.
+CANDLE_ROW = {"CAND": 6}
+
 
 
 def read_directory(data):

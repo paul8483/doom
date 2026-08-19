@@ -264,7 +264,7 @@ namespace Doom.Map.Tests
             // cages, so the metal is generated whole and only the fires are
             // computed — three of them, each with its own spine, placed by the
             // table the generator writes beside the meshes.
-            string dir = AssetDir(ExperimentalCandelabraModel.Sprite);
+            string dir = AssetDir("CBRA");
             string table = Path.Combine(dir, "CBRA_fires.txt");
             Assert.That(File.Exists(table), Is.True, "CBRA_fires.txt missing");
 
@@ -332,6 +332,50 @@ namespace Doom.Map.Tests
                     Is.LessThanOrEqualTo(header.Width * 0.5f + 1f));
                 Assert.That(bottomY + rows, Is.LessThanOrEqualTo(header.Height));
             }
+        }
+
+        [Test]
+        public void Candle_is_computed_whole_and_needs_nothing_generated()
+        {
+            // CAND is a torch in miniature: wax cylinder plus one small flame,
+            // both solids of revolution, so it ships with no Space run at all.
+            // Its fire never animates — vanilla gives it a single frame.
+            string dir = AssetDir("CAND");
+            foreach (string part in new[] { "CAND_stand", "CAND_fire0" })
+            {
+                Assert.That(File.Exists(Path.Combine(dir, part + ".obj")), Is.True,
+                    $"{part}.obj missing");
+                Assert.That(FirstToken(Path.Combine(dir, part + ".obj"), "mtllib "),
+                    Is.EqualTo(part + ".mtl"));
+                string resource = "ExperimentalTorches/CAND/" + part;
+                Assert.That(Resources.Load<GameObject>(resource), Is.Not.Null, resource);
+                Assert.That(Resources.Load<Texture2D>(resource + "_profile"),
+                    Is.Not.Null, resource + "_profile");
+                Assert.That(Resources.Load<Texture2D>(resource + "_spine"),
+                    Is.Not.Null, resource + "_spine");
+            }
+            Assert.That(File.Exists(Path.Combine(dir, "CAND_stand_mesh.obj")), Is.False,
+                "a candle is a cylinder — generating one would be busywork");
+            Assert.That(ExperimentalStaticFireModel.HasBody(34), Is.True,
+                "the computed wax must satisfy the body requirement");
+
+            string path = WadPath();
+            if (!File.Exists(path)) Assert.Ignore("freedoom1.wad missing");
+            using var wad = WadFile.Open(path);
+            var header = Patch.ReadHeader(wad.ReadLump("CANDA0"));
+            int waxRows = PngHeight(Path.Combine(dir, "CAND_stand_profile.png"));
+            int flameRows = PngHeight(Path.Combine(dir, "CAND_fire0_profile.png"));
+            Assert.That(waxRows + flameRows, Is.EqualTo(header.Height),
+                "wax and flame together must cover the whole patch");
+
+            string[] fields = File.ReadAllLines(Path.Combine(dir, "CAND_fires.txt"))[0]
+                .Trim().Split(' ');
+            Assert.That(fields.Length, Is.EqualTo(4));
+            Assert.That(float.Parse(fields[2], CultureInfo.InvariantCulture),
+                Is.EqualTo(waxRows).Within(0.001f),
+                "the flame must start exactly where the wax ends");
+            Assert.That(float.Parse(fields[3], CultureInfo.InvariantCulture),
+                Is.EqualTo(flameRows).Within(0.001f));
         }
 
         static string FirstToken(string file, string prefix)

@@ -256,15 +256,17 @@ namespace Doom.Stage3.PlayTests
             Enhanced3D(memory, display);
             yield return null;
 
-            ExperimentalCandelabraModel model = null;
-            foreach (var candidate in Object.FindObjectsByType<ExperimentalCandelabraModel>(
+            ExperimentalStaticFireModel model = null;
+            foreach (var candidate in Object.FindObjectsByType<ExperimentalStaticFireModel>(
                          FindObjectsInactive.Include, FindObjectsSortMode.None))
                 model = candidate;
 
-            // Pins the rule, not today's assets: CBRA's metal is generated —
-            // a candelabra is not a solid of revolution, so there is no
-            // computed fallback and it stays a billboard until a mesh lands.
-            bool expected = ExperimentalCandelabraModel.HasGeneratedStand();
+            // Pins the rule, not today's assets: CBRA's metal must be
+            // generated — a candelabra is not a solid of revolution, so there
+            // is no computed fallback and it stays a billboard until a mesh
+            // lands. (The candle, which IS a cylinder, needs none — but it
+            // stands on other maps, so E1M5 cannot check it.)
+            bool expected = ExperimentalStaticFireModel.HasBody(35);
             Assert.That(model != null, Is.EqualTo(expected),
                 expected
                     ? "the candelabra has a generated mesh but took no 3D"
@@ -274,7 +276,7 @@ namespace Doom.Stage3.PlayTests
             model.SetEnhancedForTest(true);
             yield return null;
             Assert.That(model.FireCountForTest, Is.EqualTo(3));
-            Assert.That(model.ModelRootForTest.Find("Metal"), Is.Not.Null);
+            Assert.That(model.ModelRootForTest.Find("Body"), Is.Not.Null);
             foreach (var renderer in model.ModelRootForTest
                          .GetComponentsInChildren<Renderer>(true))
                 Assert.That(renderer.sharedMaterial.mainTexture, Is.Not.Null,

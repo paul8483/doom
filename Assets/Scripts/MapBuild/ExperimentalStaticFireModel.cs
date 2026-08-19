@@ -7,27 +7,41 @@ using Doom.Things;
 
 namespace Doom.MapBuild
 {
-    /// Enhanced 3D presentation for the candelabra (thing 35, `CBRA`).
+    /// Enhanced 3D presentation for lights whose fire does NOT animate — the
+    /// candelabra (35, `CBRA`) and the candle (34, `CAND`). Vanilla gives both
+    /// a single frame, so unlike the firesticks they never flicker: Classic
+    /// never did either.
     ///
-    /// It looks like a torch's cousin but splits differently: the three fires
-    /// sit INSIDE steel lantern cages, so the metal — base, column, arms AND
-    /// the bars in front of the fire — is one connected object, and a row
-    /// split would have handed the bars to the flame. The metal is therefore a
-    /// generated (TRELLIS) mesh with no computed fallback: a candelabra is not
-    /// a solid of revolution, and the lathe that carries the firesticks would
-    /// smear its arms into a disc.
+    /// Both are a body plus one or more anchored fires, and the fires keep the
+    /// torch treatment — mesh for shape, colour re-derived per fragment by
+    /// `Doom/ExperimentalTorch` — one part each, because a single table holds
+    /// one axis offset per height and the candelabra's three fires sit at
+    /// three different x.
     ///
-    /// The fires keep the torch treatment — mesh for shape, colour re-derived
-    /// per fragment by `Doom/ExperimentalTorch` — but there are three of them,
-    /// each with its own spine, so each is a separate part placed by the table
-    /// the generator writes beside them. Vanilla `CBRA` is a single frame, so
-    /// they do not flicker: Classic never did.
-    public sealed class ExperimentalCandelabraModel : MonoBehaviour
+    /// The bodies differ in what they may be built from:
+    ///   * `CBRA`'s metal — base, column, arms AND the cage bars that cross in
+    ///     front of the fire — is one connected object that is NOT a solid of
+    ///     revolution, so it is a generated (TRELLIS) mesh with no computed
+    ///     fallback: the lathe that carries the firesticks would smear its
+    ///     arms into a disc;
+    ///   * `CAND`'s wax IS a cylinder, so it is computed like a torch stand
+    ///     and needs nothing generated at all.
+    public sealed class ExperimentalStaticFireModel : MonoBehaviour
     {
-        public const int DoomEdNum = 35;
-        public const string Sprite = "CBRA";
         const string ResourceRoot = "ExperimentalTorches/";
         const string ShaderResource = ResourceRoot + "DoomExperimentalTorch";
+        const string PickupShader = "ExperimentalPickups/DoomExperimentalPickupUnlit";
+
+        /// doomednum -> (sprite, may the body be computed as a lathe?).
+        static readonly Dictionary<int, (string Sprite, bool LatheBody)> Routed =
+            new Dictionary<int, (string, bool)>
+            {
+                { 35, ("CBRA", false) },
+                { 34, ("CAND", true) },
+            };
+
+        public static IEnumerable<KeyValuePair<int, (string Sprite, bool LatheBody)>>
+            RoutedForTest => Routed;
 
         SpriteBillboard billboard;
         MeshRenderer billboardRenderer;
@@ -41,13 +55,20 @@ namespace Doom.MapBuild
         public Transform ModelRootForTest => modelRoot;
         public int FireCountForTest { get; private set; }
 
-        /// True once the generated metal has been dropped in; until then the
-        /// candelabra stays a billboard in every mode.
-        public static bool HasGeneratedStand() =>
-            Resources.Load<GameObject>(ResourceRoot + Sprite + "/" + Sprite + "_stand_mesh")
-            != null;
+        /// True when this light's body can be built at all: a generated mesh,
+        /// or a computed lathe where the shape allows one. Until then the thing
+        /// stays a billboard in every mode.
+        public static bool HasBody(int doomEdNum)
+        {
+            if (!Routed.TryGetValue(doomEdNum, out var route)) return false;
+            string dir = ResourceRoot + route.Sprite + "/";
+            if (Resources.Load<GameObject>(dir + route.Sprite + "_stand_mesh") != null)
+                return true;
+            return route.LatheBody
+                && Resources.Load<GameObject>(dir + route.Sprite + "_stand") != null;
+        }
 
-        public static ExperimentalCandelabraModel TryAttach(
+        public static ExperimentalStaticFireModel TryAttach(
             GameObject thingRoot,
             int doomEdNum,
             SpriteCache cache,
@@ -55,13 +76,28 @@ namespace Doom.MapBuild
             SpriteBillboard billboard)
         {
             if (thingRoot == null || cache == null) return null;
-            if (doomEdNum != DoomEdNum) return null;
+            if (!Routed.TryGetValue(doomEdNum, out var route)) return null;
             if (!ThingTable.TryGet(doomEdNum, out _)) return null;
 
-            string dir = ResourceRoot + Sprite + "/";
-            var metal = Resources.Load<GameObject>(dir + Sprite + "_stand_mesh");
-            var table = Resources.Load<TextAsset>(dir + Sprite + "_fires");
-            if (metal == null || table == null) return null;
+            string sprite = route.Sprite;
+            string dir = ResourceRoot + sprite + "/";
+            var table = Resources.Load<TextAsset>(dir + sprite + "_fires");
+            if (table == null) return null;
+
+            // A generated body wins; a lathe carries the shapes that are
+            // solids of revolution, and nothing else may fall back at all.
+            var generated = Resources.Load<GameObject>(dir + sprite + "_stand_mesh");
+            GameObject lathe = null;
+            Texture2D latheProfile = null, latheSpine = null;
+            if (generated == null)
+            {
+                if (!route.LatheBody) return null;
+                lathe = Resources.Load<GameObject>(dir + sprite + "_stand");
+                latheProfile = Resources.Load<Texture2D>(dir + sprite + "_stand_profile");
+                latheSpine = Resources.Load<Texture2D>(dir + sprite + "_stand_spine");
+                if (lathe == null || latheProfile == null || latheSpine == null)
+                    return null;
+            }
 
             var fires = ParseFires(table.text);
             if (fires.Count == 0) return null;
@@ -74,14 +110,19 @@ namespace Doom.MapBuild
                     return null;
             }
 
-            var patch = cache.Get(Sprite, 0, 0);
+            var patch = cache.Get(sprite, 0, 0);
             if (!patch.IsValid) return null;
 
-            var model = thingRoot.AddComponent<ExperimentalCandelabraModel>();
-            model.Init(billboard, metal, fires,
+            // A generated body was reconstructed from the whole sprite, so it
+            // spans the whole patch; a lathe body only reaches as high as the
+            // rows its own colour table was built from.
+            float bodyRows = generated != null ? patch.Height : latheProfile.height;
+
+            var model = thingRoot.AddComponent<ExperimentalStaticFireModel>();
+            model.Init(billboard, generated, lathe, latheProfile, latheSpine, fires,
                        // The billboard hangs its quad from the patch's top offset.
                        bottomY: (patch.TopOffset - patch.Height) * worldScale,
-                       metalHeight: patch.Height * worldScale,
+                       bodyHeight: bodyRows * worldScale,
                        worldScale: worldScale);
             if (!model.HasModel)
             {
@@ -126,29 +167,35 @@ namespace Doom.MapBuild
             return result;
         }
 
-        void Init(SpriteBillboard sourceBillboard, GameObject metal, List<Fire> fires,
-                  float bottomY, float metalHeight, float worldScale)
+        void Init(SpriteBillboard sourceBillboard,
+                  GameObject generated, GameObject lathe,
+                  Texture2D latheProfile, Texture2D latheSpine,
+                  List<Fire> fires,
+                  float bottomY, float bodyHeight, float worldScale)
         {
             billboard = sourceBillboard;
             billboardRenderer = GetComponent<MeshRenderer>();
 
             var shader = Resources.Load<Shader>(ShaderResource);
-            var metalShader = Resources.Load<Shader>(
-                "ExperimentalPickups/DoomExperimentalPickupUnlit");
+            var metalShader = Resources.Load<Shader>(PickupShader);
             if (shader == null || metalShader == null)
             {
-                Debug.LogWarning("ExperimentalCandelabraModel: shader missing.");
+                Debug.LogWarning("ExperimentalStaticFireModel: shader missing.");
                 return;
             }
 
-            var rootGo = new GameObject("Enhanced3DCandelabra");
+            var rootGo = new GameObject("Enhanced3DStaticFire");
             rootGo.transform.SetParent(transform, worldPositionStays: false);
             rootGo.transform.localPosition = Vector3.zero;
             rootGo.transform.localRotation = Quaternion.identity;
             rootGo.transform.localScale = Vector3.one;
             modelRoot = rootGo.transform;
 
-            if (!SpawnMetal(metal, metalShader, bottomY, metalHeight))
+            bool bodyOk = generated != null
+                ? SpawnGeneratedBody(generated, metalShader, bottomY, bodyHeight)
+                : SpawnLatheBody(lathe, latheProfile, latheSpine, shader,
+                                 bottomY, bodyHeight);
+            if (!bodyOk)
             {
                 Destroy(rootGo);
                 modelRoot = null;
@@ -175,7 +222,7 @@ namespace Doom.MapBuild
                 var renderers = instance.GetComponentsInChildren<Renderer>(true);
                 if (renderers.Length == 0)
                 {
-                    Debug.LogWarning($"ExperimentalCandelabraModel: {fire.Name} has no renderers.");
+                    Debug.LogWarning($"ExperimentalStaticFireModel: {fire.Name} has no renderers.");
                     Destroy(rootGo);
                     modelRoot = null;
                     return;
@@ -200,9 +247,49 @@ namespace Doom.MapBuild
             RefreshVisibility(force: true);
         }
 
-        bool SpawnMetal(GameObject prefab, Shader shader, float bottomY, float height)
+        /// The computed body: the OBJ is normalized (axis at x=z=0, bottom at
+        /// y=0, height 1.0), so the scale IS its height and nothing is measured.
+        bool SpawnLatheBody(GameObject prefab, Texture2D profile, Texture2D spine,
+                            Shader shader, float bottomY, float height)
         {
-            var pivot = new GameObject("Metal");
+            var pivot = new GameObject("Body");
+            pivot.transform.SetParent(modelRoot, worldPositionStays: false);
+            pivot.transform.localPosition = new Vector3(0f, bottomY, 0f);
+            pivot.transform.localRotation = Quaternion.identity;
+            pivot.transform.localScale = Vector3.one * Mathf.Max(0.001f, height);
+
+            var instance = Instantiate(prefab, pivot.transform);
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                Debug.LogWarning("ExperimentalStaticFireModel: body has no renderers.");
+                Destroy(pivot);
+                return false;
+            }
+
+            var material = new Material(shader);
+            material.mainTexture = profile;
+            material.SetTexture("_SpineTex", spine);
+            material.SetFloat("_SpineRange", 0.5f);
+            material.SetFloat("_Exposure", 1f);
+            ownedMaterials.Add(material);
+            foreach (var renderer in renderers)
+            {
+                var slots = new Material[Mathf.Max(1, renderer.sharedMaterials.Length)];
+                for (int i = 0; i < slots.Length; i++) slots[i] = material;
+                renderer.sharedMaterials = slots;
+            }
+            return true;
+        }
+
+        bool SpawnGeneratedBody(GameObject prefab, Shader shader, float bottomY,
+                                float height)
+        {
+            var pivot = new GameObject("Body");
             pivot.transform.SetParent(modelRoot, worldPositionStays: false);
             pivot.transform.localPosition = new Vector3(0f, bottomY, 0f);
             pivot.transform.localRotation = Quaternion.identity;
@@ -216,7 +303,7 @@ namespace Doom.MapBuild
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length == 0)
             {
-                Debug.LogWarning("ExperimentalCandelabraModel: metal has no renderers.");
+                Debug.LogWarning("ExperimentalStaticFireModel: body has no renderers.");
                 Destroy(pivot);
                 return false;
             }
