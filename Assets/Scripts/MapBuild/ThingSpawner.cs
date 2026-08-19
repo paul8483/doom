@@ -88,6 +88,24 @@ namespace Doom.MapBuild
                     bb.SetSpectre(true);
                 // Presentation-only TRELLIS.2 models (pickups + decorations).
                 ExperimentalPickupModel.TryAttach(go, t.Type, worldScale, bb);
+                // Firesticks are computed, not generated: lathe stand plus a
+                // plume per flame frame, both drawn by Doom/ExperimentalTorch.
+                ExperimentalTorchModel.TryAttach(go, t.Type, cache, worldScale, bb);
+
+                // Vanilla decoration flicker (info.c). The port never ran it,
+                // so every torch stood on frame A in Classic as well.
+                if (DecorationAnimationTable.TryGet(t.Type, out var decoAnimation))
+                {
+                    foreach (int frame in decoAnimation.Frames)
+                        for (int rot = 0; rot < 8; rot++)
+                        {
+                            if (isRedrawDecoration)
+                                cache.WarmNativePickup(def.Sprite, frame, rot);
+                            else
+                                cache.WarmNative(def.Sprite, frame, rot);
+                        }
+                    go.AddComponent<PickupAnimator>().Init(bb, decoAnimation);
+                }
 
                 // Pre-warm native decode for all 8 rotations while the WAD is still open.
                 // SpriteCache is lazy and reads from the WAD on first access; by the
