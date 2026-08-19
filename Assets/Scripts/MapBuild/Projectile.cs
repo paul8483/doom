@@ -19,6 +19,7 @@ namespace Doom.MapBuild
         EnemyHealth owner;
         SoundSystem sound;
         int typeEdNum;
+        ExperimentalProjectileModel model;
 
         int flyIdx;
         float flyLeft;
@@ -78,6 +79,12 @@ namespace Doom.MapBuild
                 ? remainingLife
                 : def.MissileFlyTics[0] / 35f;
 
+            // Enhanced+3D: a voxel ball generated from BAL1 itself replaces
+            // the fly billboard. Fly frames only — the explosion has no body
+            // to model and hands back to the sprite on impact.
+            p.model = ExperimentalProjectileModel.TryAttach(
+                go, cache, def.MissileSprite, def.MissileFlyFrames, worldScale, bb);
+
             Rendering.EnhancedLightSystem.Instance?.PulseProjectile(
                 from, worldScale, impact: false);
 
@@ -123,6 +130,7 @@ namespace Doom.MapBuild
             {
                 flyIdx = (flyIdx + 1) % def.MissileFlyFrames.Length;
                 bb.SetStaticFrame(def.MissileFlyFrames[flyIdx]);
+                if (model != null) model.NotifyFlyFrame(flyIdx);
                 flyLeft = def.MissileFlyTics[flyIdx] / 35f;
             }
 
@@ -156,6 +164,8 @@ namespace Doom.MapBuild
                 transform.position, worldScale, impact: true);
             Rendering.ParticleEffectPool.Instance?.Pulse(
                 Rendering.EffectKind.Explosion, transform.position, worldScale);
+
+            if (model != null) model.RevertToBillboard();
 
             exploding = true;
             boomIdx = 0;
