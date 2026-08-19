@@ -88,6 +88,31 @@ def image_palette(path: Path) -> np.ndarray:
     return np.unique(rgb.reshape(-1, 3), axis=0)
 
 
+def tone_match(img: Image.Image, ref_path: Path) -> Image.Image:
+    """Match an albedo's per-channel mean/std to a reference picture.
+
+    A TRELLIS bake carries the exposure of whatever the conditioning image was
+    drawn at, and it is always FLATTER than DOOM art: the torch stands came
+    back at std 16-27 against the sprite's 40-55, which reads as washed-out
+    plaster next to the neighbouring pixels (2026-08-19). Matching statistics
+    against the asset's own native crop restores the contrast and the warmth
+    without inventing a colour — same instrument the monster track uses in
+    global_tone_match.py, pointed at the sprite instead of an anchor frame.
+    """
+    ref = np.asarray(Image.open(ref_path).convert("RGBA")).astype(np.float64)
+    rm = ref[..., 3] > 0
+    if not rm.any():
+        raise SystemExit(f"tone image {ref_path} is empty")
+    rmean, rstd = ref[..., :3][rm].mean(0), ref[..., :3][rm].std(0)
+
+    a = np.asarray(img.convert("RGBA")).astype(np.float64)
+    m = a[..., 3] > 0
+    src = a[..., :3][m]
+    out = (src - src.mean(0)) / np.maximum(src.std(0), 1e-6) * rstd + rmean
+    a[..., :3][m] = np.clip(out, 0, 255)
+    return Image.fromarray(a.astype(np.uint8))
+
+
 # --- texture pass ----------------------------------------------------------
 
 def quantize(arr: np.ndarray, palette: np.ndarray) -> np.ndarray:
@@ -274,6 +299,9 @@ def main():
     # between frame meshes; pass the anchor frame's lump (e.g. POSSA1).
     p.add_argument("--palette-lump", default=None,
                    help="quantize to this lump's native palette instead of --lump's")
+    p.add_argument("--tone-image", default=None,
+                   help="match the albedo's mean/std to this picture's opaque "
+                        "texels before quantizing (usually the native crop)")
     p.add_argument("--palette-image", default=None,
                    help="quantize to the colors of this PNG's opaque texels "
                         "(for parts that share a lump, e.g. a torch stand)")
@@ -303,6 +331,9 @@ def main():
     # with the same name (this shipped raw 1024px albedo twice, 2026-08-13).
     n = decimate_with_uv(src / f"{a.lump}.obj", out / f"{a.lump}.obj", a.tris)
 
+    if a.tone_image:
+        albedo = tone_match(albedo, Path(a.tone_image))
+        print(f"tone: matched to {Path(a.tone_image).name}")
     new_tex = doomify_texture(albedo, pal, a.texcap)
     new_tex.save(out / f"{a.lump}_albedo.png")
     print(f"albedo: {albedo.size} -> {new_tex.size}")

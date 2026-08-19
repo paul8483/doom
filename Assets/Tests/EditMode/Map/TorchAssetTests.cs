@@ -96,6 +96,33 @@ namespace Doom.Map.Tests
         }
 
         [Test]
+        public void Generated_stands_resolve_their_material_chain()
+        {
+            // The TRELLIS stand is not computed, so nothing else checks it.
+            // doomify writes <lump>.obj.mtl while the OBJ references
+            // <lump>.mtl — install that mismatch and the torch imports with
+            // Unity's default material, which renders perfectly white and
+            // trips no other assertion (the POSS corpse failure, 2026-08-16).
+            foreach (string sprite in Sprites())
+            {
+                string dir = AssetDir(sprite);
+                string lump = sprite + "_stand_mesh";
+                if (!File.Exists(Path.Combine(dir, lump + ".obj"))) continue;
+
+                string mtlRef = FirstToken(Path.Combine(dir, lump + ".obj"), "mtllib ");
+                Assert.That(mtlRef, Is.EqualTo(lump + ".mtl"));
+                string mapRef = FirstToken(Path.Combine(dir, mtlRef), "map_Kd ");
+                Assert.That(mapRef, Is.EqualTo(lump + "_albedo.png"));
+                Assert.That(File.Exists(Path.Combine(dir, mapRef)), Is.True);
+
+                string resource = "ExperimentalTorches/" + sprite + "/" + lump;
+                Assert.That(Resources.Load<GameObject>(resource), Is.Not.Null,
+                    $"{resource} does not load as a prefab");
+                Assert.That(ExperimentalTorchModel.HasGeneratedStand(sprite), Is.True);
+            }
+        }
+
+        [Test]
         public void Parts_stand_on_the_origin_and_are_normalized_to_unit_height()
         {
             foreach (string sprite in Sprites())

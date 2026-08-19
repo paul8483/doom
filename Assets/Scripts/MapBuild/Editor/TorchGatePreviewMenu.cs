@@ -26,6 +26,7 @@ namespace Doom.MapBuild.Editor
             { "TBLU", "TGRN", "TRED", "SMBT", "SMGT", "SMRT" };
         // One yaw per flame frame: rotation and flicker are judged together.
         static readonly float[] Yaws = { 0f, 45f, 90f, 150f };
+        const string PickupShader = "ExperimentalPickups/DoomExperimentalPickupUnlit";
 
         [MenuItem("Tools/Doom/Dump Torch Gate Preview")]
         public static void Dump() => DumpCli();
@@ -51,7 +52,8 @@ namespace Doom.MapBuild.Editor
             // Fog is a world effect; the panel judges the torch itself.
             Shader.SetGlobalVector("_DoomFogParams", Vector4.zero);
 
-            int cols = 1 + Yaws.Length;
+            // native | computed lathe stand | the routed torch under four yaws
+            int cols = 2 + Yaws.Length;
             var sheet = new Texture2D(cols * Cell, Sprites.Length * Cell,
                                       TextureFormat.RGBA32, false);
             var background = new Color32(18, 18, 18, 255);
@@ -70,13 +72,26 @@ namespace Doom.MapBuild.Editor
                 var native = Patch.Decode(wad.ReadLump(sprite + "A0"), palette);
                 Blit(sheet, NativePanel(native, background), 0, row * Cell);
 
+                // The lathe stand stays in the panel even once a generated one
+                // is routed: it is the reference the sprite was measured into,
+                // so the comparison is honest rather than nostalgic.
+                var lathe = RenderTorch(sprite, 'A', shader, native.Height,
+                                        35f, background, generated: false);
+                if (lathe != null)
+                {
+                    Blit(sheet, lathe, Cell, row * Cell);
+                    Object.DestroyImmediate(lathe);
+                }
+
+                bool routed = ExperimentalTorchModel.HasGeneratedStand(sprite);
                 for (int y = 0; y < Yaws.Length; y++)
                 {
                     char frame = (char)('A' + (y % ExperimentalTorchModel.FrameCount));
                     var shot = RenderTorch(sprite, frame, shader,
-                                           native.Height, Yaws[y], background);
+                                           native.Height, Yaws[y], background,
+                                           generated: routed);
                     if (shot == null) continue;
-                    Blit(sheet, shot, (1 + y) * Cell, row * Cell);
+                    Blit(sheet, shot, (2 + y) * Cell, row * Cell);
                     Object.DestroyImmediate(shot);
                 }
             }
@@ -89,9 +104,9 @@ namespace Doom.MapBuild.Editor
             File.WriteAllText(Path.Combine(outDir, "README.txt"),
                 "Enhanced 3D firesticks — gate panel\n\n" +
                 "Rows: " + string.Join(", ", Sprites) + " (top to bottom).\n" +
-                "Columns: native sprite, then the 3D torch at yaw " +
-                string.Join("/", Yaws) + " degrees, showing flame frames " +
-                "A/B/C/D in turn.\n\n" +
+                "Columns: native sprite, the computed lathe stand (yaw 35), " +
+                "then the routed torch at yaw " + string.Join("/", Yaws) +
+                " degrees, showing flame frames A/B/C/D in turn.\n\n" +
                 "What to judge: the stand must stay a turned metal stand from\n" +
                 "every angle (highlight on the pole's middle, not smeared to\n" +
                 "one side), and the flame must keep its hot core and taper\n" +
@@ -132,7 +147,7 @@ namespace Doom.MapBuild.Editor
         /// space where the whole sprite is one unit tall.
         static Texture2D RenderTorch(string sprite, char frame, Shader shader,
                                      int patchHeight, float yawDegrees,
-                                     Color32 background)
+                                     Color32 background, bool generated)
         {
             string dir = Root + sprite + "/";
             string flameName = sprite + frame + "0_flame";
@@ -156,7 +171,10 @@ namespace Doom.MapBuild.Editor
             holder.transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f);
             var standMaterial = NewMaterial(shader, standProfile, standSpine);
             var flameMaterial = NewMaterial(shader, flameProfile, flameSpine);
-            Place(standMesh, holder.transform, 0f, standHeight, standMaterial);
+            if (generated)
+                PlaceGenerated(sprite, holder.transform, standHeight);
+            else
+                Place(standMesh, holder.transform, 0f, standHeight, standMaterial);
             Place(flameMesh, holder.transform, standHeight, flameHeight, flameMaterial);
 
             var camGo = new GameObject("TorchPreviewCam");
@@ -189,6 +207,54 @@ namespace Doom.MapBuild.Editor
             rt.Release();
             Object.DestroyImmediate(rt);
             return shot;
+        }
+
+        /// The generated stand carries a baked albedo and an arbitrary scale,
+        /// so it is measured and fitted exactly as the runtime does.
+        static void PlaceGenerated(string sprite, Transform parent, float height)
+        {
+            var prefab = Resources.Load<GameObject>(
+                Root + sprite + "/" + sprite + "_stand_mesh");
+            var shader = Resources.Load<Shader>(PickupShader);
+            if (prefab == null || shader == null) return;
+
+            var pivot = new GameObject("Stand");
+            pivot.transform.SetParent(parent, worldPositionStays: false);
+            pivot.transform.localPosition = Vector3.zero;
+            var instance = Object.Instantiate(prefab, pivot.transform);
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) return;
+            foreach (var renderer in renderers)
+            {
+                var material = new Material(renderer.sharedMaterial);
+                Texture albedo = material.mainTexture;
+                material.shader = shader;
+                material.mainTexture = albedo;
+                material.SetFloat("_Exposure", 1f);
+                material.SetFloat("_EmissionStrength", 0f);
+                material.SetColor("_ColorTint", Color.white);
+                renderer.sharedMaterial = material;
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            if (bounds.size.y > 0.0001f)
+            {
+                instance.transform.localScale *= height / bounds.size.y;
+                bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+            }
+            Vector3 anchor = pivot.transform.position;
+            instance.transform.position += new Vector3(
+                anchor.x - bounds.center.x,
+                anchor.y - bounds.min.y,
+                anchor.z - bounds.center.z);
         }
 
         static Material NewMaterial(Shader shader, Texture2D profile, Texture2D spine)

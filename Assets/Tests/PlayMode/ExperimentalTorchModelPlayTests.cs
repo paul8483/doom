@@ -92,6 +92,16 @@ namespace Doom.Stage3.PlayTests
             return found;
         }
 
+        static Bounds Bounds(Transform part)
+        {
+            var renderers = part.GetComponentsInChildren<Renderer>(true);
+            Assert.That(renderers.Length, Is.GreaterThan(0), $"{part.name} has no renderers");
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            return bounds;
+        }
+
         static SettingsController Enhanced3D(MemorySettingsStorage memory,
                                              FakeDisplayAdapter display)
         {
@@ -164,15 +174,19 @@ namespace Doom.Stage3.PlayTests
             Assert.That(flame, Is.Not.Null);
 
             // Feet on the floor: the patch hangs from its own top offset.
+            // Measured on the rendered bounds, not on the pivot's scale, so
+            // the assertion holds for the computed stand (unit-height OBJ) and
+            // for a generated one (scaled to fit after measuring) alike.
             float feet = model.transform.position.y +
                          (patch.TopOffset - patch.Height) * WorldScale;
-            Assert.That(stand.position.y, Is.EqualTo(feet).Within(0.001f),
+            Bounds standBounds = Bounds(stand);
+            Assert.That(standBounds.min.y, Is.EqualTo(feet).Within(0.01f),
                 "the stand must start at the sprite's bottom row");
             Assert.That(flame.position.y,
-                Is.EqualTo(feet + stand.localScale.y).Within(0.001f),
+                Is.EqualTo(standBounds.max.y).Within(0.01f),
                 "the flame must start where the stand ends — no gap, no overlap");
-            Assert.That(stand.localScale.y + flame.localScale.y,
-                Is.EqualTo(patch.Height * WorldScale).Within(0.001f),
+            Assert.That(standBounds.size.y + flame.localScale.y,
+                Is.EqualTo(patch.Height * WorldScale).Within(0.01f),
                 "together the parts must be exactly as tall as the sprite");
 
             // The white-corpse trap of 2026-08-16: meshes render fine with a
