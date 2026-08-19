@@ -31,6 +31,7 @@ namespace Doom.Stage3.PlayTests
             Time.timeScale = 1f;
             MapLoader.MapNameOverride = null;
             GameFlowController.ResetForTests();
+            ExperimentalMonsterModel.DeathCoverageCapForTest = int.MaxValue;
             LogAssert.ignoreFailingMessages = false;
         }
 
@@ -94,11 +95,14 @@ namespace Doom.Stage3.PlayTests
         [UnityTest]
         public IEnumerator Live_frames_swap_and_uncovered_death_reverts_forever()
         {
-            // SARG still has no death meshes, so it carries the "death tail is
-            // uncovered" case POSS used to carry before its H0-L0 wave landed.
+            // Every routed monster now ships its whole death chain, so the
+            // "death tail is uncovered" case — the one a monster takes while
+            // its death meshes are still being authored — is exercised
+            // through the coverage cap instead of a gap in Resources.
+            ExperimentalMonsterModel.DeathCoverageCapForTest = 0;
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
-            var model = ExperimentalMonsterModel.TryAttach(go, "SARG", 1f / 32f, bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, "BOSS", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
 
             var settings = SettingsController.Ensure();
@@ -121,7 +125,7 @@ namespace Doom.Stage3.PlayTests
             // Death meshes are not in Resources yet, so the death tail is
             // uncovered and the kill hands over to the billboard, as before.
             Assert.That(model.CoveredDeathFramesForTest, Is.EqualTo(0),
-                "SARG death meshes (I0-N0) are not authored yet");
+                "capped: the death tail counts as unauthored");
             model.NotifyDeathStarted(extremeDeath: false);
             Assert.That(model.RevertedForTest, Is.True,
                 "uncovered death tail reverts before the first fall frame");
@@ -145,13 +149,13 @@ namespace Doom.Stage3.PlayTests
             yield return null;
         }
 
-        // The three monsters whose chains are fully authored: a covered kill
-        // must stay on the mesh from the first fall frame to the body on the
-        // floor, and only gibs hand back. Frame numbers come from the table
-        // itself — the zombies fall from frame 7, the imp from frame 8.
+        // Every routed monster: a covered kill must stay on the mesh from the
+        // first fall frame to the body on the floor, and only gibs hand back.
+        // Frame numbers come from the table itself — the zombies fall from
+        // frame 7, the imp, the demon and the baron from frame 8.
         [UnityTest]
         public IEnumerator Death_chain_stays_on_the_mesh_through_the_corpse(
-            [Values("POSS", "SPOS", "TROO")] string sprite)
+            [Values("POSS", "SPOS", "TROO", "SARG", "BOSS")] string sprite)
         {
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
@@ -202,6 +206,79 @@ namespace Doom.Stage3.PlayTests
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);
             Assert.That(mr.enabled, Is.True);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        // A frame that lies flat on the floor is scaled by the native patch
+        // WIDTH, not its height: its Y extent is thickness, and matching that
+        // to the patch height rears the pile up (the corpses read as meat
+        // propped against a wall, 2026-08-17). Death frames are built lazily,
+        // so the monster is usually facing somewhere when they appear — the
+        // measurement must not ride that yaw.
+        [UnityTest]
+        public IEnumerator Flat_death_frames_take_the_patch_width_and_lie_down(
+            [Values(0f, 90f)] float doomAngleDeg)
+        {
+            const float WorldScale = 1f / 32f;
+            var go = NewMonsterRoot(out var bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, "SARG", WorldScale, bb);
+            Assert.That(model, Is.Not.Null);
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.SetEnhanced3DObjects(true);
+            yield return null;
+
+            // Turn the corpse before its death meshes are instantiated.
+            bb.SetDoomAngle(doomAngleDeg);
+            // Twice, so the pose interpolation has the same angle on both
+            // ends: a half-turned pivot would inflate the world AABB this
+            // test measures with.
+            model.NotifyGameplayPose(go.transform.position, doomAngleDeg);
+            model.NotifyGameplayPose(go.transform.position, doomAngleDeg);
+            yield return null;
+
+            Assert.That(ExperimentalMonsterModel.TryGetFlatWidthsForTest(
+                "SARG", out var widths), Is.True);
+            Assert.That(ExperimentalMonsterModel.TryGetFrameTableForTest(
+                "SARG", out _, out var lumps, out var heights), Is.True);
+
+            model.NotifyDeathStarted(extremeDeath: false);
+            for (int i = 0; i < lumps.Length; i++)
+            {
+                if (widths[i] <= 0f) continue;
+                model.NotifyFrame(i);
+                yield return null;
+
+                var frame = go.transform.Find($"Enhanced3DMonster/SARG{lumps[i]}");
+                Assert.That(frame, Is.Not.Null, $"SARG{lumps[i]} instantiated");
+
+                Bounds b = default;
+                bool first = true;
+                foreach (var r in frame.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (first) { b = r.bounds; first = false; }
+                    else b.Encapsulate(r.bounds);
+                }
+                Assert.That(first, Is.False, $"SARG{lumps[i]} has renderers");
+
+                float widthM = widths[i] * WorldScale;
+                float measured = Mathf.Max(b.size.x, b.size.z);
+                Assert.That(measured, Is.EqualTo(widthM).Within(widthM * 0.02f),
+                    $"SARG{lumps[i]}: a flat frame spans the native patch " +
+                    $"width at any facing (yaw {doomAngleDeg})");
+                Assert.That(b.size.y,
+                    Is.LessThan(heights[i] * WorldScale * 0.85f),
+                    $"SARG{lumps[i]}: a pile must stay lower than the patch " +
+                    "height — at the patch height it stands on edge");
+                Assert.That(b.min.y,
+                    Is.EqualTo(go.transform.position.y).Within(0.01f),
+                    $"SARG{lumps[i]}: the pile rests on the floor");
+            }
 
             Object.Destroy(go);
             yield return null;

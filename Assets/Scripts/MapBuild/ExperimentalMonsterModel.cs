@@ -25,6 +25,10 @@ namespace Doom.MapBuild
             // rotation 1 (POSSA1), death frames are rotation-less (POSSH0).
             public readonly string[] FrameLumps;
             public readonly float[] PatchHeightsPx;
+            /// Lump -> native patch WIDTH (px) for the frames that lie flat
+            /// on the floor. A pile's own thickness IS its pose, so scaling
+            /// it to the patch HEIGHT stands it back up (see FlatWidthPx).
+            public readonly Dictionary<string, float> FlatWidthsPx;
             /// Frames [0, LiveFrameCount) are stand/walk/attack/pain and are
             /// mandatory for attaching; the rest are the death sequence plus
             /// the corpse, covered as far as their meshes exist.
@@ -35,14 +39,24 @@ namespace Doom.MapBuild
 
             public MonsterModelSet(string sprite, string[] lumps,
                                    float[] heightsPx, int liveFrameCount,
-                                   float yawOffsetDeg)
+                                   float yawOffsetDeg,
+                                   (string Lump, float WidthPx)[] flatFrames = null)
             {
                 Sprite = sprite;
                 FrameLumps = lumps;
                 PatchHeightsPx = heightsPx;
                 LiveFrameCount = liveFrameCount;
                 YawOffsetDeg = yawOffsetDeg;
+                FlatWidthsPx = new Dictionary<string, float>();
+                if (flatFrames != null)
+                    foreach (var (lump, widthPx) in flatFrames)
+                        FlatWidthsPx[lump] = widthPx;
             }
+
+            /// > 0 when the frame is a pile that lies flat and must be scaled
+            /// by width instead of height.
+            public float FlatWidthPx(int index) =>
+                FlatWidthsPx.TryGetValue(FrameLumps[index], out float w) ? w : 0f;
         }
 
         // Native patch heights (px) mirror the WAD patch headers per frame —
@@ -91,7 +105,11 @@ namespace Doom.MapBuild
                 new[] { 59f, 59f, 59f, 59f, 60f, 60f, 60f, 50f,
                         59f, 60f, 53f, 40f, 30f, 29f },
                 liveFrameCount: 8,
-                yawOffsetDeg: 0f),
+                yawOffsetDeg: 0f,
+                // K0-N0 are gore on the floor: the meshes are flat slabs, so
+                // they take the patch WIDTH and keep their own thickness.
+                flatFrames: new[] { ("K0", 43f), ("L0", 43f),
+                                    ("M0", 48f), ("N0", 49f) }),
             // Imp: attack spans E-F-G (fireball launches on G), pain is H.
             // Offset stays 0 like every monster (all TRELLIS meshes share
             // the same forward): the 2026-08-14 «walks back-first» reports
@@ -106,7 +124,11 @@ namespace Doom.MapBuild
                 new[] { 60f, 62f, 60f, 62f, 62f, 61f, 64f, 63f,
                         63f, 62f, 54f, 43f, 26f },
                 liveFrameCount: 8,
-                yawOffsetDeg: 0f),
+                yawOffsetDeg: 0f,
+                // K0/L0 are the imp already down on the floor. M0 is not
+                // listed: that corpse was modelled as a mound and squashed to
+                // the sprite's aspect, so the height rule lands it correctly.
+                flatFrames: new[] { ("K0", 45f), ("L0", 42f) }),
             // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Death I0-J0
             // is the standing hit and the buckle; from K0 the baron collapses
             // into a heap of bone and meat, and O0 is both the last death
@@ -118,7 +140,14 @@ namespace Doom.MapBuild
                 new[] { 69f, 72f, 69f, 72f, 74f, 73f, 74f, 73f,
                         73f, 69f, 67f, 52f, 46f, 38f, 24f },
                 liveFrameCount: 8,
-                yawOffsetDeg: 0f),
+                yawOffsetDeg: 0f,
+                // The baron spreads WIDE as it falls (63 -> 90 px of patch
+                // width while the height drops 73 -> 24). L0 onward came back
+                // from TRELLIS already flat — thickness 0.12-0.31 against a
+                // width of 1.0 — so they take the patch width. K0 still has
+                // real volume (0.68) and stays on the height rule.
+                flatFrames: new[] { ("L0", 80f), ("M0", 82f),
+                                    ("N0", 82f), ("O0", 90f) }),
         };
 
         MonsterModelSet set;
@@ -152,6 +181,13 @@ namespace Doom.MapBuild
         public bool RevertedForTest => reverted;
         public bool DeathCoveredForTest => coveredDeathFrames > 0;
         public int CoveredDeathFramesForTest => coveredDeathFrames;
+
+        /// Test seam: pretend only this many death meshes are on disk. Every
+        /// routed monster now ships its whole chain, so the "death tail is
+        /// uncovered → hand over to the billboard for good" path — the one a
+        /// monster takes while its meshes are still being authored — has no
+        /// live asset gap left to exercise it.
+        public static int DeathCoverageCapForTest = int.MaxValue;
 
         /// Attach when every live frame of the sprite has an accepted mesh —
         /// all-or-nothing, same rule as the SpriteCache animation gate for
@@ -196,6 +232,8 @@ namespace Doom.MapBuild
             }
             if (!liveMasks)
                 emissionMasks = null;
+            if (coveredDeathFrames > DeathCoverageCapForTest)
+                coveredDeathFrames = DeathCoverageCapForTest;
 
             var model = monsterRoot.AddComponent<ExperimentalMonsterModel>();
             model.Init(set, prefabs, emissionMasks, coveredDeathFrames, worldScale,
@@ -275,8 +313,12 @@ namespace Doom.MapBuild
                 Destroy(instance);
                 return false;
             }
+            float flatWidthPx = set.FlatWidthPx(index);
             NormalizeFrame(instance, renderers,
-                           set.PatchHeightsPx[index] * worldScale);
+                           (flatWidthPx > 0f ? flatWidthPx
+                                             : set.PatchHeightsPx[index])
+                           * worldScale,
+                           byWidth: flatWidthPx > 0f);
             ConfigureMaterials(renderers,
                                frameEmission != null ? frameEmission[index] : null);
             instance.SetActive(false);
@@ -284,30 +326,64 @@ namespace Doom.MapBuild
             return true;
         }
 
-        /// Scale by the frame's native patch height and anchor feet at the
-        /// pivot origin, bounds-centered on XZ (same anchor the billboard
-        /// quad uses for floor things).
-        void NormalizeFrame(GameObject instance, Renderer[] renderers, float targetHeight)
+        /// Scale the frame to its native patch size and anchor it at the
+        /// pivot origin — bottom on the floor, bounds-centered on XZ (the same
+        /// anchor the billboard quad uses for floor things).
+        ///
+        /// Standing frames scale by HEIGHT: the sprite is a figure on its feet
+        /// and its patch height is that figure's height. Frames that lie flat
+        /// scale by WIDTH instead, because a pile's Y extent is its thickness,
+        /// not its size — matching it to the patch height stretches the pile
+        /// into a vertical mass that reads as propped against a wall rather
+        /// than lying on the floor (the 2026-08-17 gate). Their screen height
+        /// then comes from the mesh's own depth, as it does for a real object.
+        void NormalizeFrame(GameObject instance, Renderer[] renderers,
+                            float target, bool byWidth)
         {
-            Bounds bounds = CombinedBounds(renderers);
-            if (bounds.size.y <= 0.0001f) return;
+            Bounds bounds = PivotBounds(instance, renderers);
+            float span = byWidth ? bounds.size.x : bounds.size.y;
+            if (span <= 0.0001f) return;
 
-            float scale = targetHeight / bounds.size.y;
-            instance.transform.localScale *= scale;
-            bounds = CombinedBounds(renderers);
+            instance.transform.localScale *= target / span;
+            bounds = PivotBounds(instance, renderers);
 
-            Vector3 pivotPos = yawPivot.position;
-            instance.transform.position += new Vector3(
-                pivotPos.x - bounds.center.x,
-                pivotPos.y - bounds.min.y,
-                pivotPos.z - bounds.center.z);
+            Vector3 local = instance.transform.localPosition;
+            instance.transform.localPosition = new Vector3(
+                local.x - bounds.center.x,
+                local.y - bounds.min.y,
+                local.z - bounds.center.z);
         }
 
-        static Bounds CombinedBounds(Renderer[] renderers)
+        /// Combined bounds in the yaw pivot's own space. Renderer.bounds is a
+        /// world AABB, which for the width measurement would ride the monster's
+        /// facing — a frame instantiated while the corpse faces sideways would
+        /// scale by its depth. Death frames are built lazily, so that is the
+        /// normal case, not an edge one.
+        Bounds PivotBounds(GameObject instance, Renderer[] renderers)
         {
-            Bounds bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
-                bounds.Encapsulate(renderers[i].bounds);
+            Matrix4x4 toPivot = yawPivot.worldToLocalMatrix;
+            var bounds = new Bounds();
+            bool started = false;
+            foreach (var r in renderers)
+            {
+                Mesh mesh = (r as MeshRenderer) != null
+                    ? r.GetComponent<MeshFilter>()?.sharedMesh
+                    : null;
+                if (mesh == null) continue;
+                Matrix4x4 m = toPivot * r.transform.localToWorldMatrix;
+                Bounds local = mesh.bounds;
+                for (int c = 0; c < 8; c++)
+                {
+                    Vector3 corner = local.center + Vector3.Scale(
+                        local.extents,
+                        new Vector3((c & 1) == 0 ? -1f : 1f,
+                                    (c & 2) == 0 ? -1f : 1f,
+                                    (c & 4) == 0 ? -1f : 1f));
+                    Vector3 p = m.MultiplyPoint3x4(corner);
+                    if (!started) { bounds = new Bounds(p, Vector3.zero); started = true; }
+                    else bounds.Encapsulate(p);
+                }
+            }
             return bounds;
         }
 
@@ -520,6 +596,23 @@ namespace Doom.MapBuild
             liveFrameCount = 0;
             frameLumps = null;
             patchHeightsPx = null;
+            return false;
+        }
+
+        /// Test seam: per-frame native patch WIDTH for the frames that lie
+        /// flat, 0 for the frames scaled by height. Parallel to the lump
+        /// array from TryGetFrameTableForTest.
+        public static bool TryGetFlatWidthsForTest(
+            string sprite, out float[] flatWidthsPx)
+        {
+            if (sprite != null && Sets.TryGetValue(sprite, out var s))
+            {
+                flatWidthsPx = new float[s.FrameLumps.Length];
+                for (int i = 0; i < flatWidthsPx.Length; i++)
+                    flatWidthsPx[i] = s.FlatWidthPx(i);
+                return true;
+            }
+            flatWidthsPx = null;
             return false;
         }
 

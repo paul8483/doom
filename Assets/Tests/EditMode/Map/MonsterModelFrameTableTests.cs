@@ -164,5 +164,41 @@ namespace Doom.Map.Tests
                 }
             }
         }
+
+        /// Frames that lie flat on the floor are scaled by the patch WIDTH:
+        /// a pile's Y extent is its thickness, and forcing that to the patch
+        /// height stands the pile up on its edge (the 2026-08-17 gate, and
+        /// again after the tilt was traded for a Y stretch). Pin the widths
+        /// to the WAD, and pin the rule that only death frames may use it —
+        /// a monster on its feet is measured by its height.
+        [Test]
+        public void Flat_frames_are_pinned_to_the_native_patch_widths()
+        {
+            string path = WadPath();
+            if (!File.Exists(path)) Assert.Ignore("freedoom1.wad missing");
+            using var wad = WadFile.Open(path);
+
+            foreach (var (_, sprite) in Routed)
+            {
+                Assert.That(ExperimentalMonsterModel.TryGetFrameTableForTest(
+                    sprite, out int live, out var lumps, out _), Is.True);
+                Assert.That(ExperimentalMonsterModel.TryGetFlatWidthsForTest(
+                    sprite, out var widths), Is.True);
+                Assert.That(widths.Length, Is.EqualTo(lumps.Length),
+                    $"{sprite}: one flat-width slot per frame");
+
+                for (int i = 0; i < lumps.Length; i++)
+                {
+                    if (widths[i] <= 0f) continue;
+                    Assert.That(i, Is.GreaterThanOrEqualTo(live),
+                        $"{sprite}{lumps[i]}: a live frame stands on its feet " +
+                        "and must be scaled by height");
+                    var header = Patch.ReadHeader(wad.ReadLump(sprite + lumps[i]));
+                    Assert.That(widths[i], Is.EqualTo((float)header.Width),
+                        $"{sprite}{lumps[i]}: a flat frame is scaled to the " +
+                        "native patch width");
+                }
+            }
+        }
     }
 }

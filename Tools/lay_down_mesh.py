@@ -50,6 +50,15 @@ def main():
     p.add_argument("--flatten-to-aspect", type=float, default=None,
                    help="scale Y so that X/Y equals this (native patch "
                         "width/height); use on mound-shaped corpse frames")
+    # Frames that lie flat are normalized by WIDTH in the runtime, so their
+    # own thickness is the pose: stretching Y to satisfy the height rule is
+    # what stood the piles up on 2026-08-17 ("kuchi ne lezhat na polu" came
+    # back after the tilt was removed). --scale-y undoes such a stretch
+    # exactly; it is a plain axis scale, so UVs stay valid and normals, as
+    # with --flatten-to-aspect, are only rotated.
+    p.add_argument("--scale-y", type=float, default=None,
+                   help="multiply Y by this after the pitch (use 1/f to undo "
+                        "an earlier stretch of f)")
     a = p.parse_args()
 
     c, s = math.cos(math.radians(a.pitch)), math.sin(math.radians(a.pitch))
@@ -64,6 +73,8 @@ def main():
             verts.append(rotate_x(float(sx), float(sy), float(sz), c, s))
 
     scale_y = 1.0
+    if a.scale_y is not None:
+        scale_y = a.scale_y
     if a.flatten_to_aspect is not None and verts:
         xs = [v[0] for v in verts]
         ys = [v[1] for v in verts]
@@ -85,7 +96,7 @@ def main():
         else:
             out.append(line)
     dst.write_text("\n".join(out) + "\n", encoding="utf-8")
-    note = f", flattened Y x{scale_y:.2f}" if scale_y != 1.0 else ""
+    note = f", scaled Y x{scale_y:.3f}" if scale_y != 1.0 else ""
     print(f"{dst.name}: pitched {a.pitch:+.0f}deg{note}")
 
 
