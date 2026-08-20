@@ -100,5 +100,8 @@ python Tools/doomify3d.py --lump <LUMP> --tone-image Textures/Trellis2/NativeInp
   без изменений, `PickupAnimator` крутит билборд в Classic/Enhanced-2D.
 - Тесты: `PillarAssetTests` 4/4 (COL5 в таблице + новый пин каденции
   мигания), PlayMode `PickupPlayTests` 7/7 (COL5 в табличном тесте
-  декораций). Windows build Success **329.8 MB**. Панель
-  `Logs/col5-gate/col5-bylo-stalo.png`.
+  декораций). Полные сьюты: EditMode **652/652**, PlayMode **186/187** —
+  падение `GraphicsResourceLifetimePlayTests.Hot_switch…` (+1 Doom/-материал
+  на E1M1, где вещи 36 нет) — известный Stage-8 флейк, который E1M7-двойник
+  теста допускает явным слаком `doomMats + 1`; в изоляции 1/1. Windows build
+  Success **329.8 MB**. Панель `Logs/col5-gate/col5-bylo-stalo.png`.
