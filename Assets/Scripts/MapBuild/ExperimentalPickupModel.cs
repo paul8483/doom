@@ -98,6 +98,7 @@ namespace Doom.MapBuild
                 case 30: return 56f;   // COL1A0 (collision 48; patch is taller)
                 case 31: return 41f;   // COL2A0 (collision 36)
                 case 32: return 55f;   // COL3A0 (collision 48)
+                case 36: return 49f;   // COL5A0 (collision 36)
                 case 43: return 70f;   // TRE1A0
                 case 54: return 124f;  // TRE2A0
                 case 47: return 69f;   // SMITA0
@@ -178,6 +179,12 @@ namespace Doom.MapBuild
                     return true;
                 case 32:
                     resource = ResourceRoot + "COL3A0/COL3A0";
+                    return true;
+                case 36:
+                    // Freedoom's COL5 blinks A/B (eye glow) as a billboard; the
+                    // mesh is a single frame A — the blink is a two-texel eye
+                    // change, not worth a second TRELLIS generation.
+                    resource = ResourceRoot + "COL5A0/COL5A0";
                     return true;
                 case 2035:
                     resource = ResourceRoot + "BAR1A0/BAR1A0";

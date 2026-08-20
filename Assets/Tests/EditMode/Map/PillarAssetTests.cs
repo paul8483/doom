@@ -19,6 +19,7 @@ namespace Doom.Map.Tests
             (30, "COL1A0", 56),
             (31, "COL2A0", 41),
             (32, "COL3A0", 55),
+            (36, "COL5A0", 49),
         };
 
         static string AssetDir(string lump) => Path.Combine(
@@ -73,6 +74,16 @@ namespace Doom.Map.Tests
                 Assert.That(def.Sprite, Is.EqualTo(lump.Substring(0, 4)),
                     $"thing {doomEdNum} draws {def.Sprite}, not {lump}");
             }
+        }
+
+        [Test]
+        public void Heart_pillar_blinks_like_vanilla()
+        {
+            // Fixed alongside the COL5 mesh: the port froze the heart pillar
+            // on frame A in Classic too. info.c S_HEARTCOL loops A/B at 14 tics.
+            Assert.That(DecorationAnimationTable.TryGet(36, out var animation), Is.True);
+            Assert.That(animation.Frames, Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(animation.Tics, Is.EqualTo(new[] { 14, 14 }));
         }
 
         static string FirstToken(string file, string prefix)

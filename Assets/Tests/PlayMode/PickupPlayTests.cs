@@ -236,6 +236,7 @@ namespace Doom.Stage3.PlayTests
                          30,   // COL1 tall green pillar
                          31,   // COL2 short green pillar
                          32,   // COL3 tall red pillar
+                         36,   // COL5 heart pillar (Freedoom: blood altar)
                          2035, // exploding barrel
                          43,   // TRE1 burnt tree
                          54,   // TRE2 large brown tree
@@ -264,6 +265,7 @@ namespace Doom.Stage3.PlayTests
                     30 => "COL1A0",
                     31 => "COL2A0",
                     32 => "COL3A0",
+                    36 => "COL5A0",
                     43 => "TRE1A0",
                     54 => "TRE2A0",
                     47 => "SMITA0",

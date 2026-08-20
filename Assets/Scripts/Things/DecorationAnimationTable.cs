@@ -14,6 +14,8 @@ namespace Doom.Things
     {
         static readonly int[] FourFrames = { 0, 1, 2, 3 };
         static readonly int[] FourTics = { 4, 4, 4, 4 };
+        static readonly int[] TwoFrames = { 0, 1 };
+        static readonly int[] HeartTics = { 14, 14 };
 
         static readonly Dictionary<int, PickupAnimation> Defs = new()
         {
@@ -23,6 +25,7 @@ namespace Doom.Things
             [55] = new PickupAnimation(FourFrames, FourTics),   // SMBT
             [56] = new PickupAnimation(FourFrames, FourTics),   // SMGT
             [57] = new PickupAnimation(FourFrames, FourTics),   // SMRT
+            [36] = new PickupAnimation(TwoFrames, HeartTics),   // COL5 (S_HEARTCOL)
         };
 
         public static bool TryGet(int doomEdNum, out PickupAnimation animation)
