@@ -54,21 +54,26 @@ def main():
     m = cover & (base[..., 3] > 0)
     pal = sprite_palette(a.lump)
 
-    gain, final = 1.0, None
+    # Palette quantization makes the response non-monotonic (COLUA0 oscillated
+    # 85 -> 77 -> 87 around a target of 82), so keep the best-seen iteration
+    # rather than the last one.
+    gain, best, best_err = 1.0, None, float("inf")
     for i in range(a.iters):
         work = base.copy()
         work[..., :3][m] = np.clip(work[..., :3][m] * gain, 0, 255)
         img = Image.fromarray(quantize(work.astype(np.uint8), pal))
         r = render(dv, dt, dcuv, img, 0.0).astype(float)
         got = lum(r[..., :3][r[..., 3] > 0]).mean()
+        err = abs(got - target)
         print(f"iter {i}: gain {gain:.3f} -> screen lum {got:.1f} (target {target:.1f})")
-        final = img
-        if abs(got - target) < 1.5:
+        if err < best_err:
+            best, best_err = img, err
+        if err < 1.5:
             break
         gain *= target / got
 
-    final.save(a.out)
-    print("saved", a.out)
+    best.save(a.out)
+    print(f"saved {a.out} (err {best_err:.1f})")
 
 
 if __name__ == "__main__":

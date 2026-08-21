@@ -62,9 +62,14 @@ namespace Doom.MapBuild
                 // Barrel ring lamps + green band, zoned by mesh height so the
                 // emblem's red stays dark; flashes on frame B (S_BAR1 6+6).
                 2035 => ResourceRoot + "BAR1B0/BAR1B0_emission",
+                // Floor lamp: amber cylinder + dome ports glow STEADY — the
+                // lamp has no animation, so the blink path never leaves its
+                // bright phase (blinkAnimation stays null).
+                2028 => ResourceRoot + "COLUA0/COLUA0_emission",
                 _ => null,
             };
-            bool gemBlink = doomedNum == 2018 || doomedNum == 2035;
+            bool gemBlink = doomedNum == 2018 || doomedNum == 2035
+                || doomedNum == 2028;
             // Which animation frame is the mask's BRIGHT phase: the armor gem
             // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
             int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
