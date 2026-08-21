@@ -23,6 +23,8 @@ namespace Doom.MapBuild
         bool lockedToBillboard;
         bool settingsControllerSeen;
         bool gemBlink;
+        PickupAnimation blinkAnimation;
+        int brightFrame;
         int lastGemBlink = -1;
 
         public bool HasModel => modelRoot != null;
@@ -57,12 +59,27 @@ namespace Doom.MapBuild
                 // Green armor gem: vanilla ARM1 A/B blink (info.c, 6+6 tics).
                 // Mask derived from the ARM1B0 albedo (red-dominant texels).
                 2018 => ResourceRoot + "ARM1B0/ARM1B0_emission",
+                // Barrel ring lamps + green band, zoned by mesh height so the
+                // emblem's red stays dark; flashes on frame B (S_BAR1 6+6).
+                2035 => ResourceRoot + "BAR1B0/BAR1B0_emission",
                 _ => null,
             };
-            bool gemBlink = doomedNum == 2018;
+            bool gemBlink = doomedNum == 2018 || doomedNum == 2035;
+            // Which animation frame is the mask's BRIGHT phase: the armor gem
+            // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
+            int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
             // BON2: slower sine than MEDIA0 so the stripe flicker reads smooth.
             float pulseStrength = doomedNum == 2015 ? 1.0f : 1.2f;
             float pulseSpeed = doomedNum == 2015 ? 4f : 8f;
+            // The blink phase source: pickups sit in PickupAnimationTable, but
+            // the barrel's cadence lives in BarrelRules (ThingSpawner drives
+            // its billboard from there too, so mesh and billboard stay in step).
+            if (doomedNum == 2035)
+                presentation.blinkAnimation = new PickupAnimation(
+                    BarrelRules.IdleFrames, BarrelRules.IdleTics);
+            else if (PickupAnimationTable.TryGet(doomedNum, out var blinkAnim))
+                presentation.blinkAnimation = blinkAnim;
+            presentation.brightFrame = blinkBrightFrame;
             presentation.Init(
                 resource,
                 Mathf.Max(0.01f, heightUnits * worldScale),
@@ -187,7 +204,10 @@ namespace Doom.MapBuild
                     resource = ResourceRoot + "COL5A0/COL5A0";
                     return true;
                 case 2035:
-                    resource = ResourceRoot + "BAR1A0/BAR1A0";
+                    // 2026-08-21 re-roll: the B0-frame mesh was preferred (ring
+                    // lamps and green band read best); lamps/band flash via the
+                    // emission mask on the barrel's own S_BAR1 cadence.
+                    resource = ResourceRoot + "BAR1B0/BAR1B0";
                     return true;
                 case 43:
                     resource = ResourceRoot + "TRE1A0/TRE1A0";
@@ -362,14 +382,16 @@ namespace Doom.MapBuild
             RefreshVisibility(force: false);
         }
 
-        /// Same phase as PickupAnimator for ARM1 (info.c S_ARM1 / S_ARM1A, 6+6).
+        /// Same phase as PickupAnimator for the thing's own info.c cadence
+        /// (ARM1 S_ARM1/S_ARM1A 6+6; barrel S_BAR1 6+6, bright on frame B).
         void ApplyGemBlink(bool force)
         {
             int gameTic = LevelStatsTracker.Instance != null
                 ? LevelStatsTracker.Instance.Stats.Tics
                 : 0;
             int blink = 1;
-            if (PickupAnimationTable.TryGet(2018, out var animation) &&
+            var animation = blinkAnimation;
+            if (animation != null &&
                 animation.Frames != null && animation.Tics != null &&
                 animation.Frames.Length == animation.Tics.Length &&
                 animation.Frames.Length > 0)
@@ -386,8 +408,8 @@ namespace Doom.MapBuild
                     phase -= duration;
                     next++;
                 }
-                // Frame 0 (A) = bright gem; frame 1 (B) = dim.
-                blink = animation.Frames[next] == 0 ? 1 : 0;
+                // ARM1: frame 0 (A) bright; barrel: frame 1 (B) is the flash.
+                blink = animation.Frames[next] == brightFrame ? 1 : 0;
             }
 
             if (!force && blink == lastGemBlink) return;

@@ -88,7 +88,21 @@ def image_palette(path: Path) -> np.ndarray:
     return np.unique(rgb.reshape(-1, 3), axis=0)
 
 
-def tone_match(img: Image.Image, ref_path: Path) -> Image.Image:
+def uv_coverage_mask(obj_path: Path, size) -> np.ndarray:
+    """Texels actually referenced by the mesh UVs (True = used)."""
+    from PIL import ImageDraw
+    _, _, cuv = load_obj(obj_path)
+    w, h = size
+    m = Image.new("L", (w, h), 0)
+    d = ImageDraw.Draw(m)
+    for tri in cuv:
+        d.polygon([(u * (w - 1), (1.0 - v) * (h - 1)) for u, v in tri],
+                  fill=255)
+    return np.asarray(m) > 0
+
+
+def tone_match(img: Image.Image, ref_path: Path,
+               coverage: np.ndarray = None) -> Image.Image:
     """Match an albedo's per-channel mean/std to a reference picture.
 
     A TRELLIS bake carries the exposure of whatever the conditioning image was
@@ -98,6 +112,12 @@ def tone_match(img: Image.Image, ref_path: Path) -> Image.Image:
     against the asset's own native crop restores the contrast and the warmth
     without inventing a colour — same instrument the monster track uses in
     global_tone_match.py, pointed at the sprite instead of an anchor frame.
+
+    Statistics MUST be restricted to UV-covered texels (pass `coverage`): the
+    bake's alpha is opaque everywhere, so the dark unused atlas padding drags
+    the source mean down and the match then over-brightens the texels the
+    mesh actually shows — the BAR1 barrel shipped a whole shade lighter than
+    its sprite before this was caught in-game (2026-08-21).
     """
     ref = np.asarray(Image.open(ref_path).convert("RGBA")).astype(np.float64)
     rm = ref[..., 3] > 0
@@ -107,6 +127,8 @@ def tone_match(img: Image.Image, ref_path: Path) -> Image.Image:
 
     a = np.asarray(img.convert("RGBA")).astype(np.float64)
     m = a[..., 3] > 0
+    if coverage is not None:
+        m = m & coverage
     src = a[..., :3][m]
     out = (src - src.mean(0)) / np.maximum(src.std(0), 1e-6) * rstd + rmean
     a[..., :3][m] = np.clip(out, 0, 255)
@@ -332,8 +354,10 @@ def main():
     n = decimate_with_uv(src / f"{a.lump}.obj", out / f"{a.lump}.obj", a.tris)
 
     if a.tone_image:
-        albedo = tone_match(albedo, Path(a.tone_image))
-        print(f"tone: matched to {Path(a.tone_image).name}")
+        cover = uv_coverage_mask(src / f"{a.lump}.obj", albedo.size)
+        albedo = tone_match(albedo, Path(a.tone_image), cover)
+        print(f"tone: matched to {Path(a.tone_image).name} "
+              f"({cover.mean():.0%} of atlas covered)")
     new_tex = doomify_texture(albedo, pal, a.texcap)
     new_tex.save(out / f"{a.lump}_albedo.png")
     print(f"albedo: {albedo.size} -> {new_tex.size}")
