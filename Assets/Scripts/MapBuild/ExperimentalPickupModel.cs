@@ -50,7 +50,10 @@ namespace Doom.MapBuild
             // Resources-loaded shader keeps them readable in dark sectors and
             // avoids standalone stripping that affected the original Lit pass.
             bool useUnlit = true;
-            float emissionStrength = doomedNum == 2014 ? 0.65f : 0f;
+            // 2014 used a global 0.65 boost on the old voxel mesh; the
+            // regenerated flask (2026-08-21) has real dark iron straps, so the
+            // glow moved to a glass-only emission mask below.
+            float emissionStrength = 0f;
             string pulseMaskResource = doomedNum switch
             {
                 2012 => ResourceRoot + "MEDIA0/MEDIA0_emission",
@@ -66,10 +69,14 @@ namespace Doom.MapBuild
                 // lamp has no animation, so the blink path never leaves its
                 // bright phase (blinkAnimation stays null).
                 2028 => ResourceRoot + "COLUA0/COLUA0_emission",
+                // Health bonus: only the green glass glows (steady); the star
+                // glint animation stays billboard-only, so no blink animation
+                // even though 2014 sits in PickupAnimationTable.
+                2014 => ResourceRoot + "BON1A0/BON1A0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018 || doomedNum == 2035
-                || doomedNum == 2028;
+                || doomedNum == 2028 || doomedNum == 2014;
             // Which animation frame is the mask's BRIGHT phase: the armor gem
             // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
             int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
@@ -79,10 +86,15 @@ namespace Doom.MapBuild
             // The blink phase source: pickups sit in PickupAnimationTable, but
             // the barrel's cadence lives in BarrelRules (ThingSpawner drives
             // its billboard from there too, so mesh and billboard stay in step).
+            // Only the armor gem and the barrel actually BLINK; the lamp and
+            // the health bonus glow steady, so their blinkAnimation stays null
+            // even when the thing has a PickupAnimationTable entry (2014 does —
+            // the billboard's star-glint frames are not a glow cadence).
             if (doomedNum == 2035)
                 presentation.blinkAnimation = new PickupAnimation(
                     BarrelRules.IdleFrames, BarrelRules.IdleTics);
-            else if (PickupAnimationTable.TryGet(doomedNum, out var blinkAnim))
+            else if (doomedNum == 2018 &&
+                     PickupAnimationTable.TryGet(doomedNum, out var blinkAnim))
                 presentation.blinkAnimation = blinkAnim;
             presentation.brightFrame = blinkBrightFrame;
             presentation.Init(
