@@ -285,7 +285,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Gibs_always_revert_even_with_covered_death()
+        public IEnumerator Gibs_ride_the_billboard_then_the_corpse_mesh_lands()
         {
             var go = NewMonsterRoot(out var bb);
             var mr = go.GetComponent<MeshRenderer>();
@@ -300,8 +300,51 @@ namespace Doom.Stage3.PlayTests
             yield return null;
             Assert.That(model.ModelVisible, Is.True);
 
-            // XDEATH is a different anatomy (flying gibs) and is never covered
-            // by the stop-motion set, whatever the death tail holds.
+            // XDEATH: the gib ANIMATION is flying pixels and rides the native
+            // sprite (billboard interlude, not a permanent revert)...
+            model.NotifyDeathStarted(extremeDeath: true);
+            Assert.That(model.RevertedForTest, Is.False,
+                "an xdeath with a corpse mesh must not revert for good");
+            Assert.That(model.GibInterludeForTest, Is.True);
+            Assert.That(model.ModelVisible, Is.False);
+            Assert.That(mr.enabled, Is.True);
+
+            // ...the spray frames stay on the billboard...
+            model.NotifyFrame(12);
+            model.NotifyFrame(15);
+            Assert.That(model.ModelVisible, Is.False);
+
+            // ...and the lasting gib-corpse frame (U = 20) swaps in its mesh.
+            model.NotifyFrame(20);
+            Assert.That(model.XdeathCorpseShownForTest, Is.True);
+            Assert.That(model.ModelVisible, Is.True);
+            Assert.That(mr.enabled, Is.False);
+            var corpse = model.transform.Find("Enhanced3DMonster/POSSU0");
+            Assert.That(corpse, Is.Not.Null, "POSSU0 instance must exist");
+            Assert.That(corpse.gameObject.activeInHierarchy, Is.True);
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Gibs_revert_for_good_without_an_xdeath_mesh()
+        {
+            // The demon has no XDeath in info.c and no xdeath corpse mesh —
+            // an extreme death (crusher) reverts to the billboard as before.
+            var go = NewMonsterRoot(out var bb);
+            var mr = go.GetComponent<MeshRenderer>();
+            var model = ExperimentalMonsterModel.TryAttach(go, "SARG", 1f / 32f, bb);
+            Assert.That(model, Is.Not.Null);
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.SetEnhanced3DObjects(true);
+            yield return null;
+            Assert.That(model.ModelVisible, Is.True);
+
             model.NotifyDeathStarted(extremeDeath: true);
             Assert.That(model.RevertedForTest, Is.True);
             Assert.That(model.ModelVisible, Is.False);

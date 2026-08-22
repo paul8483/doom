@@ -62,7 +62,8 @@ namespace Doom.Map.Tests
             // sprite; the seam must hand them the same mesh and the same
             // normalization rule the killed monster's corpse uses.
             foreach (var (num, sprite) in new[]
-                     { (18, "POSS"), (19, "SPOS"), (20, "TROO"), (21, "SARG") })
+                     { (18, "POSS"), (19, "SPOS"), (20, "TROO"), (21, "SARG"),
+                       (10, "PLAY"), (12, "PLAY") })
             {
                 Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
                         num, out string resource, out float sizePx,
@@ -90,6 +91,36 @@ namespace Doom.Map.Tests
             Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
                     15, out _, out _, out _, out _),
                 Is.False, "dead player has no mesh to route");
+        }
+
+        [Test]
+        public void Xdeath_corpses_route_meshes_pinned_to_the_wad()
+        {
+            // The gib ANIMATION stays on the billboard; the lasting pool of
+            // remains (frame U) swaps in a mesh. SARG and BOSS have no XDeath.
+            string path = WadPath();
+            if (!File.Exists(path)) Assert.Ignore("freedoom1.wad missing");
+            using var wad = WadFile.Open(path);
+
+            foreach (string sprite in new[] { "POSS", "SPOS", "TROO" })
+            {
+                Assert.That(ExperimentalMonsterModel.TryGetXdeathForTest(
+                        sprite, out string lump, out float widthPx),
+                    Is.True, $"{sprite} must declare an xdeath corpse");
+                Assert.That(Resources.Load<GameObject>(
+                        "ExperimentalMonsters/" + sprite + "/" + lump),
+                    Is.Not.Null, $"{lump} does not load as a prefab");
+                int idx = wad.FindLump(lump);
+                Assert.That(idx, Is.GreaterThanOrEqualTo(0), $"{lump} not in WAD");
+                Assert.That(widthPx,
+                    Is.EqualTo((float)Patch.ReadHeader(wad.ReadLump(idx)).Width),
+                    $"{lump}: xdeath width constant no longer matches the WAD");
+            }
+
+            foreach (string sprite in new[] { "SARG", "BOSS" })
+                Assert.That(ExperimentalMonsterModel.TryGetXdeathForTest(
+                        sprite, out _, out _),
+                    Is.False, $"{sprite} has no XDeath in info.c");
         }
 
         [Test]

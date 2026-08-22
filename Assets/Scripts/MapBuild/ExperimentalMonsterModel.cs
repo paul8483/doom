@@ -36,11 +36,21 @@ namespace Doom.MapBuild
             // TRELLIS front view looks down -Z after Unity import; calibrated
             // per set at the import gate.
             public readonly float YawOffsetDeg;
+            /// Final XDEATH gib-corpse lump ("U0") and its patch WIDTH: the
+            /// gib ANIMATION is a spray of loose pixels and stays on the
+            /// billboard (fireball finding), but the lasting pool of remains
+            /// is a body again and gets a mesh. Null = no xdeath corpse mesh.
+            public readonly string XdeathLump;
+            public readonly float XdeathWidthPx;
+            /// Brain frame index of the xdeath corpse (frame letter - 'A').
+            public int XdeathFrameIndex =>
+                XdeathLump == null ? -1 : XdeathLump[0] - 'A';
 
             public MonsterModelSet(string sprite, string[] lumps,
                                    float[] heightsPx, int liveFrameCount,
                                    float yawOffsetDeg,
-                                   (string Lump, float WidthPx)[] flatFrames = null)
+                                   (string Lump, float WidthPx)[] flatFrames = null,
+                                   (string Lump, float WidthPx)? xdeathCorpse = null)
             {
                 Sprite = sprite;
                 FrameLumps = lumps;
@@ -51,6 +61,11 @@ namespace Doom.MapBuild
                 if (flatFrames != null)
                     foreach (var (lump, widthPx) in flatFrames)
                         FlatWidthsPx[lump] = widthPx;
+                if (xdeathCorpse.HasValue)
+                {
+                    XdeathLump = xdeathCorpse.Value.Lump;
+                    XdeathWidthPx = xdeathCorpse.Value.WidthPx;
+                }
             }
 
             /// > 0 when the frame is a pile that lies flat and must be scaled
@@ -88,7 +103,8 @@ namespace Doom.MapBuild
                 // lying slabs, so they take the patch WIDTH; H0 stands and
                 // I0/J0 are pitched to the native aspect (90/40 deg), all
                 // three on the height rule.
-                flatFrames: new[] { ("K0", 48f), ("L0", 50f) }),
+                flatFrames: new[] { ("K0", 48f), ("L0", 50f) },
+                xdeathCorpse: ("U0", 67f)),
             // Attaches only once all 7 live frame meshes land in Resources
             // (live coverage is all-or-nothing), so listing ahead is safe.
             // H0-K0 are the accepted fall (Gate D1); L0 is the corpse heap.
@@ -99,7 +115,8 @@ namespace Doom.MapBuild
                 new[] { 55f, 55f, 56f, 56f, 56f, 56f, 55f,
                         60f, 53f, 39f, 34f, 20f },
                 liveFrameCount: 7,
-                yawOffsetDeg: 0f),
+                yawOffsetDeg: 0f,
+                xdeathCorpse: ("U0", 67f)),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
             // The spectre (58) never routes here — ThingSpawner keeps it on
             // the MF_SHADOW billboard.
@@ -135,7 +152,8 @@ namespace Doom.MapBuild
                 // K0/L0 are the imp already down on the floor. M0 is not
                 // listed: that corpse was modelled as a mound and squashed to
                 // the sprite's aspect, so the height rule lands it correctly.
-                flatFrames: new[] { ("K0", 45f), ("L0", 42f) }),
+                flatFrames: new[] { ("K0", 45f), ("L0", 42f) },
+                xdeathCorpse: ("U0", 66f)),
             // Baron of Hell (E1M8 finale): attack E-F-G, pain H. Death I0-J0
             // is the standing hit and the buckle; from K0 the baron collapses
             // into a heap of bone and meat, and O0 is both the last death
@@ -166,6 +184,18 @@ namespace Doom.MapBuild
             int doomedNum, out string resource, out float sizePx,
             out bool byWidth, out string emissionResource)
         {
+            // Map-placed gib pools (10 "bloody mess", 12 — both draw the
+            // gibbed player) reuse the PLAYW0 xdeath-corpse mesh. There is
+            // no PLAY monster set, so they are described directly.
+            if (doomedNum == 10 || doomedNum == 12)
+            {
+                resource = "ExperimentalMonsters/PLAY/PLAYW0";
+                emissionResource = null;
+                sizePx = 53f; // PLAYW0 patch width
+                byWidth = true;
+                return true;
+            }
+
             string sprite = doomedNum switch
             {
                 18 => "POSS",
@@ -210,6 +240,13 @@ namespace Doom.MapBuild
         bool reverted;
         bool lastUseMesh;
         bool settingsControllerSeen;
+        // XDEATH: the gib ANIMATION rides the billboard (a spray of loose
+        // pixels has no body to model), then the lasting gib-corpse frame
+        // swaps in its own mesh. gibInterlude spans the animation.
+        GameObject xdeathPrefab;
+        GameObject xdeathInstance;
+        bool gibInterlude;
+        bool xdeathShown;
 
         // Gameplay pose interpolation (mirrors SpriteBillboard's opt-in interp:
         // MonsterController moves the transform in 35 Hz steps).
@@ -279,6 +316,9 @@ namespace Doom.MapBuild
                 coveredDeathFrames = DeathCoverageCapForTest;
 
             var model = monsterRoot.AddComponent<ExperimentalMonsterModel>();
+            if (set.XdeathLump != null)
+                model.xdeathPrefab = Resources.Load<GameObject>(
+                    ResourceRoot + set.Sprite + "/" + set.Sprite + set.XdeathLump);
             model.Init(set, prefabs, emissionMasks, coveredDeathFrames, worldScale,
                        billboard);
             if (!model.HasModel)
@@ -479,6 +519,14 @@ namespace Doom.MapBuild
         public void NotifyFrame(int frame)
         {
             if (reverted || frameModels == null) return;
+            // The lasting xdeath gib-corpse frame swaps in its own mesh; the
+            // gib animation frames before it ride the billboard untouched.
+            if (xdeathPrefab != null && frame == set.XdeathFrameIndex)
+            {
+                ShowXdeathCorpse();
+                return;
+            }
+            if (gibInterlude) return;
             if (frame < 0 || frame >= frameModels.Length ||
                 frame >= set.LiveFrameCount + coveredDeathFrames)
             {
@@ -506,6 +554,19 @@ namespace Doom.MapBuild
         public void NotifyDeathStarted(bool extremeDeath)
         {
             if (reverted) return;
+            if (extremeDeath && xdeathPrefab != null)
+            {
+                // Billboard interlude: the gib spray plays as the native
+                // sprite, then NotifyFrame(U) swaps in the gib-corpse mesh.
+                gibInterlude = true;
+                if (yawPivot != null)
+                    yawPivot.gameObject.SetActive(false);
+                if (billboardRenderer != null)
+                    billboardRenderer.enabled = true;
+                if (billboard != null)
+                    billboard.enabled = true;
+                return;
+            }
             if (extremeDeath || coveredDeathFrames == 0)
                 RevertToBillboard();
         }
@@ -569,11 +630,47 @@ namespace Doom.MapBuild
             yawPivot.position = transform.position + (visualPos - currPos);
         }
 
+        /// The gib-corpse mesh, built on first use (a level's population
+        /// rarely gets gibbed). Failure falls back to the billboard for good.
+        void ShowXdeathCorpse()
+        {
+            if (xdeathShown) return;
+            if (xdeathInstance == null)
+            {
+                var instance = Instantiate(xdeathPrefab, yawPivot);
+                instance.name = set.Sprite + set.XdeathLump;
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one;
+                var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
+                if (renderers.Length == 0)
+                {
+                    Destroy(instance);
+                    RevertToBillboard();
+                    return;
+                }
+                NormalizeFrame(instance, renderers,
+                               set.XdeathWidthPx * worldScale, byWidth: true);
+                ConfigureMaterials(renderers, null);
+                xdeathInstance = instance;
+            }
+            xdeathShown = true;
+            gibInterlude = false;
+            if (frameModels != null)
+                foreach (var m in frameModels)
+                    if (m != null) m.SetActive(false);
+            xdeathInstance.SetActive(true);
+            RefreshVisibility(force: true);
+        }
+
+        public bool XdeathCorpseShownForTest => xdeathShown;
+        public bool GibInterludeForTest => gibInterlude;
+
         void RefreshVisibility(bool force)
         {
             if (reverted) return;
 
-            bool useMesh = ResolveUseMesh();
+            bool useMesh = ResolveUseMesh() && !gibInterlude;
             if (!force && useMesh == lastUseMesh) return;
             ApplyPresentation(useMesh);
         }
@@ -614,12 +711,30 @@ namespace Doom.MapBuild
                 if (useMesh && frameModels != null)
                     for (int i = 0; i < frameModels.Length; i++)
                         if (frameModels[i] != null)
-                            frameModels[i].SetActive(i == currentFrame);
+                            frameModels[i].SetActive(!xdeathShown && i == currentFrame);
+                if (xdeathInstance != null)
+                    xdeathInstance.SetActive(useMesh && xdeathShown);
             }
             if (billboardRenderer != null)
                 billboardRenderer.enabled = !useMesh;
             if (billboard != null)
                 billboard.enabled = !useMesh;
+        }
+
+        /// Test seam: the xdeath gib-corpse declaration of a routed sprite.
+        public static bool TryGetXdeathForTest(
+            string sprite, out string lump, out float widthPx)
+        {
+            if (sprite != null && Sets.TryGetValue(sprite, out var s) &&
+                s.XdeathLump != null)
+            {
+                lump = s.Sprite + s.XdeathLump;
+                widthPx = s.XdeathWidthPx;
+                return true;
+            }
+            lump = null;
+            widthPx = 0f;
+            return false;
         }
 
         /// Test seam: the frame table of a routed sprite. Frame index is the
