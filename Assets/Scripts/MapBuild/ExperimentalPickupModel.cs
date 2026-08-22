@@ -26,6 +26,9 @@ namespace Doom.MapBuild
         PickupAnimation blinkAnimation;
         int brightFrame;
         int lastGemBlink = -1;
+        // Corpse decorations are lying slabs: scale X to the patch width and
+        // keep the mesh's own thickness (the monster-table flat-frame rule).
+        bool normalizeByWidth;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
@@ -36,7 +39,32 @@ namespace Doom.MapBuild
             float worldScale,
             SpriteBillboard billboard)
         {
-            if (pickupRoot == null || !TryGetResource(doomedNum, out string resource))
+            if (pickupRoot == null)
+                return null;
+
+            // Map-placed dead monsters (18/19/20/21) reuse the death-chain
+            // corpse meshes with the monster table's own normalization rule;
+            // the visor mask glows steady like on a killed monster's corpse.
+            if (ExperimentalMonsterModel.TryDescribeCorpse(
+                    doomedNum, out string corpseResource, out float corpseSizePx,
+                    out bool corpseByWidth, out string corpseMask))
+            {
+                var corpse = pickupRoot.AddComponent<ExperimentalPickupModel>();
+                corpse.normalizeByWidth = corpseByWidth;
+                corpse.Init(
+                    corpseResource,
+                    Mathf.Max(0.01f, corpseSizePx * worldScale),
+                    useUnlit: true,
+                    emissionStrength: 0f,
+                    pulseMaskResource: corpseMask,
+                    enableGemBlink: true, // no animation => parked bright
+                    pulseStrength: 1.2f,
+                    pulseSpeed: 8f,
+                    sourceBillboard: billboard);
+                return corpse.HasModel ? corpse : null;
+            }
+
+            if (!TryGetResource(doomedNum, out string resource))
                 return null;
             if (!ThingTable.TryGet(doomedNum, out var def))
                 return null;
@@ -293,9 +321,10 @@ namespace Doom.MapBuild
         void NormalizeToPickup(float targetHeight)
         {
             Bounds bounds = CombinedBounds();
-            if (bounds.size.y <= 0.0001f) return;
+            float span = normalizeByWidth ? bounds.size.x : bounds.size.y;
+            if (span <= 0.0001f) return;
 
-            float scale = targetHeight / bounds.size.y;
+            float scale = targetHeight / span;
             modelRoot.transform.localScale *= scale;
             bounds = CombinedBounds();
 

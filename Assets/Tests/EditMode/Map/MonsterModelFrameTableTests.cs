@@ -56,6 +56,43 @@ namespace Doom.Map.Tests
         }
 
         [Test]
+        public void Dead_decorations_route_the_death_chain_corpse_meshes()
+        {
+            // Map-placed dead monsters (info.c MT_DEAD*) draw the corpse
+            // sprite; the seam must hand them the same mesh and the same
+            // normalization rule the killed monster's corpse uses.
+            foreach (var (num, sprite) in new[]
+                     { (18, "POSS"), (19, "SPOS"), (20, "TROO"), (21, "SARG") })
+            {
+                Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
+                        num, out string resource, out float sizePx,
+                        out bool byWidth, out string _),
+                    Is.True, $"dead thing {num} must route a corpse mesh");
+                Assert.That(resource, Does.StartWith("ExperimentalMonsters/" + sprite),
+                    $"thing {num} routes {resource}");
+                Assert.That(Resources.Load<GameObject>(resource), Is.Not.Null,
+                    $"{resource} does not load as a prefab");
+
+                // The size constant stays honest against the WAD patch.
+                string lump = resource.Substring(resource.LastIndexOf('/') + 1);
+                string path = WadPath();
+                if (!File.Exists(path)) Assert.Ignore("freedoom1.wad missing");
+                using var wad = WadFile.Open(path);
+                int idx = wad.FindLump(lump);
+                Assert.That(idx, Is.GreaterThanOrEqualTo(0), $"{lump} not in WAD");
+                var header = Patch.ReadHeader(wad.ReadLump(idx));
+                Assert.That(sizePx,
+                    Is.EqualTo(byWidth ? (float)header.Width : (float)header.Height),
+                    $"{lump}: corpse size constant no longer matches the WAD");
+            }
+
+            // Dead player (15) has no PLAY mesh and must stay on the sprite.
+            Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
+                    15, out _, out _, out _, out _),
+                Is.False, "dead player has no mesh to route");
+        }
+
+        [Test]
         public void Live_frames_keep_their_rotation_1_lumps()
         {
             foreach (var (_, sprite) in Routed)

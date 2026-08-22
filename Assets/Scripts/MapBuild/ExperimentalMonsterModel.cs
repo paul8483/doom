@@ -81,7 +81,14 @@ namespace Doom.MapBuild
                 new[] { 57f, 57f, 57f, 57f, 56f, 56f, 55f,
                         55f, 42f, 34f, 27f, 19f },
                 liveFrameCount: 7,
-                yawOffsetDeg: 0f),
+                yawOffsetDeg: 0f,
+                // Chain re-rolled 2026-08-22 on one consistent hint set (live
+                // clothing, chest wound, one continuous fall). K0 is the
+                // mid-roll onto the side and L0 the face-down corpse — both
+                // lying slabs, so they take the patch WIDTH; H0 stands and
+                // I0/J0 are pitched to the native aspect (90/40 deg), all
+                // three on the height rule.
+                flatFrames: new[] { ("K0", 48f), ("L0", 50f) }),
             // Attaches only once all 7 live frame meshes land in Resources
             // (live coverage is all-or-nothing), so listing ahead is safe.
             // H0-K0 are the accepted fall (Gate D1); L0 is the corpse heap.
@@ -149,6 +156,42 @@ namespace Doom.MapBuild
                 flatFrames: new[] { ("L0", 80f), ("M0", 82f),
                                     ("N0", 82f), ("O0", 90f) }),
         };
+
+        /// Maps map-placed dead-monster decorations (info.c MT_DEAD*) onto the
+        /// same corpse meshes the death chains end on, with the same
+        /// normalization rule. Vanilla draws these things with the corpse
+        /// sprite; without this seam they were the last billboards left lying
+        /// among 3D corpses (E1M1 alone places nine of them).
+        public static bool TryDescribeCorpse(
+            int doomedNum, out string resource, out float sizePx,
+            out bool byWidth, out string emissionResource)
+        {
+            string sprite = doomedNum switch
+            {
+                18 => "POSS",
+                19 => "SPOS",
+                20 => "TROO",
+                21 => "SARG",
+                _ => null,
+            };
+            if (sprite == null || !Sets.TryGetValue(sprite, out var set))
+            {
+                resource = null;
+                emissionResource = null;
+                sizePx = 0f;
+                byWidth = false;
+                return false;
+            }
+
+            int last = set.FrameLumps.Length - 1;
+            string lump = sprite + set.FrameLumps[last];
+            float flatWidth = set.FlatWidthPx(last);
+            byWidth = flatWidth > 0f;
+            sizePx = byWidth ? flatWidth : set.PatchHeightsPx[last];
+            resource = "ExperimentalMonsters/" + sprite + "/" + lump;
+            emissionResource = resource + "_emission";
+            return true;
+        }
 
         MonsterModelSet set;
         SpriteBillboard billboard;
