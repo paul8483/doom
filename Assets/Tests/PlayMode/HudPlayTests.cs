@@ -42,7 +42,12 @@ namespace Doom.Stage3.PlayTests
             Assert.That(huds.Length, Is.EqualTo(1));
             Assert.That(huds[0].IsReady, Is.True);
             Assert.That(huds[0].Model.Health, Is.EqualTo(100));
-            Assert.That(huds[0].Model.FacePatch, Is.EqualTo("STFST00"));
+            // The idle look direction (STFST00/01/02) randomizes every ~17 tics,
+            // so which frame the assert catches depends on scene-load wall time —
+            // pin the healthy idle family, not one random member (recurring
+            // full-suite flake; went deterministic-red 2026-08-23 when the world
+            // redraw Resources shifted load timing past a look boundary).
+            Assert.That(huds[0].Model.FacePatch, Does.Match("^STFST0[0-2]$"));
 
             // PlayerHud was removed in Stage 7b.
             var legacy = Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);

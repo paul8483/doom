@@ -29,22 +29,28 @@ namespace Doom.Graphics
             DecodedImage levelZero,
             Palette palette,
             PixelWrapMode wrap,
-            bool preserveAlphaCoverage = true)
+            bool preserveAlphaCoverage = true,
+            bool quantizeToPalette = true)
         {
-            Validate(levelZero, palette);
+            Validate(levelZero, quantizeToPalette ? palette : null, quantizeToPalette);
 
-            var paletteRgb = new byte[256 * 3];
-            var paletteLinear = new double[256 * 3];
-            for (int i = 0; i < 256; i++)
+            byte[] paletteRgb = null;
+            double[] paletteLinear = null;
+            if (quantizeToPalette)
             {
-                palette.GetColor(i, out byte r, out byte g, out byte b);
-                int p = i * 3;
-                paletteRgb[p] = r;
-                paletteRgb[p + 1] = g;
-                paletteRgb[p + 2] = b;
-                paletteLinear[p] = SrgbToLinear(r);
-                paletteLinear[p + 1] = SrgbToLinear(g);
-                paletteLinear[p + 2] = SrgbToLinear(b);
+                paletteRgb = new byte[256 * 3];
+                paletteLinear = new double[256 * 3];
+                for (int i = 0; i < 256; i++)
+                {
+                    palette.GetColor(i, out byte r, out byte g, out byte b);
+                    int p = i * 3;
+                    paletteRgb[p] = r;
+                    paletteRgb[p + 1] = g;
+                    paletteRgb[p + 2] = b;
+                    paletteLinear[p] = SrgbToLinear(r);
+                    paletteLinear[p + 1] = SrgbToLinear(g);
+                    paletteLinear[p + 2] = SrgbToLinear(b);
+                }
             }
 
             var levels = new List<DecodedImage> { levelZero };
@@ -64,10 +70,10 @@ namespace Doom.Graphics
             return new PaletteMipChain(levels.ToArray());
         }
 
-        static void Validate(DecodedImage image, Palette palette)
+        static void Validate(DecodedImage image, Palette palette, bool requirePalette = true)
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
-            if (palette == null) throw new ArgumentNullException(nameof(palette));
+            if (requirePalette && palette == null) throw new ArgumentNullException(nameof(palette));
             if (image.Width <= 0 || image.Height <= 0)
                 throw new ArgumentOutOfRangeException(nameof(image), "Image dimensions must be positive.");
             long expected = (long)image.Width * image.Height * 4L;
@@ -118,6 +124,15 @@ namespace Doom.Graphics
                     continue;
                 }
 
+                if (paletteLinear == null)
+                {
+                    destination[di] = LinearToSrgb(sumR / sumAlpha);
+                    destination[di + 1] = LinearToSrgb(sumG / sumAlpha);
+                    destination[di + 2] = LinearToSrgb(sumB / sumAlpha);
+                    destination[di + 3] = alphaOut;
+                    continue;
+                }
+
                 int nearest = NearestPalette(
                     sumR / sumAlpha, sumG / sumAlpha, sumB / sumAlpha, paletteLinear);
                 int pi = nearest * 3;
@@ -153,6 +168,15 @@ namespace Doom.Graphics
         {
             double c = value / 255.0;
             return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        static byte LinearToSrgb(double linear)
+        {
+            double c = linear <= 0.0031308
+                ? linear * 12.92
+                : 1.055 * Math.Pow(linear, 1.0 / 2.4) - 0.055;
+            int v = (int)Math.Round(c * 255.0, MidpointRounding.AwayFromZero);
+            return (byte)Math.Max(0, Math.Min(255, v));
         }
 
         static int SampleX(int x, int width, PixelWrapMode wrap)

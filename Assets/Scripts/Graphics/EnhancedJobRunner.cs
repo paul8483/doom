@@ -54,6 +54,34 @@ namespace Doom.Graphics
 
         static EnhancedJobResult RunWorldAlbedo(EnhancedJob job)
         {
+            // Display-grade redraw replaces dedither → Super-xBR as level zero.
+            // Downsampled levels stay unquantized: the palette decision lives in
+            // the level-0 file, and a PLAYPAL snap per level would make a
+            // full-color redraw pop at mip transitions. Sharpen matches the
+            // sprite 4× path: at ~2 screen px/texel the world texel-AA sits in
+            // its bilinear crossover zone and painted edges read soft without it
+            // (wave-1 gate finding, 2026-08-24).
+            if (job.Redraw != null)
+            {
+                var sharpened = SharpenFilter.Apply(job.Redraw);
+                var redrawMips = PaletteMipGenerator.Generate(
+                    sharpened, job.Palette, job.Wrap,
+                    preserveAlphaCoverage: true, quantizeToPalette: false);
+                // Players see levels 1–2 at normal wall distance; box-filtered
+                // downscales of painted art read blurrier than the Super-xBR
+                // chain they replaced, so every usable level gets the same
+                // sharpen as level zero (wave-1 mid-range gate finding).
+                var levels = new DecodedImage[redrawMips.Count];
+                for (int i = 0; i < redrawMips.Count; i++)
+                {
+                    var level = redrawMips[i];
+                    levels[i] = (i > 0 && level.Width >= 8 && level.Height >= 8)
+                        ? SharpenFilter.Apply(level)
+                        : level;
+                }
+                return EnhancedJobResult.OkWorldAlbedo(new PaletteMipChain(levels));
+            }
+
             var enhanced = BuildEnhanced4X(
                 job.Native, job.Wrap, job.ApplyDedither, job.ApplyAlphaBleed);
             var mips = PaletteMipGenerator.Generate(

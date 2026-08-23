@@ -12,7 +12,14 @@ namespace Doom.MapBuild.Editor
     public static class UpscalePreviewMenu
     {
         static readonly string[] WallNames =
-            { "STARTAN2", "BROWN1", "STARG3", "BIGDOOR2", "COMPTALL", "MIDGRATE" };
+        {
+            "STARTAN2", "BROWN1", "STARG3", "BIGDOOR2", "MIDGRATE",
+            // World redraw stage (2026-08-23/24): pilot + wave 1.
+            "COMP2", "COMPTALL", "COMPBLUE", "COMPSPAN", "COMPWERD", "COMPTILE",
+            "COMPUTE1", "COMPUTE2", "COMPUTE3", "COMPUTE4", "COMPSTA1",
+            "COMPSTA2", "COMPWERA", "COMPWERB", "COMPWERE", "COMPWERF",
+            "COMPVENT", "COMPOHSO", "COMPLIT3", "AQCOMP01",
+        };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };
 

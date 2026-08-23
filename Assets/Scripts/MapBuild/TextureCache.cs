@@ -193,13 +193,17 @@ namespace Doom.MapBuild
 
             bool masked = HasTransparent(entry.Native);
             var profile = materials.ActiveProfile;
+            // Allowlisted display redraw replaces dedither → Super-xBR as level
+            // zero; normals/POM ride the resulting albedo mips unchanged.
+            WorldRedrawCatalog.TryGet(name, entry.Native, out var redraw);
             return EnhancedJob.ForWorldAlbedo(
                 name,
                 entry.Native,
                 WrapFor(entry),
                 applyDedither: profile.WorldDedither,
                 applyAlphaBleed: masked,
-                palette);
+                palette,
+                redraw);
         }
 
         /// Main-thread: snapshot a normal job after albedo mips exist. Null if
@@ -593,6 +597,12 @@ namespace Doom.MapBuild
             return tex;
         }
 
+        /// Mip bias knob for redraw-backed walls. −0.5 and −0.25 were tried at
+        /// the wave-1 gate (2026-08-24) and rejected for motion shimmer — the
+        /// per-level mip sharpen alone carries the mid-range crispness; the
+        /// seam stays for future tuning.
+        const float RedrawMipBias = 0f;
+
         private Texture2D ToAlbedoTexture2D(
             PaletteMipChain chain, string name, SourceEntry entry)
         {
@@ -603,6 +613,8 @@ namespace Doom.MapBuild
                 mipChain: hasMips, linear: false);
             tex.name = name;
             ConfigureWrap(tex, entry);
+            if (hasMips && WorldRedrawCatalog.TryGet(name, entry.Native, out _))
+                tex.mipMapBias = RedrawMipBias;
             // Controlled mips: Trilinear minification (LOD0 stays sharp via mip content).
             tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Point;
             tex.anisoLevel = hasMips ? anisoLevel : 1;

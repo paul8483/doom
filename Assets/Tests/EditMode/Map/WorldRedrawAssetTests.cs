@@ -1,0 +1,137 @@
+using System.IO;
+using NUnit.Framework;
+using UnityEngine;
+using Doom.Graphics;
+using Doom.Wad;
+
+namespace Doom.Map.Tests
+{
+    /// World redraw assets (Resources/EnhancedWorld): every allowlisted texture
+    /// ships a PNG at exactly 4x its native composite size, fully opaque, with
+    /// a horizontal wrap seam no worse than the native's own (walls tile along
+    /// the map). Decoding goes through raw PNG bytes so the suite stays green
+    /// under -nographics.
+    public class WorldRedrawAssetTests
+    {
+        static string FreedoomPath => Path.Combine(
+            Application.streamingAssetsPath, "wads", "freedoom1.wad");
+
+        static string RedrawDir => Path.Combine(
+            Application.dataPath, "Resources", WorldRedrawAllowlist.ResourcesFolder);
+
+        const double MaxSeamRatio = 2.0;
+        const double NativeSeamSlack = 1.5;
+
+        static Texture2D LoadPng(string path)
+        {
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Assert.IsTrue(ImageConversion.LoadImage(tex, File.ReadAllBytes(path)),
+                "PNG decode failed: " + path);
+            return tex;
+        }
+
+        static DecodedImage BuildNative(WadFile wad, TextureSet textures, Palette palette, string name)
+        {
+            if (textures.Contains(name))
+                return textures.Build(name, palette);
+            int lump = wad.FindLump(name);
+            Assert.That(lump, Is.GreaterThanOrEqualTo(0), name + " is neither texture nor flat");
+            return Flat.Decode(wad.ReadLump(lump), palette);
+        }
+
+        [Test]
+        public void Every_allowlisted_redraw_is_4x_opaque_and_tiles()
+        {
+            if (WorldRedrawAllowlist.Names.Length == 0)
+                Assert.Pass("allowlist empty — pilot redraws not installed yet");
+
+            if (!File.Exists(FreedoomPath)) Assert.Ignore("freedoom1.wad missing");
+            using var wad = WadFile.Open(FreedoomPath);
+            var palette = new Palette(wad.ReadLump("PLAYPAL"));
+            var textures = TextureSet.Load(wad);
+
+            foreach (var name in WorldRedrawAllowlist.Names)
+            {
+                string path = Path.Combine(RedrawDir, name + ".png");
+                Assert.IsTrue(File.Exists(path), name + " redraw missing: " + path);
+
+                var native = BuildNative(wad, textures, palette, name);
+                var tex = LoadPng(path);
+                try
+                {
+                    Assert.AreEqual(native.Width * WorldRedrawAllowlist.Scale, tex.width,
+                        name + " width");
+                    Assert.AreEqual(native.Height * WorldRedrawAllowlist.Scale, tex.height,
+                        name + " height");
+
+                    var pixels = tex.GetPixels32();
+                    foreach (var p in pixels)
+                        if (p.a < 255)
+                            Assert.Fail(name + " has transparent pixels (walls are opaque)");
+
+                    double redrawRatio = HorizontalSeamRatio(pixels, tex.width, tex.height);
+                    double nativeRatio = HorizontalSeamRatio(native);
+                    Assert.IsFalse(
+                        redrawRatio > MaxSeamRatio && redrawRatio > nativeRatio * NativeSeamSlack,
+                        $"{name} horizontal seam ratio {redrawRatio:F2} vs native {nativeRatio:F2}");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(tex);
+                }
+            }
+        }
+
+        [Test]
+        public void No_orphan_files_outside_the_allowlist()
+        {
+            if (!Directory.Exists(RedrawDir))
+                Assert.Pass("no EnhancedWorld folder yet");
+
+            foreach (var file in Directory.GetFiles(RedrawDir, "*.png"))
+            {
+                string name = Path.GetFileNameWithoutExtension(file);
+                Assert.IsTrue(WorldRedrawAllowlist.Contains(name),
+                    name + " sits in Resources/EnhancedWorld without an allowlist entry");
+            }
+        }
+
+        /// Wrapped edge-pair mean abs diff over interior neighbour-column diff
+        /// (same metric as Tools/validate_tile_redraw.py).
+        static double HorizontalSeamRatio(Color32[] pixels, int w, int h)
+        {
+            double ColDiff(int x0, int x1)
+            {
+                double s = 0;
+                for (int y = 0; y < h; y++)
+                {
+                    var a = pixels[y * w + x0];
+                    var b = pixels[y * w + x1];
+                    s += Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b);
+                }
+                return s / h;
+            }
+
+            double interior = 0;
+            for (int x = 0; x < w - 1; x++) interior += ColDiff(x, x + 1);
+            interior /= (w - 1);
+            double seam = ColDiff(w - 1, 0);
+            return seam / System.Math.Max(interior, 1e-6);
+        }
+
+        static double HorizontalSeamRatio(DecodedImage img)
+        {
+            int w = img.Width, h = img.Height;
+            var pixels = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                // DecodedImage is top-down; row order does not affect the metric.
+                int i = (y * w + x) * 4;
+                pixels[y * w + x] = new Color32(
+                    img.Rgba[i], img.Rgba[i + 1], img.Rgba[i + 2], img.Rgba[i + 3]);
+            }
+            return HorizontalSeamRatio(pixels, w, h);
+        }
+    }
+}

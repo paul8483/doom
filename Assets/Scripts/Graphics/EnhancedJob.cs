@@ -32,6 +32,9 @@ namespace Doom.Graphics
         public Palette Palette { get; }
         /// Pre-built Enhanced albedo mips — required for <see cref="EnhancedJobKind.WorldNormal"/>.
         public PaletteMipChain AlbedoMips { get; }
+        /// Display-grade world redraw (exactly 4× native). When present, the
+        /// albedo path uses it as level zero instead of dedither → Super-xBR.
+        public DecodedImage Redraw { get; }
 
         EnhancedJob(
             EnhancedJobKind kind,
@@ -44,7 +47,8 @@ namespace Doom.Graphics
             MaterialSurfaceCategory category,
             bool spectre,
             Palette palette,
-            PaletteMipChain albedoMips)
+            PaletteMipChain albedoMips,
+            DecodedImage redraw = null)
         {
             Kind = kind;
             ItemId = itemId ?? throw new ArgumentNullException(nameof(itemId));
@@ -57,6 +61,7 @@ namespace Doom.Graphics
             Spectre = spectre;
             Palette = palette;
             AlbedoMips = albedoMips;
+            Redraw = redraw;
         }
 
         public static EnhancedJob ForWorldAlbedo(
@@ -65,14 +70,16 @@ namespace Doom.Graphics
             PixelWrapMode wrap,
             bool applyDedither,
             bool applyAlphaBleed,
-            Palette palette)
+            Palette palette,
+            DecodedImage redraw = null)
         {
             if (native == null) throw new ArgumentNullException(nameof(native));
             if (palette == null) throw new ArgumentNullException(nameof(palette));
             return new EnhancedJob(
                 EnhancedJobKind.WorldAlbedo, itemId, native, wrap,
                 applyDedither, applyAlphaBleed, applySharpen: false,
-                MaterialSurfaceCategory.Unknown, spectre: false, palette, albedoMips: null);
+                MaterialSurfaceCategory.Unknown, spectre: false, palette,
+                albedoMips: null, redraw);
         }
 
         public static EnhancedJob ForWorldNormal(
