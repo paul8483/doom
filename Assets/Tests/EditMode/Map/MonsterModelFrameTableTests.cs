@@ -63,7 +63,7 @@ namespace Doom.Map.Tests
             // normalization rule the killed monster's corpse uses.
             foreach (var (num, sprite) in new[]
                      { (18, "POSS"), (19, "SPOS"), (20, "TROO"), (21, "SARG"),
-                       (10, "PLAY"), (12, "PLAY") })
+                       (10, "PLAY"), (12, "PLAY"), (15, "PLAY") })
             {
                 Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
                         num, out string resource, out float sizePx,
@@ -86,11 +86,6 @@ namespace Doom.Map.Tests
                     Is.EqualTo(byWidth ? (float)header.Width : (float)header.Height),
                     $"{lump}: corpse size constant no longer matches the WAD");
             }
-
-            // Dead player (15) has no PLAY mesh and must stay on the sprite.
-            Assert.That(ExperimentalMonsterModel.TryDescribeCorpse(
-                    15, out _, out _, out _, out _),
-                Is.False, "dead player has no mesh to route");
         }
 
         [Test]

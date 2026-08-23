@@ -196,6 +196,16 @@ namespace Doom.MapBuild
                 return true;
             }
 
+            // Dead player (15) draws the PLAYN0 corpse sprite.
+            if (doomedNum == 15)
+            {
+                resource = "ExperimentalMonsters/PLAY/PLAYN0";
+                emissionResource = null;
+                sizePx = 37f; // PLAYN0 patch width
+                byWidth = true;
+                return true;
+            }
+
             string sprite = doomedNum switch
             {
                 18 => "POSS",
