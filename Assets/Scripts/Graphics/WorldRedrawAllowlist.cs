@@ -20,13 +20,19 @@ namespace Doom.Graphics
         /// the STARTAN/STARG/STARGR/STARBR panel family (every variant used on
         /// E1) + masonry BRICK10/STONE/STONE2/STONE3 (BROWN* examined and
         /// deferred — riveted rust metal, not brick). Wave 3 2026-08-24: the
-        /// BROWN rust-metal family + the GRAY concrete family; GRAY2/GRAY8/
-        /// GRAYPOIS failed the composition check (grille/seams/sign drifted)
-        /// and await a re-roll — they stay on Super-xBR until then. Names are
-        /// WAD texture/flat names.
+        /// BROWN rust-metal family + the GRAY concrete family (GRAY2/GRAY8/
+        /// GRAYPOIS re-rolled after a composition drift and installed with
+        /// the wave-4 tail). Wave 4 2026-08-24: metal/supports/door jambs,
+        /// slad+nukage walls, TEKWALL greebles, crates, the big doors, and —
+        /// as a separate mini-set — the LITE* light strips (they sit in the
+        /// lamp-flicker allowlist, which gates on texel luma, so their redraw
+        /// pins the segment grid and the lit/dark contrast; flicker QA rides
+        /// the interactive gate). Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
             "AQCOMP01",
+            "BIGDOOR2",
+            "BIGDOOR6",
             "BRICK10",
             "BROWN1",
             "BROWN144",
@@ -34,6 +40,10 @@ namespace Doom.Graphics
             "BROWNGRN",
             "BROWNHUG",
             "BROWNPIP",
+            "CRATE1",
+            "CRATE2",
+            "CRATELIT",
+            "CRATWIDE",
             "COMP2",
             "COMPBLUE",
             "COMPLIT3",
@@ -53,13 +63,31 @@ namespace Doom.Graphics
             "COMPWERD",
             "COMPWERE",
             "COMPWERF",
+            "DOORSTOP",
+            "DOORTRAK",
             "GRAY1",
+            "GRAY2",
             "GRAY4",
             "GRAY5",
             "GRAY7",
+            "GRAY8",
             "GRAYBIG",
+            "GRAYPOIS",
             "GRAYTALL",
             "GRAYWIDE",
+            "LITE3",
+            "LITE5",
+            "LITEBLU4",
+            "MC17",
+            "METAL",
+            "METAL1",
+            "METAL2",
+            "METAL5",
+            "NUKE24",
+            "NUKEDGE1",
+            "SHAWN2",
+            "SLADPOIS",
+            "SLADWALL",
             "STARBR1",
             "STARBR2",
             "STARG1",
@@ -74,6 +102,11 @@ namespace Doom.Graphics
             "STONE",
             "STONE2",
             "STONE3",
+            "SUPPORT2",
+            "SUPPORT3",
+            "TEKWALL1",
+            "TEKWALL2",
+            "TEKWALL4",
         };
 
         public static bool Contains(string name)

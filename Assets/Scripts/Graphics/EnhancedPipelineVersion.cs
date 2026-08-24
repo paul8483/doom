@@ -27,6 +27,12 @@ namespace Doom.Graphics
         // v12: wave 3 (2026-08-24) — 13 more redraws (BROWN rust-metal family
         // + GRAY concrete family; GRAY2/GRAY8/GRAYPOIS await a composition
         // re-roll); v11 packs hold Super-xBR output under those names.
-        public const int Value = 12;
+        // v13: wave 4 (2026-08-24) — 23 more redraws (SHAWN2/SUPPORT*/METAL*
+        // + door jambs, SLAD/NUKE walls, TEKWALL greebles, crates, big
+        // doors); v12 packs hold Super-xBR output under those names.
+        // v14: wave-4 tail (2026-08-24) — LITE5/LITEBLU4/LITE3 light strips
+        // + the GRAY2/GRAY8/GRAYPOIS composition re-roll; v13 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 14;
     }
 }

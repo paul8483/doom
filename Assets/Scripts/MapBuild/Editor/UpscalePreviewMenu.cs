@@ -28,6 +28,15 @@ namespace Doom.MapBuild.Editor
             "BROWN96", "BROWN144", "BROWNGRN", "BROWNHUG", "BROWNPIP",
             "GRAY1", "GRAY2", "GRAY4", "GRAY5", "GRAY7", "GRAY8",
             "GRAYBIG", "GRAYPOIS", "GRAYTALL", "GRAYWIDE",
+            // Wave 4 (2026-08-24): metal/supports/jambs, slad+nukage, TEKWALL,
+            // crates, big doors (BIGDOOR2 was already in the diagnostic list).
+            "SHAWN2", "SUPPORT2", "SUPPORT3", "METAL1", "METAL2", "METAL5",
+            "METAL", "DOORSTOP", "DOORTRAK", "SLADWALL", "SLADPOIS",
+            "NUKEDGE1", "NUKE24", "TEKWALL1", "TEKWALL2", "TEKWALL4", "MC17",
+            "CRATE1", "CRATE2", "CRATELIT", "CRATWIDE", "BIGDOOR6",
+            // Wave 4 tail (2026-08-24): LITE strips (GRAY re-roll names are
+            // already in the wave-3 block above).
+            "LITE5", "LITEBLU4", "LITE3",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };
