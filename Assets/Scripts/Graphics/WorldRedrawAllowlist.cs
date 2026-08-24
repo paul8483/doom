@@ -19,12 +19,21 @@ namespace Doom.Graphics
         /// and excluded — riveted metal, not computers). Wave 2 2026-08-24:
         /// the STARTAN/STARG/STARGR/STARBR panel family (every variant used on
         /// E1) + masonry BRICK10/STONE/STONE2/STONE3 (BROWN* examined and
-        /// deferred — riveted rust metal, not brick). Names are WAD
-        /// texture/flat names.
+        /// deferred — riveted rust metal, not brick). Wave 3 2026-08-24: the
+        /// BROWN rust-metal family + the GRAY concrete family; GRAY2/GRAY8/
+        /// GRAYPOIS failed the composition check (grille/seams/sign drifted)
+        /// and await a re-roll — they stay on Super-xBR until then. Names are
+        /// WAD texture/flat names.
         public static readonly string[] Names =
         {
             "AQCOMP01",
             "BRICK10",
+            "BROWN1",
+            "BROWN144",
+            "BROWN96",
+            "BROWNGRN",
+            "BROWNHUG",
+            "BROWNPIP",
             "COMP2",
             "COMPBLUE",
             "COMPLIT3",
@@ -44,6 +53,13 @@ namespace Doom.Graphics
             "COMPWERD",
             "COMPWERE",
             "COMPWERF",
+            "GRAY1",
+            "GRAY4",
+            "GRAY5",
+            "GRAY7",
+            "GRAYBIG",
+            "GRAYTALL",
+            "GRAYWIDE",
             "STARBR1",
             "STARBR2",
             "STARG1",

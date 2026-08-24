@@ -23,6 +23,11 @@ namespace Doom.MapBuild.Editor
             "STARTAN1", "STARTAN3", "STARG1", "STARG2", "STARG4",
             "STARGR1", "STARGR2", "STARBR1", "STARBR2",
             "BRICK10", "STONE", "STONE2", "STONE3",
+            // Wave 3 (2026-08-24): BROWN rust metal + GRAY concrete (BROWN1
+            // was already in the diagnostic list above).
+            "BROWN96", "BROWN144", "BROWNGRN", "BROWNHUG", "BROWNPIP",
+            "GRAY1", "GRAY2", "GRAY4", "GRAY5", "GRAY7", "GRAY8",
+            "GRAYBIG", "GRAYPOIS", "GRAYTALL", "GRAYWIDE",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };

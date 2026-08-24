@@ -24,6 +24,9 @@ namespace Doom.Graphics
         // v11: wave 2 (2026-08-24) — 15 more redraws (STARTAN/STARG/STARGR/
         // STARBR panel family + BRICK10/STONE/STONE2/STONE3 masonry); v10 packs
         // hold Super-xBR output under those names.
-        public const int Value = 11;
+        // v12: wave 3 (2026-08-24) — 13 more redraws (BROWN rust-metal family
+        // + GRAY concrete family; GRAY2/GRAY8/GRAYPOIS await a composition
+        // re-roll); v11 packs hold Super-xBR output under those names.
+        public const int Value = 12;
     }
 }
