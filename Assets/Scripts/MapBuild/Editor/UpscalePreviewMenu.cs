@@ -43,6 +43,17 @@ namespace Doom.MapBuild.Editor
             "BIGDOOR1", "BIGDOOR3", "BIGDOOR4", "AQDOOR01", "AQDOOR02",
             "DOOR1", "DOOR3", "DOORHI", "SPCDOOR3", "EXITDOOR",
             "EXITSIGN", "EXITSGN2", "DOORBLU", "DOORRED", "DOORYEL",
+            // Wave 7 (2026-08-25): the rarities.
+            "GSTONE1", "GSTONE2", "GSTVINE2", "MARBFAC3", "MARBGRAY",
+            "SKIN2", "SKINEDGE", "SK_LEFT", "SK_RIGHT", "SKSNAKE1",
+            "SKSNAKE2", "ASHWALL", "ASHWALL2", "ASHWALL4", "SP_HOT1",
+            "ICKWALL1", "ICKWALL2", "ICKWALL3", "ICKWALL4", "CEMENT1",
+            "CEMENT3", "CEMENT6", "CEMENT7", "CEMENT8", "BIGBRIK2",
+            "A-BRICK3", "A-DBRI28", "A-CONCTE", "A-DROCK1", "PWHITE",
+            "ZIMMER3", "BRONZE1", "BRONZE3", "BASE2", "BASE", "SHAWN1",
+            "SHAWN02", "SHAWN3", "MC3", "MC5", "MC19", "TEKWALL3",
+            "TEKWALL5", "PIPE2", "PLANET1", "STEP1", "WOOD1", "WOODMET1",
+            "CRATINY", "CRATE3", "LITEBLU1", "LITEBLU3", "LITE4", "LITERED",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };

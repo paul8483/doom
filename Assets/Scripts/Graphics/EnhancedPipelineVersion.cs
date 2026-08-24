@@ -38,6 +38,9 @@ namespace Doom.Graphics
         // v16: wave 6 (2026-08-25) — every remaining door (BIGDOOR/AQDOOR
         // gates, small doors, exit airlock + EXIT signs, key-lock strips);
         // v15 packs hold Super-xBR output under those names.
-        public const int Value = 16;
+        // v17: wave 7 (2026-08-25) — 53 rarities (hell stone/flesh, concrete/
+        // brick, metal/moss/tech, wood/crates/lights); v16 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 17;
     }
 }
