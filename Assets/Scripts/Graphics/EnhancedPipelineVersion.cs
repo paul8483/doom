@@ -33,6 +33,8 @@ namespace Doom.Graphics
         // v14: wave-4 tail (2026-08-24) — LITE5/LITEBLU4/LITE3 light strips
         // + the GRAY2/GRAY8/GRAYPOIS composition re-roll; v13 packs hold
         // Super-xBR output under those names.
-        public const int Value = 14;
+        // v15: wave 5 (2026-08-25) — the lift set (PLAT1 + STEP2-6/STEPTOP);
+        // v14 packs hold Super-xBR output under those names.
+        public const int Value = 15;
     }
 }

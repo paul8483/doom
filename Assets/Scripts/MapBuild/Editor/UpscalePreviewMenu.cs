@@ -37,6 +37,8 @@ namespace Doom.MapBuild.Editor
             // Wave 4 tail (2026-08-24): LITE strips (GRAY re-roll names are
             // already in the wave-3 block above).
             "LITE5", "LITEBLU4", "LITE3",
+            // Wave 5 (2026-08-25): the lift set.
+            "PLAT1", "STEP2", "STEP3", "STEP4", "STEP5", "STEP6", "STEPTOP",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };

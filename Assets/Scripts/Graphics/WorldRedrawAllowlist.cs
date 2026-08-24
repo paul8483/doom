@@ -27,7 +27,10 @@ namespace Doom.Graphics
         /// as a separate mini-set — the LITE* light strips (they sit in the
         /// lamp-flicker allowlist, which gates on texel luma, so their redraw
         /// pins the segment grid and the lit/dark contrast; flicker QA rides
-        /// the interactive gate). Names are WAD texture/flat names.
+        /// the interactive gate). Wave 5 2026-08-25: the lift set — PLAT1
+        /// lift front + the STEP2-6/STEPTOP step lips (user screenshot;
+        /// MIDGRATE examined and excluded — masked texture, the redraw path
+        /// is opaque-only). Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
             "AQCOMP01",
@@ -85,6 +88,7 @@ namespace Doom.Graphics
             "METAL5",
             "NUKE24",
             "NUKEDGE1",
+            "PLAT1",
             "SHAWN2",
             "SLADPOIS",
             "SLADWALL",
@@ -99,6 +103,12 @@ namespace Doom.Graphics
             "STARTAN1",
             "STARTAN2",
             "STARTAN3",
+            "STEP2",
+            "STEP3",
+            "STEP4",
+            "STEP5",
+            "STEP6",
+            "STEPTOP",
             "STONE",
             "STONE2",
             "STONE3",
