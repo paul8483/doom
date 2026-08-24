@@ -16,11 +16,15 @@ namespace Doom.Graphics
         /// Pilot 2026-08-23: full-color variant chosen on the bylo/stalo panel
         /// (PLAYPAL quant kept in provenance). Wave 1 2026-08-24: the rest of
         /// the COMP* family + the aquatex computer AQCOMP01 (AQPANL* examined
-        /// and excluded — riveted metal, not computers). Names are WAD
+        /// and excluded — riveted metal, not computers). Wave 2 2026-08-24:
+        /// the STARTAN/STARG/STARGR/STARBR panel family (every variant used on
+        /// E1) + masonry BRICK10/STONE/STONE2/STONE3 (BROWN* examined and
+        /// deferred — riveted rust metal, not brick). Names are WAD
         /// texture/flat names.
         public static readonly string[] Names =
         {
             "AQCOMP01",
+            "BRICK10",
             "COMP2",
             "COMPBLUE",
             "COMPLIT3",
@@ -40,6 +44,20 @@ namespace Doom.Graphics
             "COMPWERD",
             "COMPWERE",
             "COMPWERF",
+            "STARBR1",
+            "STARBR2",
+            "STARG1",
+            "STARG2",
+            "STARG3",
+            "STARG4",
+            "STARGR1",
+            "STARGR2",
+            "STARTAN1",
+            "STARTAN2",
+            "STARTAN3",
+            "STONE",
+            "STONE2",
+            "STONE3",
         };
 
         public static bool Contains(string name)

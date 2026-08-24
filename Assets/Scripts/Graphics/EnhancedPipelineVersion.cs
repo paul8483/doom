@@ -21,6 +21,9 @@ namespace Doom.Graphics
         // 4× path — painted edges read soft in the texel-AA crossover zone.
         // v10: redraw mip levels >= 8px sharpen too — players see levels 1–2 at
         // normal wall distance and box-filtered downscales read blurry there.
-        public const int Value = 10;
+        // v11: wave 2 (2026-08-24) — 15 more redraws (STARTAN/STARG/STARGR/
+        // STARBR panel family + BRICK10/STONE/STONE2/STONE3 masonry); v10 packs
+        // hold Super-xBR output under those names.
+        public const int Value = 11;
     }
 }

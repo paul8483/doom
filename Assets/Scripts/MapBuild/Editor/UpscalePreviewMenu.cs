@@ -19,6 +19,10 @@ namespace Doom.MapBuild.Editor
             "COMPUTE1", "COMPUTE2", "COMPUTE3", "COMPUTE4", "COMPSTA1",
             "COMPSTA2", "COMPWERA", "COMPWERB", "COMPWERE", "COMPWERF",
             "COMPVENT", "COMPOHSO", "COMPLIT3", "AQCOMP01",
+            // Wave 2 (2026-08-24): STAR panel family + masonry.
+            "STARTAN1", "STARTAN3", "STARG1", "STARG2", "STARG4",
+            "STARGR1", "STARGR2", "STARBR1", "STARBR2",
+            "BRICK10", "STONE", "STONE2", "STONE3",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };
