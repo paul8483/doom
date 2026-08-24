@@ -35,6 +35,9 @@ namespace Doom.Graphics
         // Super-xBR output under those names.
         // v15: wave 5 (2026-08-25) — the lift set (PLAT1 + STEP2-6/STEPTOP);
         // v14 packs hold Super-xBR output under those names.
-        public const int Value = 15;
+        // v16: wave 6 (2026-08-25) — every remaining door (BIGDOOR/AQDOOR
+        // gates, small doors, exit airlock + EXIT signs, key-lock strips);
+        // v15 packs hold Super-xBR output under those names.
+        public const int Value = 16;
     }
 }

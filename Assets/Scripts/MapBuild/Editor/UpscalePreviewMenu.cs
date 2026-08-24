@@ -39,6 +39,10 @@ namespace Doom.MapBuild.Editor
             "LITE5", "LITEBLU4", "LITE3",
             // Wave 5 (2026-08-25): the lift set.
             "PLAT1", "STEP2", "STEP3", "STEP4", "STEP5", "STEP6", "STEPTOP",
+            // Wave 6 (2026-08-25): every remaining door.
+            "BIGDOOR1", "BIGDOOR3", "BIGDOOR4", "AQDOOR01", "AQDOOR02",
+            "DOOR1", "DOOR3", "DOORHI", "SPCDOOR3", "EXITDOOR",
+            "EXITSIGN", "EXITSGN2", "DOORBLU", "DOORRED", "DOORYEL",
         };
 
         static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };

@@ -30,11 +30,20 @@ namespace Doom.Graphics
         /// the interactive gate). Wave 5 2026-08-25: the lift set — PLAT1
         /// lift front + the STEP2-6/STEPTOP step lips (user screenshot;
         /// MIDGRATE examined and excluded — masked texture, the redraw path
-        /// is opaque-only). Names are WAD texture/flat names.
+        /// is opaque-only). Wave 6 2026-08-25: every remaining door — the
+        /// BIGDOOR/AQDOOR gates, small doors, the exit airlock and EXIT
+        /// signs (native AGM/EXIT lettering reproduced), and the DOORBLU/
+        /// DOORRED/DOORYEL key-lock strips whose lamp colors are a gameplay
+        /// signal. Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
             "AQCOMP01",
+            "AQDOOR01",
+            "AQDOOR02",
+            "BIGDOOR1",
             "BIGDOOR2",
+            "BIGDOOR3",
+            "BIGDOOR4",
             "BIGDOOR6",
             "BRICK10",
             "BROWN1",
@@ -47,6 +56,11 @@ namespace Doom.Graphics
             "CRATE2",
             "CRATELIT",
             "CRATWIDE",
+            "DOOR1",
+            "DOOR3",
+            "DOORBLU",
+            "DOORHI",
+            "DOORRED",
             "COMP2",
             "COMPBLUE",
             "COMPLIT3",
@@ -68,6 +82,10 @@ namespace Doom.Graphics
             "COMPWERF",
             "DOORSTOP",
             "DOORTRAK",
+            "DOORYEL",
+            "EXITDOOR",
+            "EXITSGN2",
+            "EXITSIGN",
             "GRAY1",
             "GRAY2",
             "GRAY4",
@@ -92,6 +110,7 @@ namespace Doom.Graphics
             "SHAWN2",
             "SLADPOIS",
             "SLADWALL",
+            "SPCDOOR3",
             "STARBR1",
             "STARBR2",
             "STARG1",
