@@ -52,6 +52,10 @@ namespace Doom.Graphics
         // v21: wave 8 set 3 (2026-08-25) — aquatex concrete (AQCONC
         // panels/tiles/bands + the AQTRIM05 siding); v20 packs hold
         // Super-xBR output under those names.
-        public const int Value = 21;
+        // v22: wave 8 set 4 (2026-08-25) — aquatex rust strips, supports
+        // and the AQLITE18 flicker panel (its capsule grid is pinned to
+        // the native cells); v21 packs hold Super-xBR output under those
+        // names. Wave 8 complete: the AQ* core (15+ sidedefs) is covered.
+        public const int Value = 22;
     }
 }

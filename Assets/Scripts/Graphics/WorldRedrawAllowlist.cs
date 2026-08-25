@@ -50,7 +50,10 @@ namespace Doom.Graphics
         /// 20/21 dark grates, AQPIPE conduits and hazard rows, and the
         /// AQSECT11 composite with its white light bars); set 3 is the
         /// concrete family (AQCONC panels, tiles, bands and the interlock
-        /// AQCONC16, plus the AQTRIM05 siding).
+        /// AQCONC16, plus the AQTRIM05 siding); set 4 is rust strips and
+        /// supports (AQRUST, the AQSUPP poles/ladder) + the AQLITE18
+        /// light panel, whose capsule grid is pinned to the native cells
+        /// for the lamp flicker.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -67,6 +70,7 @@ namespace Doom.Graphics
             "AQCONC16",
             "AQDOOR01",
             "AQDOOR02",
+            "AQLITE18",
             "AQMETL03",
             "AQMETL07",
             "AQMETL10",
@@ -80,7 +84,13 @@ namespace Doom.Graphics
             "AQPANL06",
             "AQPIPE05",
             "AQPIPE14",
+            "AQRUST09",
+            "AQRUST10",
             "AQSECT11",
+            "AQSUPP06",
+            "AQSUPP08",
+            "AQSUPP12",
+            "AQSUPP13",
             "AQTRIM05",
             "ASHWALL",
             "ASHWALL2",
