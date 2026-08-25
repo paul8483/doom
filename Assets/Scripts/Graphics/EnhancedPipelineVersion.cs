@@ -46,6 +46,9 @@ namespace Doom.Graphics
         // v19: wave 8 set 1 (2026-08-25) — the aquatex metal family
         // (AQMETL plates/ribs + AQPANL06); v18 packs hold Super-xBR
         // output under those names.
-        public const int Value = 19;
+        // v20: wave 8 set 2 (2026-08-25) — aquatex grates/pipes/hazard
+        // (AQMETL15/20/21, AQPIPE05/14, AQSECT11); v19 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 20;
     }
 }

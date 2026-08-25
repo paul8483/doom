@@ -46,7 +46,9 @@ namespace Doom.Graphics
         /// Wave 8 2026-08-25: the aquatex core (every AQ* with 15+ E1
         /// sidedefs; the sub-15 tail stays on Super-xBR by user decision) —
         /// set 1 is the metal family (AQMETL plates/grates/ribs + the
-        /// riveted AQPANL06).
+        /// riveted AQPANL06); set 2 is grates/pipes/hazard (the AQMETL15/
+        /// 20/21 dark grates, AQPIPE conduits and hazard rows, and the
+        /// AQSECT11 composite with its white light bars).
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -64,7 +66,13 @@ namespace Doom.Graphics
             "AQMETL12",
             "AQMETL13",
             "AQMETL14",
+            "AQMETL15",
+            "AQMETL20",
+            "AQMETL21",
             "AQPANL06",
+            "AQPIPE05",
+            "AQPIPE14",
+            "AQSECT11",
             "ASHWALL",
             "ASHWALL2",
             "ASHWALL4",
