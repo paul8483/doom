@@ -48,7 +48,9 @@ namespace Doom.Graphics
         /// set 1 is the metal family (AQMETL plates/grates/ribs + the
         /// riveted AQPANL06); set 2 is grates/pipes/hazard (the AQMETL15/
         /// 20/21 dark grates, AQPIPE conduits and hazard rows, and the
-        /// AQSECT11 composite with its white light bars).
+        /// AQSECT11 composite with its white light bars); set 3 is the
+        /// concrete family (AQCONC panels, tiles, bands and the interlock
+        /// AQCONC16, plus the AQTRIM05 siding).
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -57,6 +59,12 @@ namespace Doom.Graphics
             "A-DBRI28",
             "A-DROCK1",
             "AQCOMP01",
+            "AQCONC04",
+            "AQCONC06",
+            "AQCONC07",
+            "AQCONC10",
+            "AQCONC14",
+            "AQCONC16",
             "AQDOOR01",
             "AQDOOR02",
             "AQMETL03",
@@ -73,6 +81,7 @@ namespace Doom.Graphics
             "AQPIPE05",
             "AQPIPE14",
             "AQSECT11",
+            "AQTRIM05",
             "ASHWALL",
             "ASHWALL2",
             "ASHWALL4",

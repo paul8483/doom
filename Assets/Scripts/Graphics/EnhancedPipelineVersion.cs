@@ -49,6 +49,9 @@ namespace Doom.Graphics
         // v20: wave 8 set 2 (2026-08-25) — aquatex grates/pipes/hazard
         // (AQMETL15/20/21, AQPIPE05/14, AQSECT11); v19 packs hold
         // Super-xBR output under those names.
-        public const int Value = 20;
+        // v21: wave 8 set 3 (2026-08-25) — aquatex concrete (AQCONC
+        // panels/tiles/bands + the AQTRIM05 siding); v20 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 21;
     }
 }
