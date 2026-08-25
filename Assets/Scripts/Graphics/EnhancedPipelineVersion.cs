@@ -60,6 +60,10 @@ namespace Doom.Graphics
         // (BROVINE, A-CAMO4, SP_ROCK1, ROCK5; A-VINE3/MC18 held back for
         // a green-identity re-roll); v22 packs hold Super-xBR output
         // under those names.
-        public const int Value = 23;
+        // v24: wave 9 set 2 (2026-08-25) — SP_FACE2 hell skulls (the only
+        // genuine redraw of the set; NUKESLAD/SLADSKUL/A-MARBLE/EGSUPRT3
+        // came back as near-copies and await a re-roll); v23 packs hold
+        // Super-xBR output under that name.
+        public const int Value = 24;
     }
 }

@@ -60,7 +60,11 @@ namespace Doom.Graphics
         /// check (vine/moss texels faded to brown, 20%->7% and 25%->2%
         /// green) and await a re-roll. BRNSMAL1/2 and CEILVINE measured
         /// as true masked mid-textures (26-74% uncovered texels) and stay
-        /// excluded with the other masked grates.
+        /// excluded with the other masked grates. Set 2 slag/hell: only
+        /// SP_FACE2 survived — NUKESLAD/SLADSKUL/A-MARBLE/EGSUPRT3 came
+        /// back as lightly-smoothed copies of the input (37-51% of texels
+        /// pixel-identical to native, HF energy below native) and await
+        /// an anti-copy re-roll.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -216,6 +220,7 @@ namespace Doom.Graphics
             "SLADPOIS",
             "SLADWALL",
             "SPCDOOR3",
+            "SP_FACE2",
             "SP_HOT1",
             "SP_ROCK1",
             "STARBR1",
