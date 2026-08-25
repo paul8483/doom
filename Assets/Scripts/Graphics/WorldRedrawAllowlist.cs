@@ -54,10 +54,18 @@ namespace Doom.Graphics
         /// supports (AQRUST, the AQSUPP poles/ladder) + the AQLITE18
         /// light panel, whose capsule grid is pinned to the native cells
         /// for the lamp flicker.
+        /// Wave 9 2026-08-25: the non-AQ leftover walls. Set 1 organic/
+        /// rock: BROVINE vined bark, A-CAMO4 moss, SP_ROCK1 layered rock,
+        /// ROCK5 boulder slabs; A-VINE3 and MC18 failed the green-identity
+        /// check (vine/moss texels faded to brown, 20%->7% and 25%->2%
+        /// green) and await a re-roll. BRNSMAL1/2 and CEILVINE measured
+        /// as true masked mid-textures (26-74% uncovered texels) and stay
+        /// excluded with the other masked grates.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
             "A-BRICK3",
+            "A-CAMO4",
             "A-CONCTE",
             "A-DBRI28",
             "A-DROCK1",
@@ -106,6 +114,7 @@ namespace Doom.Graphics
             "BRICK10",
             "BRONZE1",
             "BRONZE3",
+            "BROVINE",
             "BROWN1",
             "BROWN144",
             "BROWN96",
@@ -193,6 +202,7 @@ namespace Doom.Graphics
             "PLANET1",
             "PLAT1",
             "PWHITE",
+            "ROCK5",
             "SHAWN02",
             "SHAWN1",
             "SHAWN2",
@@ -207,6 +217,7 @@ namespace Doom.Graphics
             "SLADWALL",
             "SPCDOOR3",
             "SP_HOT1",
+            "SP_ROCK1",
             "STARBR1",
             "STARBR2",
             "STARG1",

@@ -56,6 +56,10 @@ namespace Doom.Graphics
         // and the AQLITE18 flicker panel (its capsule grid is pinned to
         // the native cells); v21 packs hold Super-xBR output under those
         // names. Wave 8 complete: the AQ* core (15+ sidedefs) is covered.
-        public const int Value = 22;
+        // v23: wave 9 set 1 (2026-08-25) — non-AQ organic/rock leftovers
+        // (BROVINE, A-CAMO4, SP_ROCK1, ROCK5; A-VINE3/MC18 held back for
+        // a green-identity re-roll); v22 packs hold Super-xBR output
+        // under those names.
+        public const int Value = 23;
     }
 }
