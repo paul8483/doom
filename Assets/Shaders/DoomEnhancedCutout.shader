@@ -142,9 +142,12 @@ Shader "Doom/EnhancedCutout"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                // Vanilla masked mid-textures draw ONCE vertically: the quad
-                // spans the whole opening, so V outside the first tile is empty.
-                clip(float2(input.uv.y, 1.0 - input.uv.y));
+                // Masked mid-textures deliberately TILE vertically (Repeat
+                // wrap), diverging from vanilla's draw-once: Freedoom E1M6
+                // hangs 72px MIDBARS3 in a 352-unit opening with no
+                // lower-unpegged, so vanilla semantics leave an invisible
+                // blocking fence at eye level. Tiling is the port's
+                // long-standing pre-mip-wave behavior.
                 // Alpha cutoff after texel-AA sample so grate edges stay crisp.
                 half4 albedoSample = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
@@ -230,7 +233,6 @@ Shader "Doom/EnhancedCutout"
 
             half DepthFrag(Varyings input) : SV_Target
             {
-                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;
@@ -307,7 +309,6 @@ Shader "Doom/EnhancedCutout"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
-                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;

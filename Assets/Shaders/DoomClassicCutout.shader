@@ -71,9 +71,12 @@ Shader "Doom/ClassicCutout"
 
             half4 Frag(Varyings input) : SV_Target
             {
-                // Vanilla masked mid-textures draw ONCE vertically: the quad
-                // spans the whole opening, so V outside the first tile is empty.
-                clip(float2(input.uv.y, 1.0 - input.uv.y));
+                // Masked mid-textures deliberately TILE vertically (Repeat
+                // wrap), diverging from vanilla's draw-once: Freedoom E1M6
+                // hangs 72px MIDBARS3 in a 352-unit opening with no
+                // lower-unpegged, so vanilla semantics leave an invisible
+                // blocking fence at eye level. Tiling is the port's
+                // long-standing pre-mip-wave behavior.
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 clip(tex.a - _Cutoff);
 #if !UNITY_COLORSPACE_GAMMA
@@ -138,7 +141,6 @@ Shader "Doom/ClassicCutout"
 
             half DepthFrag(Varyings input) : SV_Target
             {
-                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).a;
                 clip(alpha - _Cutoff);
                 return input.positionCS.z;

@@ -667,8 +667,10 @@ namespace Doom.MapBuild
                 // outside [0,1] and documents the Repeat-wrap dependency).
                 // Clamp here smeared the edge texel row into floor-to-ceiling
                 // streaks on tall walls (E1M6 shaft, 2026-08-26). Masked
-                // mid-textures draw ONCE vertically like vanilla — that rule
-                // lives in the cutout shaders' V-tile clip, not in the wrap.
+                // mid-textures tile vertically too — a deliberate divergence
+                // from vanilla's draw-once (see the cutout shaders' note:
+                // Freedoom hangs short bars in tall openings, and draw-once
+                // turns them into invisible blocking fences).
                 tex.wrapModeU = TextureWrapMode.Repeat;
                 tex.wrapModeV = TextureWrapMode.Repeat;
             }
