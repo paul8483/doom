@@ -41,6 +41,8 @@ namespace Doom.Graphics
         // v17: wave 7 (2026-08-25) — 53 rarities (hell stone/flesh, concrete/
         // brick, metal/moss/tech, wood/crates/lights); v16 packs hold
         // Super-xBR output under those names.
-        public const int Value = 17;
+        // v18: ICKWALL2 composition re-roll (2026-08-25) — the last wave-7
+        // debt; v17 packs hold Super-xBR output under that name.
+        public const int Value = 18;
     }
 }

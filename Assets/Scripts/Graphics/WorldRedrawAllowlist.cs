@@ -37,8 +37,9 @@ namespace Doom.Graphics
         /// signal. Wave 7 2026-08-25: the rarities — hell stone and flesh
         /// (GSTONE/SKIN/SKSNAKE/ASHWALL, the SK_LEFT+SK_RIGHT carved panel
         /// authored as one composition), concrete/brick (ICKWALL/CEMENT/
-        /// A-* Freedoom bricks; ICKWALL2 failed composition and awaits a
-        /// re-roll), metal/moss/tech (BRONZE/SHAWN/MC/TEKWALL leftovers,
+        /// A-* Freedoom bricks; ICKWALL2 failed composition in the first
+        /// pass and was re-rolled 2026-08-25 — two large recessed panels,
+        /// matching the native), metal/moss/tech (BRONZE/SHAWN/MC/TEKWALL leftovers,
         /// PIPE2, the PLANET1 space screens), wood, the small crates, and
         /// the remaining LITE strips. The AQ* aquatex family, animated
         /// falls, masked mid-textures, and SW1/SW2 switches stay excluded.
@@ -127,6 +128,7 @@ namespace Doom.Graphics
             "GSTONE2",
             "GSTVINE2",
             "ICKWALL1",
+            "ICKWALL2",
             "ICKWALL3",
             "ICKWALL4",
             "LITE3",
