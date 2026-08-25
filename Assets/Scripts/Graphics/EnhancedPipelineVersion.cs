@@ -68,6 +68,9 @@ namespace Doom.Graphics
         // and the anti-copy set NUKESLAD/A-MARBLE/EGSUPRT3 (SLADSKUL held
         // back again: the skull medallion drifted up); v24 packs hold
         // Super-xBR output under those names.
-        public const int Value = 25;
+        // v26: wave 9 closes (2026-08-26) — SLADSKUL lands on the third
+        // pass (skull medallion position-pinned); v25 packs hold
+        // Super-xBR output under that name.
+        public const int Value = 26;
     }
 }

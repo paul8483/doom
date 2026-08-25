@@ -69,7 +69,9 @@ namespace Doom.Graphics
         /// anti-copy four came back genuine (copy 0.1-8%, HF above
         /// native) — all installed except SLADSKUL, whose skull medallion
         /// drifted up (eyes 60%->45% height) and awaits a position-pinned
-        /// re-roll.
+        /// re-roll. The position-pinned third pass landed 2026-08-26
+        /// (eyes back at 60%, medallion in the native band) — wave 9
+        /// closed with all 11 opaque leftovers installed.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -228,6 +230,7 @@ namespace Doom.Graphics
             "SK_LEFT",
             "SK_RIGHT",
             "SLADPOIS",
+            "SLADSKUL",
             "SLADWALL",
             "SPCDOOR3",
             "SP_FACE2",
