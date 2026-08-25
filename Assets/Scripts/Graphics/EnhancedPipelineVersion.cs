@@ -64,6 +64,10 @@ namespace Doom.Graphics
         // genuine redraw of the set; NUKESLAD/SLADSKUL/A-MARBLE/EGSUPRT3
         // came back as near-copies and await a re-roll); v23 packs hold
         // Super-xBR output under that name.
-        public const int Value = 24;
+        // v25: wave 9 re-rolls (2026-08-26) — the green pair A-VINE3/MC18
+        // and the anti-copy set NUKESLAD/A-MARBLE/EGSUPRT3 (SLADSKUL held
+        // back again: the skull medallion drifted up); v24 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 25;
     }
 }

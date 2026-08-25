@@ -64,15 +64,22 @@ namespace Doom.Graphics
         /// SP_FACE2 survived — NUKESLAD/SLADSKUL/A-MARBLE/EGSUPRT3 came
         /// back as lightly-smoothed copies of the input (37-51% of texels
         /// pixel-identical to native, HF energy below native) and await
-        /// an anti-copy re-roll.
+        /// an anti-copy re-roll. Re-rolls 2026-08-26: the green pair
+        /// (A-VINE3/MC18) came back green (23%/26% green texels) and the
+        /// anti-copy four came back genuine (copy 0.1-8%, HF above
+        /// native) — all installed except SLADSKUL, whose skull medallion
+        /// drifted up (eyes 60%->45% height) and awaits a position-pinned
+        /// re-roll.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
             "A-BRICK3",
             "A-CAMO4",
             "A-CONCTE",
+            "A-MARBLE",
             "A-DBRI28",
             "A-DROCK1",
+            "A-VINE3",
             "AQCOMP01",
             "AQCONC04",
             "AQCONC06",
@@ -163,6 +170,7 @@ namespace Doom.Graphics
             "DOORSTOP",
             "DOORTRAK",
             "DOORYEL",
+            "EGSUPRT3",
             "EXITDOOR",
             "EXITSGN2",
             "EXITSIGN",
@@ -193,6 +201,7 @@ namespace Doom.Graphics
             "MARBFAC3",
             "MARBGRAY",
             "MC17",
+            "MC18",
             "MC19",
             "MC3",
             "MC5",
@@ -202,6 +211,7 @@ namespace Doom.Graphics
             "METAL5",
             "NUKE24",
             "NUKEDGE1",
+            "NUKESLAD",
             "PIPE2",
             "PLANET1",
             "PLAT1",
