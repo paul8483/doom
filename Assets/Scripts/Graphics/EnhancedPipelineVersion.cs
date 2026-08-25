@@ -71,6 +71,9 @@ namespace Doom.Graphics
         // v26: wave 9 closes (2026-08-26) — SLADSKUL lands on the third
         // pass (skull medallion position-pinned); v25 packs hold
         // Super-xBR output under that name.
-        public const int Value = 26;
+        // v27: wall mips wrap vertically (2026-08-26) — WrapFor walls went
+        // RepeatX -> RepeatXY alongside the Repeat-V wrap fix for tall
+        // walls, so v26 packs hold mips with stale clamped edge rows.
+        public const int Value = 27;
     }
 }

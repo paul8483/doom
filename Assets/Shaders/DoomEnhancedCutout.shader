@@ -142,6 +142,9 @@ Shader "Doom/EnhancedCutout"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                // Vanilla masked mid-textures draw ONCE vertically: the quad
+                // spans the whole opening, so V outside the first tile is empty.
+                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 // Alpha cutoff after texel-AA sample so grate edges stay crisp.
                 half4 albedoSample = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex), input.uv, _MainTex_TexelSize);
@@ -227,6 +230,7 @@ Shader "Doom/EnhancedCutout"
 
             half DepthFrag(Varyings input) : SV_Target
             {
+                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;
@@ -303,6 +307,7 @@ Shader "Doom/EnhancedCutout"
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
+                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = DoomSampleAlbedo(
                     TEXTURE2D_ARGS(_MainTex, sampler_MainTex),
                     input.uv, _MainTex_TexelSize).a;

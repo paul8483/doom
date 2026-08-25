@@ -205,7 +205,9 @@ namespace Doom.Stage3.PlayTests
 
             var wall = cache.GetTexture("STARTAN2", WorldTextureVariant.Enhanced4X);
             Assert.AreEqual(TextureWrapMode.Repeat, wall.wrapModeU);
-            Assert.AreEqual(TextureWrapMode.Clamp, wall.wrapModeV);
+            // Walls tile vertically in DOOM (tall walls repeat the texture);
+            // Clamp here smeared edge rows into streaks on E1M6's tall shaft.
+            Assert.AreEqual(TextureWrapMode.Repeat, wall.wrapModeV);
             Assert.AreEqual(cache.GetTexture("STARTAN2", WorldTextureVariant.Native).width * 4,
                 wall.width);
 

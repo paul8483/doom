@@ -71,6 +71,9 @@ Shader "Doom/ClassicCutout"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                // Vanilla masked mid-textures draw ONCE vertically: the quad
+                // spans the whole opening, so V outside the first tile is empty.
+                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half4 tex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
                 clip(tex.a - _Cutoff);
 #if !UNITY_COLORSPACE_GAMMA
@@ -135,6 +138,7 @@ Shader "Doom/ClassicCutout"
 
             half DepthFrag(Varyings input) : SV_Target
             {
+                clip(float2(input.uv.y, 1.0 - input.uv.y));
                 half alpha = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).a;
                 clip(alpha - _Cutoff);
                 return input.positionCS.z;

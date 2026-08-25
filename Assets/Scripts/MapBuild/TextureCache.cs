@@ -504,7 +504,9 @@ namespace Doom.MapBuild
                 return PixelWrapMode.Clamp;
             if (entry.IsFlat)
                 return PixelWrapMode.RepeatXY;
-            return PixelWrapMode.RepeatX;
+            // Walls tile vertically too (see ConfigureWrap) — mips must wrap
+            // on both axes or their edge rows go stale against Repeat-V.
+            return PixelWrapMode.RepeatXY;
         }
 
         static bool HasTransparent(DecodedImage img)
@@ -660,8 +662,15 @@ namespace Doom.MapBuild
             }
             else
             {
+                // DOOM tiles wall textures on BOTH axes: any wall taller than
+                // its texture repeats vertically (WallMeshBuilder emits V
+                // outside [0,1] and documents the Repeat-wrap dependency).
+                // Clamp here smeared the edge texel row into floor-to-ceiling
+                // streaks on tall walls (E1M6 shaft, 2026-08-26). Masked
+                // mid-textures draw ONCE vertically like vanilla — that rule
+                // lives in the cutout shaders' V-tile clip, not in the wrap.
                 tex.wrapModeU = TextureWrapMode.Repeat;
-                tex.wrapModeV = TextureWrapMode.Clamp;
+                tex.wrapModeV = TextureWrapMode.Repeat;
             }
         }
 
