@@ -43,6 +43,9 @@ namespace Doom.Graphics
         // Super-xBR output under those names.
         // v18: ICKWALL2 composition re-roll (2026-08-25) — the last wave-7
         // debt; v17 packs hold Super-xBR output under that name.
-        public const int Value = 18;
+        // v19: wave 8 set 1 (2026-08-25) — the aquatex metal family
+        // (AQMETL plates/ribs + AQPANL06); v18 packs hold Super-xBR
+        // output under those names.
+        public const int Value = 19;
     }
 }

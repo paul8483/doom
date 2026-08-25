@@ -43,6 +43,10 @@ namespace Doom.Graphics
         /// PIPE2, the PLANET1 space screens), wood, the small crates, and
         /// the remaining LITE strips. The AQ* aquatex family, animated
         /// falls, masked mid-textures, and SW1/SW2 switches stay excluded.
+        /// Wave 8 2026-08-25: the aquatex core (every AQ* with 15+ E1
+        /// sidedefs; the sub-15 tail stays on Super-xBR by user decision) —
+        /// set 1 is the metal family (AQMETL plates/grates/ribs + the
+        /// riveted AQPANL06).
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -53,6 +57,14 @@ namespace Doom.Graphics
             "AQCOMP01",
             "AQDOOR01",
             "AQDOOR02",
+            "AQMETL03",
+            "AQMETL07",
+            "AQMETL10",
+            "AQMETL11",
+            "AQMETL12",
+            "AQMETL13",
+            "AQMETL14",
+            "AQPANL06",
             "ASHWALL",
             "ASHWALL2",
             "ASHWALL4",
