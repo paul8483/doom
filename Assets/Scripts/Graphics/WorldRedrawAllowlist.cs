@@ -95,6 +95,15 @@ namespace Doom.Graphics
         /// (Tools/enforce_switch_pair.py) so a press cannot pop the
         /// wall. Ships with the P_ChangeSwitchTexture port that makes
         /// SW2 states reachable at all.
+        /// Wave 13 2026-08-27: the flat tail (15-49 E1 surfaces, ~690) —
+        /// organic/rock (RROCK*, GRASS1, gravel), panels/planks/treads
+        /// (incl. the perforated FCGRATE2 and STEP1_F/STEP2_F, the FLAT
+        /// namespace aliases of the vanilla STEP flats that collide with
+        /// wall-texture names — see TextureCache.FlatKey), dark AQF tech
+        /// weaves + the navy CEIL4_2, and the light plates TLITE6_6/
+        /// TLITE6_1/FLAT2 (bulb grids position-pinned for the lamp
+        /// flicker) + the FLAT22 blue dome. Every non-animated flat
+        /// with 15+ E1 surfaces is now covered.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -114,6 +123,11 @@ namespace Doom.Graphics
             "AQCONC16",
             "AQDOOR01",
             "AQDOOR02",
+            "AQF024",
+            "AQF025",
+            "AQF028",
+            "AQF032",
+            "AQF054",
             "AQLITE18",
             "AQMETL03",
             "AQMETL07",
@@ -161,8 +175,10 @@ namespace Doom.Graphics
             "BROWNPIP",
             "CEIL3_3",
             "CEIL3_5",
+            "CEIL4_2",
             "CEIL5_1",
             "CEIL5_2",
+            "CEIL5_3",
             "CEILVINE",
             "CEMENT1",
             "CEMENT3",
@@ -209,22 +225,34 @@ namespace Doom.Graphics
             "EXITDOOR",
             "EXITSGN2",
             "EXITSIGN",
+            "FCGRATE2",
             "FLAT1",
+            "FLAT10",
             "FLAT14",
             "FLAT18",
             "FLAT19",
+            "FLAT2",
             "FLAT20",
+            "FLAT22",
             "FLAT23",
+            "FLAT3",
             "FLAT5",
             "FLAT5_4",
             "FLAT5_5",
+            "FLAT8",
             "FLOOR0_1",
+            "FLOOR0_2",
             "FLOOR0_3",
+            "FLOOR0_5",
+            "FLOOR4_1",
             "FLOOR4_8",
             "FLOOR5_1",
             "FLOOR5_2",
+            "FLOOR5_3",
+            "FLOOR6_2",
             "FLOOR7_1",
             "FLOOR7_2",
+            "GRASS1",
             "GRAY1",
             "GRAY2",
             "GRAY4",
@@ -276,6 +304,10 @@ namespace Doom.Graphics
             "PWHITE",
             "ROCK5",
             "RROCK03",
+            "RROCK14",
+            "RROCK17",
+            "RROCK18",
+            "RROCK19",
             "SHAWN02",
             "SHAWN1",
             "SHAWN2",
@@ -307,7 +339,9 @@ namespace Doom.Graphics
             "STARTAN2",
             "STARTAN3",
             "STEP1",
+            "STEP1_F",
             "STEP2",
+            "STEP2_F",
             "STEP3",
             "STEP4",
             "STEP5",
@@ -359,7 +393,9 @@ namespace Doom.Graphics
             "TEKWALL3",
             "TEKWALL4",
             "TEKWALL5",
+            "TLITE6_1",
             "TLITE6_5",
+            "TLITE6_6",
             "WOOD1",
             "WOODMET1",
             "ZIMMER3",

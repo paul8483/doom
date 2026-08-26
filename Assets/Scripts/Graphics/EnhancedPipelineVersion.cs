@@ -88,6 +88,10 @@ namespace Doom.Graphics
         // v31: wave 12 (2026-08-27) — 36 switch redraws (18 SW1/SW2 pairs,
         // one composition per pair); v30 packs hold Super-xBR output
         // under those names.
-        public const int Value = 31;
+        // v32: wave 13 (2026-08-27) — 27 flat-tail redraws (organic, panels,
+        // AQF tech, lamp plates) incl. the STEP1_F/STEP2_F flat-namespace
+        // aliases; v31 packs hold Super-xBR output under those names and
+        // the pre-fix STEP floors held the wall composite.
+        public const int Value = 32;
     }
 }

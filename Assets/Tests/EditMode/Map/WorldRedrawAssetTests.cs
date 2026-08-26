@@ -32,6 +32,17 @@ namespace Doom.Map.Tests
 
         static DecodedImage BuildNative(WadFile wad, TextureSet textures, Palette palette, string name)
         {
+            // Flat-namespace alias (TextureCache.FlatSuffix): the flat lump of
+            // the base name wins over the same-name wall composite.
+            if (name.EndsWith(Doom.MapBuild.TextureCache.FlatSuffix, System.StringComparison.Ordinal))
+            {
+                string baseName = name.Substring(
+                    0, name.Length - Doom.MapBuild.TextureCache.FlatSuffix.Length);
+                int flatLump = wad.FindLump(baseName);
+                Assert.That(flatLump, Is.GreaterThanOrEqualTo(0), name + ": aliased flat missing");
+                return Flat.Decode(wad.ReadLump(flatLump), palette);
+            }
+
             if (textures.Contains(name))
                 return textures.Build(name, palette);
             int lump = wad.FindLump(name);
