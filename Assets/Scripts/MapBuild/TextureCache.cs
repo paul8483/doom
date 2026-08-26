@@ -568,8 +568,46 @@ namespace Doom.MapBuild
             return MaterialSurfaceProfile.For(MaterialSurfaceCategory.Unknown);
         }
 
+        /// Suffix separating the flat namespace from the wall-texture namespace
+        /// for the few names (vanilla STEP1/STEP2) that exist in BOTH. Vanilla
+        /// resolves floors via R_FlatNumForName and walls via R_TextureNumForName;
+        /// this cache is name-keyed, so colliding flats get an aliased key.
+        public const string FlatSuffix = "_F";
+
+        readonly Dictionary<string, string> flatKeyCache = new();
+
+        /// The cache key a FLOOR/CEILING flat name must use. Names that also
+        /// exist as composite wall textures alias to name+FlatSuffix so the
+        /// flat lump wins; everything else passes through unchanged (keeping
+        /// every non-colliding disk-pack key stable).
+        public string FlatKey(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+            if (flatKeyCache.TryGetValue(name, out var key)) return key;
+
+            key = name;
+            if (textures.Contains(name))
+            {
+                int idx = wad.FindLump(name);
+                if (idx >= 0 && wad.Directory[idx].Size == 64 * 64)
+                    key = name + FlatSuffix;
+            }
+            flatKeyCache[name] = key;
+            return key;
+        }
+
         private (DecodedImage img, bool isFlat, bool isPlaceholder) DecodeWithKind(string name)
         {
+            // Aliased flat key: the flat lump wins over the same-name composite.
+            if (name.EndsWith(FlatSuffix, System.StringComparison.Ordinal))
+            {
+                string baseName = name.Substring(0, name.Length - FlatSuffix.Length);
+                int flatIdx = wad.FindLump(baseName);
+                if (flatIdx >= 0 && wad.Directory[flatIdx].Size == 64 * 64)
+                    return (Flat.Decode(wad.ReadLump(flatIdx), palette),
+                            isFlat: true, isPlaceholder: false);
+            }
+
             if (textures.Contains(name))
                 return (textures.Build(name, palette), isFlat: false, isPlaceholder: false);
 

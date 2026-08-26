@@ -251,7 +251,7 @@ namespace Doom.MapBuild.Rendering
             {
                 var registry = Object.FindFirstObjectByType<WorldStateRegistry>();
                 if (registry != null && registry.Map != null)
-                    MapLoader.CollectMapTextureNames(registry.Map, names);
+                    MapLoader.CollectMapTextureNames(registry.Map, names, cache);
             }
             CancelWarm();
             EnhancedWarmScheduler.ResetCompletedStats();

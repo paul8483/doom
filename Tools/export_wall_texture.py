@@ -38,6 +38,16 @@ def load_wad(path):
 
 
 def compose(data, lumps, index, texname):
+    # Aliased flat key (runtime FlatSuffix "_F"): the flat lump wins over a
+    # same-name wall composite (STEP1/STEP2 exist in both namespaces).
+    if texname.endswith("_F"):
+        base = texname[:-2]
+        if base in index:
+            _, off, size = lumps[index[base]]
+            if size == 64 * 64:
+                return 64, 64, bytearray(data[off:off + size]), bytearray(b"\1" * size)
+        raise SystemExit("aliased flat not found: " + texname)
+
     def lump_bytes(nm):
         _, off, size = lumps[index[nm]]
         return data[off:off + size]

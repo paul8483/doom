@@ -441,7 +441,7 @@ namespace Doom.MapBuild
                 // closed-door mesh set (DOORTRAK) are not in CollectTextureNames
                 // unless GetMaterial ran — still merge the full map set so
                 // Enhanced4X exists before RegisterContext ApplyProfile.
-                CollectMapTextureNames(map, warmNames);
+                CollectMapTextureNames(map, warmNames, cache);
                 foreach (var seq in animCatalog.Sequences)
                     foreach (string frameName in seq.Frames)
                         warmNames.Add(frameName);
@@ -912,7 +912,7 @@ namespace Doom.MapBuild
         {
             if (map == null || cache == null) return;
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            CollectMapTextureNames(map, names);
+            CollectMapTextureNames(map, names, cache);
             foreach (string name in names)
             {
                 cache.GetTexture(name);
@@ -922,8 +922,11 @@ namespace Doom.MapBuild
             }
         }
 
-        /// Unique sidedef/flat names on the map (skips "-" / empty).
-        public static void CollectMapTextureNames(MapData map, HashSet<string> dst)
+        /// Unique sidedef/flat names on the map (skips "-" / empty). Sector
+        /// flats route through cache.FlatKey so names colliding with wall
+        /// textures (STEP1/STEP2) warm the FLAT alias, not the composite.
+        public static void CollectMapTextureNames(MapData map, HashSet<string> dst,
+                                                  TextureCache cache = null)
         {
             if (map == null || dst == null) return;
             for (int i = 0; i < map.SideDefs.Length; i++)
@@ -936,8 +939,8 @@ namespace Doom.MapBuild
             for (int i = 0; i < map.Sectors.Length; i++)
             {
                 var sec = map.Sectors[i];
-                AddMapTextureName(dst, sec.FloorFlat);
-                AddMapTextureName(dst, sec.CeilingFlat);
+                AddMapTextureName(dst, cache != null ? cache.FlatKey(sec.FloorFlat) : sec.FloorFlat);
+                AddMapTextureName(dst, cache != null ? cache.FlatKey(sec.CeilingFlat) : sec.CeilingFlat);
             }
         }
 
@@ -1034,12 +1037,12 @@ namespace Doom.MapBuild
         static void PopulateSectorRoot(Transform sectorRoot, SectorMeshes sm,
                                        TextureCache cache, float worldScale, ref Bounds? bounds)
         {
-            var floorGo = AddChild(sectorRoot, "Floor", sm.Floor, cache.GetMaterial(sm.FloorFlat, false),
+            var floorGo = AddChild(sectorRoot, "Floor", sm.Floor, cache.GetMaterial(cache.FlatKey(sm.FloorFlat), false),
                      ColliderMode.Render, worldScale, ref bounds);
             if (floorGo != null)
                 floorGo.AddComponent<SectorRef>().SectorIndex = sm.SectorIdx;
             if (!sm.Ceiling.IsEmpty)
-                AddChild(sectorRoot, "Ceiling", sm.Ceiling, cache.GetMaterial(sm.CeilingFlat, false),
+                AddChild(sectorRoot, "Ceiling", sm.Ceiling, cache.GetMaterial(cache.FlatKey(sm.CeilingFlat), false),
                          ColliderMode.None, worldScale, ref bounds);
 
             int wi = 0;
