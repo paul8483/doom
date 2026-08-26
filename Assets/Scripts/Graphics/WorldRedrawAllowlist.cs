@@ -81,6 +81,12 @@ namespace Doom.Graphics
         /// planks/metal, stone/organic + the TLITE6_5 lamp plate whose
         /// four bulbs are position-pinned for the lamp flicker.
         /// F_SKY1 and the animated fluids stay excluded.
+        /// Wave 11 2026-08-26: the masked mid-textures — grates, bars,
+        /// lattice, barbed wire, the broken window, hanging vines and the
+        /// BRNSMAL wall stubs. First redraws with REAL alpha: every set
+        /// came back with the native hole mask texel-exact (transparent
+        /// fraction identical to native), binary alpha, no feathering;
+        /// masked redraws pass AlphaBleedGuard before mips.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -134,6 +140,8 @@ namespace Doom.Graphics
             "BIGDOOR4",
             "BIGDOOR6",
             "BRICK10",
+            "BRNSMAL1",
+            "BRNSMAL2",
             "BRONZE1",
             "BRONZE3",
             "BROVINE",
@@ -147,6 +155,7 @@ namespace Doom.Graphics
             "CEIL3_5",
             "CEIL5_1",
             "CEIL5_2",
+            "CEILVINE",
             "CEMENT1",
             "CEMENT3",
             "CEMENT6",
@@ -179,6 +188,7 @@ namespace Doom.Graphics
             "CRATOP1",
             "CRATOP2",
             "CRATWIDE",
+            "DOBWIRE",
             "DOOR1",
             "DOOR3",
             "DOORBLU",
@@ -243,6 +253,12 @@ namespace Doom.Graphics
             "METAL2",
             "METAL5",
             "MFLR8_1",
+            "MIDBARS1",
+            "MIDBARS3",
+            "MIDBRN1",
+            "MIDGRATE",
+            "MIDSPACE",
+            "MIDSPCSM",
             "NUKE24",
             "NUKEDGE1",
             "NUKESLAD",
@@ -266,6 +282,7 @@ namespace Doom.Graphics
             "SLADSKUL",
             "SLADWALL",
             "SLIME14",
+            "SMGLASS1",
             "SPCDOOR3",
             "SP_FACE2",
             "SP_HOT1",

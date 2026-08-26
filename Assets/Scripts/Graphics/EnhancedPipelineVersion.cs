@@ -82,6 +82,9 @@ namespace Doom.Graphics
         // filled two-sided grate holes solid), and masked redraws now get
         // AlphaBleedGuard before sharpen/mips; v28 packs hold opaque albedo
         // under those names.
-        public const int Value = 29;
+        // v30: wave 11 (2026-08-26) — 11 masked mid-texture redraws with
+        // real alpha (grates/bars/lattice/wire, window, vines, BRNSMAL
+        // stubs); v29 packs hold Super-xBR output under those names.
+        public const int Value = 30;
     }
 }
