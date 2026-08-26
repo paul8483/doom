@@ -63,7 +63,14 @@ namespace Doom.Graphics
             // (wave-1 gate finding, 2026-08-24).
             if (job.Redraw != null)
             {
-                var sharpened = SharpenFilter.Apply(job.Redraw);
+                // Masked redraws (grates, vines) carry real alpha: dilate opaque
+                // RGB under the transparent holes first, else bilinear/mips
+                // bleed whatever color the author left there into the edges —
+                // same guard the native Super-xBR path gets before upscale.
+                var source = job.ApplyAlphaBleed
+                    ? AlphaBleedGuard.Dilate(job.Redraw)
+                    : job.Redraw;
+                var sharpened = SharpenFilter.Apply(source);
                 var redrawMips = PaletteMipGenerator.Generate(
                     sharpened, job.Palette, job.Wrap,
                     preserveAlphaCoverage: true, quantizeToPalette: false);

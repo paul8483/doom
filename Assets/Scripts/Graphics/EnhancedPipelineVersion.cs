@@ -77,6 +77,11 @@ namespace Doom.Graphics
         // v28: wave 10 (2026-08-26) — 26 flat redraws (the static floor/
         // ceiling core: hex slabs, concrete, panels/planks, stone/organic,
         // TLITE6_5); v27 packs hold Super-xBR output under those names.
-        public const int Value = 28;
+        // v29: masked redraw alpha (2026-08-26) — AQMETL21/AQMETL15 redraws
+        // regain the native hole mask (wave 8 shipped them opaque, which
+        // filled two-sided grate holes solid), and masked redraws now get
+        // AlphaBleedGuard before sharpen/mips; v28 packs hold opaque albedo
+        // under those names.
+        public const int Value = 29;
     }
 }

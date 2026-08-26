@@ -24,6 +24,19 @@ ROOT = os.path.join(REPO, "Textures", "WorldRedraw")
 SCALE = 4
 
 
+def premultiplied(img):
+    """RGB * alpha so hole texels (arbitrary RGB under alpha 0) drop out."""
+    rgba = img.convert("RGBA")
+    px = rgba.load()
+    out = Image.new("RGB", rgba.size)
+    op = out.load()
+    for y in range(rgba.size[1]):
+        for x in range(rgba.size[0]):
+            r, g, b, a = px[x, y]
+            op[x, y] = (r * a // 255, g * a // 255, b * a // 255)
+    return out
+
+
 def seam_ratio(img, vertical):
     """Wrapped-edge mean abs diff / interior mean neighbour diff."""
     rgb = img.convert("RGB")
@@ -53,7 +66,14 @@ def seam_ratio(img, vertical):
     return seam / max(interior, 1e-6), seam, interior
 
 
-def check(lump, fname, vertical, max_ratio, slack):
+def transparent_fraction(img):
+    if img.mode not in ("RGBA", "LA", "PA"):
+        return 0.0
+    hist = img.getchannel("A").histogram()
+    return hist[0] / (img.size[0] * img.size[1])
+
+
+def check(lump, fname, vertical, max_ratio, slack, masked):
     d = os.path.join(ROOT, lump)
     native = Image.open(os.path.join(d, "native.png"))
     path = os.path.join(d, fname)
@@ -68,7 +88,25 @@ def check(lump, fname, vertical, max_ratio, slack):
         print("FAIL %s size: %s, want %s" % (lump, redraw.size, want))
         ok = False
 
-    if redraw.mode in ("RGBA", "LA", "PA"):
+    if masked:
+        # Masked mid-textures: the redraw must keep a hole fraction close to
+        # the native silhouette; the seam runs on premultiplied RGB so hole
+        # texels drop out of the metric.
+        nt = transparent_fraction(native)
+        rt = transparent_fraction(redraw)
+        if nt == 0:
+            print("FAIL %s masked: native has no transparency" % lump)
+            ok = False
+        elif abs(rt - nt) > 0.10:
+            print("FAIL %s alpha coverage: redraw %.2f transparent vs native %.2f"
+                  % (lump, rt, nt))
+            ok = False
+        else:
+            print("ok %s alpha coverage: redraw %.2f vs native %.2f"
+                  % (lump, rt, nt))
+        native = premultiplied(native)
+        redraw = premultiplied(redraw)
+    elif redraw.mode in ("RGBA", "LA", "PA"):
         alpha = redraw.getchannel("A")
         lo, _hi = alpha.getextrema()
         if lo < 255:
@@ -101,7 +139,11 @@ if __name__ == "__main__":
                     help="also check the vertical wrap (flats)")
     ap.add_argument("--max-ratio", type=float, default=2.0)
     ap.add_argument("--slack", type=float, default=1.5)
+    ap.add_argument("--masked", action="store_true",
+                    help="masked mid-texture: require alpha holes close to the "
+                         "native fraction, seam over premultiplied RGB")
     a = ap.parse_args()
-    good = all(check(l.upper(), a.file, a.vertical, a.max_ratio, a.slack)
+    good = all(check(l.upper(), a.file, a.vertical, a.max_ratio, a.slack,
+                     a.masked)
                for l in a.lumps)
     sys.exit(0 if good else 1)

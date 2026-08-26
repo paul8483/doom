@@ -65,9 +65,27 @@ namespace Doom.Map.Tests
                         name + " height");
 
                     var pixels = tex.GetPixels32();
-                    foreach (var p in pixels)
-                        if (p.a < 255)
-                            Assert.Fail(name + " has transparent pixels (walls are opaque)");
+                    double nativeTransparent = TransparentFraction(native);
+                    if (nativeTransparent == 0)
+                    {
+                        foreach (var p in pixels)
+                            if (p.a < 255)
+                                Assert.Fail(name + " has transparent pixels (walls are opaque)");
+                    }
+                    else
+                    {
+                        // Masked mid-textures (grates, vines): the redraw must
+                        // keep a hole fraction close to the native silhouette.
+                        double redrawTransparent = TransparentFraction(pixels);
+                        Assert.That(
+                            System.Math.Abs(redrawTransparent - nativeTransparent),
+                            Is.LessThanOrEqualTo(0.10),
+                            $"{name} transparent fraction {redrawTransparent:F2} vs native {nativeTransparent:F2}");
+                        // Seam metric compares RGB; premultiply so hole texels
+                        // (arbitrary RGB under alpha 0) cannot skew it.
+                        Premultiply(pixels);
+                        native = Premultiplied(native);
+                    }
 
                     double redrawRatio = HorizontalSeamRatio(pixels, tex.width, tex.height);
                     double nativeRatio = HorizontalSeamRatio(native);
@@ -94,6 +112,46 @@ namespace Doom.Map.Tests
                 Assert.IsTrue(WorldRedrawAllowlist.Contains(name),
                     name + " sits in Resources/EnhancedWorld without an allowlist entry");
             }
+        }
+
+        static double TransparentFraction(Color32[] pixels)
+        {
+            int n = 0;
+            foreach (var p in pixels)
+                if (p.a == 0) n++;
+            return (double)n / pixels.Length;
+        }
+
+        static double TransparentFraction(DecodedImage img)
+        {
+            int n = 0;
+            for (int i = 3; i < img.Rgba.Length; i += 4)
+                if (img.Rgba[i] == 0) n++;
+            return (double)n / (img.Width * img.Height);
+        }
+
+        static void Premultiply(Color32[] pixels)
+        {
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                var p = pixels[i];
+                pixels[i] = new Color32(
+                    (byte)(p.r * p.a / 255), (byte)(p.g * p.a / 255),
+                    (byte)(p.b * p.a / 255), p.a);
+            }
+        }
+
+        static DecodedImage Premultiplied(DecodedImage img)
+        {
+            var rgba = (byte[])img.Rgba.Clone();
+            for (int i = 0; i < rgba.Length; i += 4)
+            {
+                byte a = rgba[i + 3];
+                rgba[i] = (byte)(rgba[i] * a / 255);
+                rgba[i + 1] = (byte)(rgba[i + 1] * a / 255);
+                rgba[i + 2] = (byte)(rgba[i + 2] * a / 255);
+            }
+            return new DecodedImage(img.Width, img.Height, rgba);
         }
 
         /// Wrapped edge-pair mean abs diff over interior neighbour-column diff

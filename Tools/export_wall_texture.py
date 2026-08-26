@@ -60,20 +60,21 @@ def compose(data, lumps, index, texname):
             w, h = struct.unpack_from("<hh", b, o + 12)
             pc = struct.unpack_from("<h", b, o + 20)[0]
             canvas = bytearray(w * h)  # palette indices, 0 default
+            cover = bytearray(w * h)   # 1 where any patch wrote (masked alpha)
             for pi in range(pc):
                 px, py, pnum = struct.unpack_from("<hhh", b, o + 22 + 10 * pi)
-                draw_patch(canvas, w, h, lump_bytes(pnames[pnum]), px, py)
-            return w, h, canvas
+                draw_patch(canvas, cover, w, h, lump_bytes(pnames[pnum]), px, py)
+            return w, h, canvas, cover
 
-    # Not a composite texture — try a raw 64x64 flat lump.
+    # Not a composite texture — try a raw 64x64 flat lump (always opaque).
     if texname in index:
         _, off, size = lumps[index[texname]]
         if size == 64 * 64:
-            return 64, 64, bytearray(data[off:off + size])
+            return 64, 64, bytearray(data[off:off + size]), bytearray(b"\1" * size)
     raise SystemExit("not a TEXTURE1/2 texture nor a 64x64 flat: " + texname)
 
 
-def draw_patch(canvas, w, h, b, ox, oy):
+def draw_patch(canvas, cover, w, h, b, ox, oy):
     pw, _ph, _lo, _to = struct.unpack_from("<hhhh", b, 0)
     colofs = struct.unpack_from("<%di" % pw, b, 8)
     for col in range(pw):
@@ -91,6 +92,7 @@ def draw_patch(canvas, w, h, b, ox, oy):
                 y = oy + topdelta + j
                 if 0 <= y < h:
                     canvas[y * w + x] = b[p]
+                    cover[y * w + x] = 1
                 p += 1
             p += 1
 
@@ -98,14 +100,22 @@ def draw_patch(canvas, w, h, b, ox, oy):
 def export(texname):
     data, lumps, index = load_wad(WAD)
     pal = data[lumps[index["PLAYPAL"]][1]:][:768]
-    w, h, canvas = compose(data, lumps, index, texname)
+    w, h, canvas, cover = compose(data, lumps, index, texname)
 
-    img = Image.new("RGB", (w, h))
+    # Masked textures (uncovered texels) export as RGBA with alpha 0 holes;
+    # fully covered ones stay RGB so opaque-wave outputs are byte-identical.
+    masked = 0 in cover
+    img = Image.new("RGBA" if masked else "RGB", (w, h))
     px = img.load()
     for y in range(h):
         for x in range(w):
-            c = canvas[y * w + x]
-            px[x, y] = (pal[c * 3], pal[c * 3 + 1], pal[c * 3 + 2])
+            i = y * w + x
+            c = canvas[i]
+            rgb = (pal[c * 3], pal[c * 3 + 1], pal[c * 3 + 2])
+            if masked:
+                px[x, y] = rgb + ((255,) if cover[i] else (0,))
+            else:
+                px[x, y] = rgb
 
     out_dir = os.path.join(OUT_ROOT, texname)
     os.makedirs(out_dir, exist_ok=True)

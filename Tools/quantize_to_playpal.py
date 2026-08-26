@@ -37,26 +37,29 @@ def load_playpal():
 
 def quantize(lump, fname, outname):
     palette = load_playpal()
-    src = Image.open(os.path.join(ROOT, lump, fname)).convert("RGB")
+    src_img = Image.open(os.path.join(ROOT, lump, fname))
+    # Masked mid-textures: quantize RGB, carry alpha through untouched.
+    masked = src_img.mode in ("RGBA", "LA", "PA")
+    src = src_img.convert("RGBA" if masked else "RGB")
     px = src.load()
-    out = Image.new("RGB", src.size)
+    out = Image.new("RGBA" if masked else "RGB", src.size)
     opx = out.load()
     cache = {}
     wr, wg, wb = WEIGHTS
     for y in range(src.height):
         for x in range(src.width):
             c = px[x, y]
-            hit = cache.get(c)
+            r, g, b = c[0], c[1], c[2]
+            hit = cache.get((r, g, b))
             if hit is None:
-                r, g, b = c
                 best, bestd = palette[0], 1e18
                 for p in palette:
                     d = (wr * (r - p[0]) ** 2 + wg * (g - p[1]) ** 2
                          + wb * (b - p[2]) ** 2)
                     if d < bestd:
                         best, bestd = p, d
-                cache[c] = hit = best
-            opx[x, y] = hit
+                cache[(r, g, b)] = hit = best
+            opx[x, y] = hit + (c[3],) if masked else hit
     out_path = os.path.join(ROOT, lump, outname)
     out.save(out_path)
     print("OK %s: %d distinct source colors -> %s" % (lump, len(cache), out_path))
