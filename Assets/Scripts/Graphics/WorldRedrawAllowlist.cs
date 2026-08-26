@@ -87,6 +87,14 @@ namespace Doom.Graphics
         /// came back with the native hole mask texel-exact (transparent
         /// fraction identical to native), binary alpha, no feathering;
         /// masked redraws pass AlphaBleedGuard before mips.
+        /// Wave 12 2026-08-27: every switch pair used on E1 — 18 SW1/SW2
+        /// pairs (36 textures), authored as one composition per pair
+        /// (only the actuator changes: levers, buttons, screen panels,
+        /// the SW1BLUE skull whose eyes light). Pair identity outside
+        /// the actuator zone is enforced deterministically
+        /// (Tools/enforce_switch_pair.py) so a press cannot pop the
+        /// wall. Ships with the P_ChangeSwitchTexture port that makes
+        /// SW2 states reachable at all.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -310,6 +318,42 @@ namespace Doom.Graphics
             "STONE3",
             "SUPPORT2",
             "SUPPORT3",
+            "SW1BLUE",
+            "SW1BRCOM",
+            "SW1BRN1",
+            "SW1BRN2",
+            "SW1BRNGN",
+            "SW1CMT",
+            "SW1COMM",
+            "SW1COMP",
+            "SW1EXIT",
+            "SW1GRAY",
+            "SW1GRAY1",
+            "SW1MET2",
+            "SW1METAL",
+            "SW1PIPE",
+            "SW1SLAD",
+            "SW1STON1",
+            "SW1STON2",
+            "SW1STRTN",
+            "SW2BLUE",
+            "SW2BRCOM",
+            "SW2BRN1",
+            "SW2BRN2",
+            "SW2BRNGN",
+            "SW2CMT",
+            "SW2COMM",
+            "SW2COMP",
+            "SW2EXIT",
+            "SW2GRAY",
+            "SW2GRAY1",
+            "SW2MET2",
+            "SW2METAL",
+            "SW2PIPE",
+            "SW2SLAD",
+            "SW2STON1",
+            "SW2STON2",
+            "SW2STRTN",
             "TEKWALL1",
             "TEKWALL2",
             "TEKWALL3",
