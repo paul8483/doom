@@ -30,6 +30,19 @@ namespace Doom.MapBuild
         TeleportLanding[] teleportLandings;
         PlayerController playerLook;
         WalkLineIndex walkIndex;
+
+        // P_ChangeSwitchTexture buttons: a repeatable switch pops back after
+        // BUTTONTIME (vanilla p_switch.c). One entry per press, like vanilla's
+        // buttonlist — rapid re-presses toggle and stack their own restores.
+        struct ActiveButton
+        {
+            public int Line;
+            public int Side;
+            public SwitchTextureRules.Slot Slot;
+            public string Restore;
+            public float Timer;
+        }
+        readonly List<ActiveButton> buttons = new List<ActiveButton>();
         readonly List<int> walkQuery = new List<int>(32);
         readonly List<int> monsterDoorLines = new List<int>();
         readonly Dictionary<LineRef, int> resolvedLineRefs = new Dictionary<LineRef, int>();
@@ -156,9 +169,63 @@ namespace Doom.MapBuild
         {
             if (map == null) return;
             if (keyDenyCooldown > 0f) keyDenyCooldown -= Time.deltaTime;
+            TickButtons(Time.deltaTime);
             HandleWalk();
             lastPos = transform.position;
         }
+
+        void TickButtons(float dt)
+        {
+            for (int i = buttons.Count - 1; i >= 0; i--)
+            {
+                var b = buttons[i];
+                b.Timer -= dt;
+                if (b.Timer > 0f)
+                {
+                    buttons[i] = b;
+                    continue;
+                }
+                buttons.RemoveAt(i);
+                map.SideDefs[b.Side] = SwitchTextureRules.WithSlot(
+                    map.SideDefs[b.Side], b.Slot, b.Restore);
+                geometry?.RebuildSectorAndNeighbors(map.SideDefs[b.Side].SectorIdx);
+                // Vanilla P_UpdateSpecials plays swtchn again when the button pops.
+                sound?.PlayAt("DSSWTCHN", LineMidpoint(b.Line));
+            }
+        }
+
+        /// P_ChangeSwitchTexture: flip the front sidedef's switch texture
+        /// (top -> mid -> bottom, first match). Repeatable switches queue a
+        /// button that restores the pressed slot after BUTTONTIME.
+        void ChangeSwitchTexture(int lineIndex, bool useAgain)
+        {
+            var ld = map.LineDefs[lineIndex];
+            int sideIdx = ld.FrontSideIdx;
+            if (sideIdx < 0 || sideIdx >= map.SideDefs.Length) return;
+
+            var side = map.SideDefs[sideIdx];
+            var slot = SwitchTextureRules.FindSlot(side, out string from, out string to);
+            if (slot == SwitchTextureRules.Slot.None) return;
+
+            map.SideDefs[sideIdx] = SwitchTextureRules.WithSlot(side, slot, to);
+            geometry?.RebuildSectorAndNeighbors(side.SectorIdx);
+
+            if (useAgain)
+                buttons.Add(new ActiveButton
+                {
+                    Line = lineIndex,
+                    Side = sideIdx,
+                    Slot = slot,
+                    Restore = from,
+                    Timer = SwitchTextureRules.ButtonSeconds,
+                });
+        }
+
+        /// Test hook: pending button-restore count.
+        public int ActiveButtonCountForTest => buttons.Count;
+
+        /// Test hook: the LIVE sidedef (switch swaps mutate the runtime map).
+        public SideDef GetSideDefForTest(int sideIdx) => map.SideDefs[sideIdx];
 
         /// Test hook: directly activate a linedef as if pushed (Stage 6a PlayMode tests).
         public void ActivateLineForTest(int lineIndex) =>
@@ -190,11 +257,23 @@ namespace Doom.MapBuild
         }
 
         /// Restore one-shot fired flags from a save (length must match map).
+        /// Re-derives pressed S1 switch faces from the fired flags: vanilla
+        /// saves sidedef textures (P_ArchiveWorld); the port keeps the schema
+        /// untouched because the scene rebuilds from the WAD's initial state,
+        /// so one toggle per fired executable switch line reconstructs it.
+        /// SR buttons pop back within a second and need nothing.
         public void RestoreFired(bool[] fired)
         {
             if (onceFired == null || fired == null) return;
             int n = System.Math.Min(onceFired.Length, fired.Length);
-            for (int i = 0; i < n; i++) onceFired[i] = fired[i];
+            for (int i = 0; i < n; i++)
+            {
+                onceFired[i] = fired[i];
+                if (!fired[i]) continue;
+                if (!LineSpecialTable.TryGet(map.LineDefs[i].Special, out var sp)) continue;
+                if (sp.Trigger != TriggerKind.Switch || !sp.IsExecutable) continue;
+                ChangeSwitchTexture(i, useAgain: false);
+            }
         }
 
         /// Mark a sector as having an active mover (blocks re-trigger until done).
@@ -679,7 +758,15 @@ namespace Doom.MapBuild
                     return; // already transitioning — do not mark fired
 
                 if (sp.Trigger == TriggerKind.Switch)
-                    sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
+                {
+                    ChangeSwitchTexture(lineIndex, sp.Repeatable);
+                    // Vanilla p_switch.c: the S1 exit (special 11) clicks with
+                    // swtchx, every other switch with swtchn.
+                    string cue = ld.Special == 11 &&
+                                 sound?.Cache != null && sound.Cache.Get("DSSWTCHX") != null
+                        ? "DSSWTCHX" : "DSSWTCHN";
+                    sound?.PlayAt(cue, LineMidpoint(lineIndex));
+                }
 
                 if (!sp.Repeatable) onceFired[lineIndex] = true;
                 return;
@@ -722,7 +809,10 @@ namespace Doom.MapBuild
                 lights?.ApplyLinedef(ld.Special, lightTargets);
 
                 if (sp.Trigger == TriggerKind.Switch)
+                {
+                    ChangeSwitchTexture(lineIndex, sp.Repeatable);
                     sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
+                }
 
                 if (!sp.Repeatable) onceFired[lineIndex] = true;
                 return;
@@ -751,7 +841,10 @@ namespace Doom.MapBuild
             }
 
             if (any && sp.Trigger == TriggerKind.Switch)
+            {
+                ChangeSwitchTexture(lineIndex, sp.Repeatable);
                 sound?.PlayAt("DSSWTCHN", LineMidpoint(lineIndex));
+            }
 
             if (!sp.Repeatable) onceFired[lineIndex] = true;
         }
