@@ -72,6 +72,15 @@ namespace Doom.Graphics
         /// re-roll. The position-pinned third pass landed 2026-08-26
         /// (eyes back at 60%, medallion in the native band) — wave 9
         /// closed with all 11 opaque leftovers installed.
+        /// Wave 10 2026-08-26: the first FLAT wave — the static floor/
+        /// ceiling core (every non-animated flat with 50+ E1 sector
+        /// surfaces, ~4000 surfaces) plus SLIME14 (static despite the
+        /// name; only SLIME01-12 animate) and CRATOP2 (paired with
+        /// CRATOP1 — crate lids match the accepted CRATE walls). Four
+        /// material sets: hex slabs/tiles, concrete/gravel, panels/
+        /// planks/metal, stone/organic + the TLITE6_5 lamp plate whose
+        /// four bulbs are position-pinned for the lamp flicker.
+        /// F_SKY1 and the animated fluids stay excluded.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -134,6 +143,10 @@ namespace Doom.Graphics
             "BROWNGRN",
             "BROWNHUG",
             "BROWNPIP",
+            "CEIL3_3",
+            "CEIL3_5",
+            "CEIL5_1",
+            "CEIL5_2",
             "CEMENT1",
             "CEMENT3",
             "CEMENT6",
@@ -163,6 +176,8 @@ namespace Doom.Graphics
             "CRATE3",
             "CRATELIT",
             "CRATINY",
+            "CRATOP1",
+            "CRATOP2",
             "CRATWIDE",
             "DOOR1",
             "DOOR3",
@@ -176,6 +191,22 @@ namespace Doom.Graphics
             "EXITDOOR",
             "EXITSGN2",
             "EXITSIGN",
+            "FLAT1",
+            "FLAT14",
+            "FLAT18",
+            "FLAT19",
+            "FLAT20",
+            "FLAT23",
+            "FLAT5",
+            "FLAT5_4",
+            "FLAT5_5",
+            "FLOOR0_1",
+            "FLOOR0_3",
+            "FLOOR4_8",
+            "FLOOR5_1",
+            "FLOOR5_2",
+            "FLOOR7_1",
+            "FLOOR7_2",
             "GRAY1",
             "GRAY2",
             "GRAY4",
@@ -211,6 +242,7 @@ namespace Doom.Graphics
             "METAL1",
             "METAL2",
             "METAL5",
+            "MFLR8_1",
             "NUKE24",
             "NUKEDGE1",
             "NUKESLAD",
@@ -219,6 +251,7 @@ namespace Doom.Graphics
             "PLAT1",
             "PWHITE",
             "ROCK5",
+            "RROCK03",
             "SHAWN02",
             "SHAWN1",
             "SHAWN2",
@@ -232,6 +265,7 @@ namespace Doom.Graphics
             "SLADPOIS",
             "SLADSKUL",
             "SLADWALL",
+            "SLIME14",
             "SPCDOOR3",
             "SP_FACE2",
             "SP_HOT1",
@@ -264,6 +298,7 @@ namespace Doom.Graphics
             "TEKWALL3",
             "TEKWALL4",
             "TEKWALL5",
+            "TLITE6_5",
             "WOOD1",
             "WOODMET1",
             "ZIMMER3",

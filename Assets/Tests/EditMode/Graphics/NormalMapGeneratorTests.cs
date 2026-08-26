@@ -146,6 +146,24 @@ namespace Doom.Graphics.Tests
                 MaterialSurfaceClassifier.Classify(null, isFlat: false));
         }
 
+        [Test]
+        public void Classifier_static_slime13_plus_is_not_fluid()
+        {
+            // Only SLIME01-12 animate as fluid; SLIME13/14/16 are static
+            // stone/metal flats on E1 and must take the Flat profile
+            // (the Fluid profile carries emission and kills relief).
+            Assert.AreEqual(MaterialSurfaceCategory.Fluid,
+                MaterialSurfaceClassifier.Classify("SLIME01", isFlat: true));
+            Assert.AreEqual(MaterialSurfaceCategory.Fluid,
+                MaterialSurfaceClassifier.Classify("SLIME12", isFlat: true));
+            Assert.AreEqual(MaterialSurfaceCategory.Flat,
+                MaterialSurfaceClassifier.Classify("SLIME13", isFlat: true));
+            Assert.AreEqual(MaterialSurfaceCategory.Flat,
+                MaterialSurfaceClassifier.Classify("SLIME14", isFlat: true));
+            Assert.AreEqual(MaterialSurfaceCategory.Flat,
+                MaterialSurfaceClassifier.Classify("SLIME16", isFlat: true));
+        }
+
         static DecodedImage Solid(int w, int h, byte r, byte g, byte b, byte a)
         {
             var rgba = new byte[w * h * 4];

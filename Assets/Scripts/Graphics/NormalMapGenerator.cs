@@ -109,8 +109,22 @@ namespace Doom.Graphics
 
         static bool IsFluid(string n) =>
             n.Contains("NUKAGE") || n.Contains("LAVA") || n.Contains("BLOOD") ||
-            n.Contains("WATER") || n.Contains("SLIME") || n.Contains("FWATER") ||
+            n.Contains("WATER") || IsSlimeFluid(n) || n.Contains("FWATER") ||
             n.Contains("SFALL") || n.Contains("BFALL") || n.Contains("DBRAIN");
+
+        // Only SLIME01-12 animate as fluid (TextureAnimationCatalog); SLIME13+
+        // are static stone/metal flats and must keep the Flat profile.
+        static bool IsSlimeFluid(string n)
+        {
+            int i = n.IndexOf("SLIME", StringComparison.Ordinal);
+            if (i < 0) return false;
+            int digits = i + 5;
+            if (digits + 2 > n.Length ||
+                !char.IsDigit(n[digits]) || !char.IsDigit(n[digits + 1]))
+                return true; // unknown SLIME spelling — keep old fluid behaviour
+            int num = (n[digits] - '0') * 10 + (n[digits + 1] - '0');
+            return num >= 1 && num <= 12;
+        }
 
         static bool IsMetal(string n) =>
             n.Contains("STEEL") || n.Contains("METAL") || n.Contains("PIPE") ||

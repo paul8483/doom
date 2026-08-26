@@ -1,7 +1,8 @@
-"""Export a composite wall texture from freedoom1.wad for the redraw pipeline.
+"""Export a composite wall texture or a flat from freedoom1.wad for the redraw pipeline.
 
-Composes the texture from TEXTURE1/TEXTURE2 + PNAMES patches through PLAYPAL
-(same composition rules as Doom.Graphics.TextureSet) and writes:
+Composes wall textures from TEXTURE1/TEXTURE2 + PNAMES patches through PLAYPAL
+(same composition rules as Doom.Graphics.TextureSet); names not present in
+TEXTURE1/2 fall back to raw 64x64 flat lumps (palette indices). Writes:
 
   Textures/WorldRedraw/<LUMP>/native.png     — 1x native pixels
   Textures/WorldRedraw/<LUMP>/native-x4.png  — integer nearest 4x (GPT input:
@@ -63,7 +64,13 @@ def compose(data, lumps, index, texname):
                 px, py, pnum = struct.unpack_from("<hhh", b, o + 22 + 10 * pi)
                 draw_patch(canvas, w, h, lump_bytes(pnames[pnum]), px, py)
             return w, h, canvas
-    raise SystemExit("texture not found in TEXTURE1/2: " + texname)
+
+    # Not a composite texture — try a raw 64x64 flat lump.
+    if texname in index:
+        _, off, size = lumps[index[texname]]
+        if size == 64 * 64:
+            return 64, 64, bytearray(data[off:off + size])
+    raise SystemExit("not a TEXTURE1/2 texture nor a 64x64 flat: " + texname)
 
 
 def draw_patch(canvas, w, h, b, ox, oy):

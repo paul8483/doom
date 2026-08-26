@@ -74,6 +74,9 @@ namespace Doom.Graphics
         // v27: wall mips wrap vertically (2026-08-26) — WrapFor walls went
         // RepeatX -> RepeatXY alongside the Repeat-V wrap fix for tall
         // walls, so v26 packs hold mips with stale clamped edge rows.
-        public const int Value = 27;
+        // v28: wave 10 (2026-08-26) — 26 flat redraws (the static floor/
+        // ceiling core: hex slabs, concrete, panels/planks, stone/organic,
+        // TLITE6_5); v27 packs hold Super-xBR output under those names.
+        public const int Value = 28;
     }
 }
