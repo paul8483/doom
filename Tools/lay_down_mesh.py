@@ -33,6 +33,10 @@ def rotate_x(x: float, y: float, z: float, c: float, s: float):
     return x, y * c - z * s, y * s + z * c
 
 
+def rotate_y(x: float, y: float, z: float, c: float, s: float):
+    return x * c + z * s, y, -x * s + z * c
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--obj", required=True)
@@ -40,6 +44,14 @@ def main():
     p.add_argument("--pitch", type=float, default=0.0,
                    help="degrees about X; negative lays the figure onto its "
                         "back with the head away from the camera")
+    # A weapon drawn in three-quarter (the anti-blob rule for TRELLIS) comes
+    # back angled ACROSS the body, so a fire frame reads sideways in game —
+    # the muzzle must face the target. Baking the yaw keeps the runtime's
+    # shared "offset 0" convention; the angle is the one whose doomify3d
+    # render shows the muzzle dead-on (SPOSF1: -40, 2026-08-27).
+    p.add_argument("--yaw", type=float, default=0.0,
+                   help="degrees about Y, applied BEFORE the pitch; the value "
+                        "that renders muzzle-on becomes the new front")
     # A corpse frame is a body PRESSED to the floor, but a top-down drawing
     # carries no thickness, so TRELLIS returns a rounded mound: TROOM0 came
     # back 0.97 x 0.72 x 0.98 and rendered 35 px wide where the sprite is 57
@@ -62,15 +74,20 @@ def main():
     a = p.parse_args()
 
     c, s = math.cos(math.radians(a.pitch)), math.sin(math.radians(a.pitch))
+    cy, sy_ = math.cos(math.radians(a.yaw)), math.sin(math.radians(a.yaw))
     src, dst = Path(a.obj), Path(a.out)
     dst.parent.mkdir(parents=True, exist_ok=True)
     lines = src.read_text(encoding="utf-8", errors="ignore").splitlines()
+
+    def transform(x: float, y: float, z: float):
+        x, y, z = rotate_y(x, y, z, cy, sy_)
+        return rotate_x(x, y, z, c, s)
 
     verts = []
     for line in lines:
         if line.startswith("v "):
             _, sx, sy, sz = line.split()[:4]
-            verts.append(rotate_x(float(sx), float(sy), float(sz), c, s))
+            verts.append(transform(float(sx), float(sy), float(sz)))
 
     scale_y = 1.0
     if a.scale_y is not None:
@@ -87,7 +104,7 @@ def main():
     for line in lines:
         if line.startswith("v ") or line.startswith("vn "):
             tag, sx, sy, sz = line.split()[:4]
-            x, y, z = rotate_x(float(sx), float(sy), float(sz), c, s)
+            x, y, z = transform(float(sx), float(sy), float(sz))
             # Positions squash; normals only rotate — scaling a normal is not
             # the inverse-transpose it would need, and the shader is unlit.
             if tag == "v":
@@ -97,7 +114,8 @@ def main():
             out.append(line)
     dst.write_text("\n".join(out) + "\n", encoding="utf-8")
     note = f", scaled Y x{scale_y:.3f}" if scale_y != 1.0 else ""
-    print(f"{dst.name}: pitched {a.pitch:+.0f}deg{note}")
+    yaw_note = f", yawed {a.yaw:+.0f}deg" if a.yaw != 0.0 else ""
+    print(f"{dst.name}: pitched {a.pitch:+.0f}deg{yaw_note}{note}")
 
 
 if __name__ == "__main__":

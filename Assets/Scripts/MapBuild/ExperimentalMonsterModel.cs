@@ -45,13 +45,29 @@ namespace Doom.MapBuild
             /// Brain frame index of the xdeath corpse (frame letter - 'A').
             public int XdeathFrameIndex =>
                 XdeathLump == null ? -1 : XdeathLump[0] - 'A';
+            /// Fire frame that shows a shader-drawn muzzle flash (the mesh
+            /// cannot carry one: a baked fire stop-frame is a lump of
+            /// geometry — the SPOSF1 black star, 2026-08-27). -1 = none.
+            /// Position is in the frame mesh's own space (the flash quad is
+            /// a child of the frame instance, so normalization carries it);
+            /// size is the quad side in the same units (mesh height = 1).
+            public readonly int MuzzleFlashFrame = -1;
+            public readonly Vector3 MuzzleFlashLocalPos;
+            public readonly float MuzzleFlashSize;
 
             public MonsterModelSet(string sprite, string[] lumps,
                                    float[] heightsPx, int liveFrameCount,
                                    float yawOffsetDeg,
                                    (string Lump, float WidthPx)[] flatFrames = null,
-                                   (string Lump, float WidthPx)? xdeathCorpse = null)
+                                   (string Lump, float WidthPx)? xdeathCorpse = null,
+                                   (int Frame, Vector3 LocalPos, float Size)? muzzleFlash = null)
             {
+                if (muzzleFlash.HasValue)
+                {
+                    MuzzleFlashFrame = muzzleFlash.Value.Frame;
+                    MuzzleFlashLocalPos = muzzleFlash.Value.LocalPos;
+                    MuzzleFlashSize = muzzleFlash.Value.Size;
+                }
                 Sprite = sprite;
                 FrameLumps = lumps;
                 PatchHeightsPx = heightsPx;
@@ -116,7 +132,14 @@ namespace Doom.MapBuild
                         60f, 53f, 39f, 34f, 20f },
                 liveFrameCount: 7,
                 yawOffsetDeg: 0f,
-                xdeathCorpse: ("U0", 67f)),
+                xdeathCorpse: ("U0", 67f),
+                // Fire frame F1 has the -40deg yaw baked in (muzzle at the
+                // target) and shows the shader flash at the measured muzzle
+                // tip. The burst texture's hot core spans ~43% of the quad
+                // (streaks and sparks fill the rest), so 0.45 keeps the ball
+                // itself near the native flash scale (0.135 of patch height,
+                // boosted for game-distance readability).
+                muzzleFlash: (5, new Vector3(0f, 0.076f, 0.5f), 0.45f)),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
             // The spectre (58) never routes here — ThingSpawner keeps it on
             // the MF_SHADOW billboard.
@@ -414,9 +437,78 @@ namespace Doom.MapBuild
                            byWidth: flatWidthPx > 0f);
             ConfigureMaterials(renderers,
                                frameEmission != null ? frameEmission[index] : null);
+            if (index == set.MuzzleFlashFrame)
+                AttachMuzzleFlash(instance);
             instance.SetActive(false);
             frameModels[index] = instance;
             return true;
+        }
+
+        /// Shader-drawn muzzle flash on the fire frame: a small camera-facing
+        /// quad at the muzzle tip, colored by a radial LUT baked from the
+        /// native sprite's own flash texels (fireball pattern on a disc). The
+        /// quad is a child of the frame instance, so it appears and vanishes
+        /// with the frame's own SetActive — vanilla cadence for free.
+        void AttachMuzzleFlash(GameObject instance)
+        {
+            Shader shader = Resources.Load<Shader>(
+                "ExperimentalMonsters/DoomExperimentalMuzzleFlash");
+            var lut = Resources.Load<Texture2D>(
+                ResourceRoot + set.Sprite + "/" + set.Sprite +
+                set.FrameLumps[set.MuzzleFlashFrame] + "_flash");
+            if (shader == null || lut == null) return;
+
+            var go = new GameObject("MuzzleFlash");
+            go.transform.SetParent(instance.transform, worldPositionStays: false);
+            go.transform.localPosition = set.MuzzleFlashLocalPos;
+            go.transform.localScale = Vector3.one * set.MuzzleFlashSize;
+            var filter = go.AddComponent<MeshFilter>();
+            filter.sharedMesh = SharedFlashQuad();
+            var renderer = go.AddComponent<MeshRenderer>();
+            var material = new Material(shader) { mainTexture = lut };
+            renderer.sharedMaterial = material;
+            ownedMaterials.Add(material);
+            go.AddComponent<MuzzleFlashFacing>();
+        }
+
+        /// One shared unit quad for every flash in the app: instances scale
+        /// it via their transform, and sharing sidesteps per-quad mesh
+        /// destruction bookkeeping (the Stage 6c billboard-leak lesson).
+        static Mesh sharedFlashQuad;
+        static Mesh SharedFlashQuad()
+        {
+            if (sharedFlashQuad != null) return sharedFlashQuad;
+            var mesh = new Mesh { name = "MuzzleFlashQuad" };
+            mesh.vertices = new[]
+            {
+                new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f),
+                new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.5f, 0.5f, 0f),
+            };
+            mesh.uv = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(1f, 0f),
+                new Vector2(0f, 1f), new Vector2(1f, 1f),
+            };
+            mesh.triangles = new[] { 0, 2, 1, 1, 2, 3 };
+            mesh.RecalculateBounds();
+            sharedFlashQuad = mesh;
+            return mesh;
+        }
+
+        /// Full billboard: the flash disc copies the camera's rotation each
+        /// frame (a flash is round from every angle). Shader culls off, so
+        /// the copied rotation only has to keep the quad screen-aligned.
+        sealed class MuzzleFlashFacing : MonoBehaviour
+        {
+            Camera cachedCamera;
+
+            void LateUpdate()
+            {
+                if (cachedCamera == null || !cachedCamera.isActiveAndEnabled)
+                    cachedCamera = Camera.main;
+                if (cachedCamera != null)
+                    transform.rotation = cachedCamera.transform.rotation;
+            }
         }
 
         /// Scale the frame to its native patch size and anchor it at the
@@ -781,6 +873,24 @@ namespace Doom.MapBuild
                 return true;
             }
             flatWidthsPx = null;
+            return false;
+        }
+
+        /// Test seam: the fire frame that shows the shader muzzle flash and
+        /// the flash LUT resource it loads. False when the sprite has none.
+        public static bool TryGetMuzzleFlashForTest(
+            string sprite, out int frameIndex, out string lutResource)
+        {
+            if (sprite != null && Sets.TryGetValue(sprite, out var s) &&
+                s.MuzzleFlashFrame >= 0)
+            {
+                frameIndex = s.MuzzleFlashFrame;
+                lutResource = ResourceRoot + s.Sprite + "/" + s.Sprite +
+                              s.FrameLumps[s.MuzzleFlashFrame] + "_flash";
+                return true;
+            }
+            frameIndex = -1;
+            lutResource = null;
             return false;
         }
 

@@ -211,6 +211,54 @@ namespace Doom.Stage3.PlayTests
             yield return null;
         }
 
+        // The fire frame's mesh cannot carry a muzzle flash (a baked fire
+        // stop-frame is a lump of geometry), so the runtime attaches a
+        // shader-drawn flash quad to that frame instance — without it the
+        // shot is invisible and hits come "from nowhere" (SPOS gate,
+        // 2026-08-27). Riding the frame's own SetActive gives it the vanilla
+        // fullbright-frame cadence for free, which this pins.
+        [UnityTest]
+        public IEnumerator Spos_fire_frame_carries_the_shader_muzzle_flash()
+        {
+            var go = NewMonsterRoot(out var bb);
+            var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
+            Assert.That(model, Is.Not.Null);
+            Assert.That(ExperimentalMonsterModel.TryGetMuzzleFlashForTest(
+                "SPOS", out int fire, out _), Is.True);
+
+            Transform flash = null;
+            foreach (var t in go.GetComponentsInChildren<Transform>(true))
+                if (t.name == "MuzzleFlash") flash = t;
+            Assert.That(flash, Is.Not.Null,
+                "the fire frame instance must carry the MuzzleFlash quad");
+            Assert.That(flash.parent.name, Is.EqualTo("SPOSF1"),
+                "the flash rides the fire frame, not the pivot");
+            var renderer = flash.GetComponent<MeshRenderer>();
+            Assert.That(renderer.sharedMaterial.shader.name,
+                Is.EqualTo("Doom/ExperimentalMuzzleFlash"));
+            Assert.That(renderer.sharedMaterial.mainTexture, Is.Not.Null,
+                "the flash samples the native-baked radial LUT");
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            settings.SetEnhanced3DObjects(true);
+            yield return null;
+
+            Assert.That(flash.gameObject.activeInHierarchy, Is.False,
+                "no flash outside the fire frame");
+            model.NotifyFrame(fire);
+            Assert.That(flash.gameObject.activeInHierarchy, Is.True,
+                "the flash shows exactly while the fire frame does");
+            model.NotifyFrame(0);
+            Assert.That(flash.gameObject.activeInHierarchy, Is.False,
+                "leaving the fire frame hides the flash");
+
+            Object.Destroy(go);
+            yield return null;
+        }
+
         // A frame that lies flat on the floor is scaled by the native patch
         // WIDTH, not its height: its Y extent is thickness, and matching that
         // to the patch height rears the pile up (the corpses read as meat

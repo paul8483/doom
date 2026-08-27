@@ -263,5 +263,26 @@ namespace Doom.Map.Tests
                 }
             }
         }
+
+        /// The mesh cannot carry a muzzle flash (a baked fire stop-frame is a
+        /// lump of geometry), so the fire frame draws a shader flash instead —
+        /// without it the shot is invisible and hits come "from nowhere"
+        /// (SPOS gate, 2026-08-27). Pin the declaration to the monster's real
+        /// fire frame and the assets the runtime loads for it.
+        [Test]
+        public void Muzzle_flash_rides_the_fire_frame_with_its_assets()
+        {
+            Assert.That(ExperimentalMonsterModel.TryGetMuzzleFlashForTest(
+                "SPOS", out int frame, out string lutResource), Is.True,
+                "SPOS: the shotgun fire frame must declare the shader flash");
+            // S_SPOS_ATK2 (info.c) fires on frame F = index 5, fullbright.
+            Assert.That(frame, Is.EqualTo(5),
+                "SPOS: the flash belongs to fire frame F");
+            Assert.That(Resources.Load<Texture2D>(lutResource), Is.Not.Null,
+                $"missing flash LUT '{lutResource}'");
+            Assert.That(Resources.Load<Shader>(
+                "ExperimentalMonsters/DoomExperimentalMuzzleFlash"),
+                Is.Not.Null, "missing Doom/ExperimentalMuzzleFlash shader");
+        }
     }
 }
