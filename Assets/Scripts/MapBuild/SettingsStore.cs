@@ -43,8 +43,9 @@ namespace Doom.MapBuild
 
     /// Versioned load/save for <see cref="GameSettingsData"/>. Separate from save slots.
     /// Field keys keep the historical <c>v1</c> prefix so existing PlayerPrefs migrate:
-    /// schema 2 adds GraphicsMode (default Classic); schema 3 adds Enhanced3DObjects
-    /// (default On when the key is absent).
+    /// schema 2 adds GraphicsMode (default Classic); schema 3 added Enhanced3DObjects;
+    /// schema 4 drops it again (the Enhanced 2D mode was removed 2026-08-28 —
+    /// a stored v3 key is simply ignored on load).
     public sealed class SettingsStore
     {
         const string Prefix = "Doom.Settings.v1.";
@@ -57,7 +58,6 @@ namespace Doom.MapBuild
         const string KeyResW = Prefix + "ResW";
         const string KeyResH = Prefix + "ResH";
         const string KeyGraphicsMode = Prefix + "GraphicsMode";
-        const string KeyEnhanced3DObjects = Prefix + "Enhanced3DObjects";
 
         readonly ISettingsStorage storage;
 
@@ -87,14 +87,8 @@ namespace Doom.MapBuild
                     storage.GetInt(KeyGraphicsMode, (int)GraphicsMode.Classic))
                 : GraphicsMode.Classic;
 
-            // v1/v2 had no Enhanced3DObjects key — default On.
-            bool enhanced3D = version >= 3
-                ? storage.GetInt(KeyEnhanced3DObjects,
-                    GameSettingsData.DefaultEnhanced3DObjects ? 1 : 0) != 0
-                : GameSettingsData.DefaultEnhanced3DObjects;
-
             if (!GameSettingsData.TryCreate(sfx, music, sens, invert, fullscreen, rw, rh, gfx,
-                    enhanced3D, out var data, out _))
+                    out var data, out _))
                 return GameSettingsData.Defaults;
 
             return data;
@@ -112,7 +106,6 @@ namespace Doom.MapBuild
             storage.SetInt(KeyResW, data.ResolutionWidth);
             storage.SetInt(KeyResH, data.ResolutionHeight);
             storage.SetInt(KeyGraphicsMode, (int)data.GraphicsMode);
-            storage.SetInt(KeyEnhanced3DObjects, data.Enhanced3DObjects ? 1 : 0);
             storage.Save();
         }
     }

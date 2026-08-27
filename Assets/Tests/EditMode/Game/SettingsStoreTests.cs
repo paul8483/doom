@@ -18,8 +18,7 @@ namespace Doom.Game.Tests
                 .WithInvertY(true)
                 .WithFullscreen(false)
                 .WithResolution(1280, 720)
-                .WithGraphicsMode(GraphicsMode.Enhanced)
-                .WithEnhanced3DObjects(false);
+                .WithGraphicsMode(GraphicsMode.Enhanced);
 
             store.Save(data);
             var loaded = store.Load();
@@ -29,8 +28,9 @@ namespace Doom.Game.Tests
                 Is.EqualTo(GameSettingsData.SchemaVersion));
             Assert.That(memory.GetInt("Doom.Settings.v1.GraphicsMode", -1),
                 Is.EqualTo((int)GraphicsMode.Enhanced));
+            // v4 stores no Enhanced3DObjects key (mode removed 2026-08-28).
             Assert.That(memory.GetInt("Doom.Settings.v1.Enhanced3DObjects", -1),
-                Is.EqualTo(0));
+                Is.EqualTo(-1));
         }
 
         [Test]
@@ -56,15 +56,17 @@ namespace Doom.Game.Tests
             Assert.That(loaded.ResolutionWidth, Is.EqualTo(800));
             Assert.That(loaded.ResolutionHeight, Is.EqualTo(600));
             Assert.That(loaded.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
-            Assert.That(loaded.Enhanced3DObjects, Is.True);
         }
 
+        /// A v3 store carries the Enhanced3DObjects key of the removed
+        /// Enhanced 2D mode — loading must simply ignore it, whatever it
+        /// says, and keep the rest of the preferences.
         [Test]
-        public void Load_migrates_v2_prefs_to_Enhanced3DObjects_default_On()
+        public void Load_ignores_the_v3_enhanced_2d_key()
         {
             var memory = new MemorySettingsStorage();
-            memory.SetInt("Doom.Settings.v1.Version", 2);
-            memory.SetFloat("Doom.Settings.v1.SfxVolume", 1f);
+            memory.SetInt("Doom.Settings.v1.Version", 3);
+            memory.SetFloat("Doom.Settings.v1.SfxVolume", 0.3f);
             memory.SetFloat("Doom.Settings.v1.MusicVolume", 0.55f);
             memory.SetFloat("Doom.Settings.v1.MouseSensitivity", 0.1f);
             memory.SetInt("Doom.Settings.v1.InvertY", 0);
@@ -72,11 +74,11 @@ namespace Doom.Game.Tests
             memory.SetInt("Doom.Settings.v1.ResW", 0);
             memory.SetInt("Doom.Settings.v1.ResH", 0);
             memory.SetInt("Doom.Settings.v1.GraphicsMode", (int)GraphicsMode.Enhanced);
-            // No Enhanced3DObjects key — v2.
+            memory.SetInt("Doom.Settings.v1.Enhanced3DObjects", 0);
 
             var loaded = new SettingsStore(memory).Load();
             Assert.That(loaded.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
-            Assert.That(loaded.Enhanced3DObjects, Is.True);
+            Assert.That(loaded.SfxVolume, Is.EqualTo(0.3f).Within(0.001f));
         }
 
         [Test]

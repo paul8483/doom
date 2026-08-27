@@ -496,16 +496,13 @@ namespace Doom.MapBuild
             // Prefer SettingsController (user intent / hot-toggle). GraphicsModeController
             // may still report Classic while the Enhanced warm coroutine runs.
             GraphicsMode mode;
-            bool toggle3D;
             if (SettingsController.Instance != null)
             {
                 mode = SettingsController.Instance.Current.GraphicsMode;
-                toggle3D = SettingsController.Instance.Current.Enhanced3DObjects;
             }
             else if (GraphicsModeController.Instance != null)
             {
                 mode = GraphicsModeController.Instance.Current;
-                toggle3D = true;
             }
             else
             {
@@ -514,7 +511,6 @@ namespace Doom.MapBuild
 
             return ObjectPresentationResolver.Resolve(
                        mode,
-                       toggle3D,
                        hasMesh: HasModel,
                        hasDisplayRedraw: false, // mesh path ignores redraw
                        isAnimated: false) == ObjectPresentation.Mesh;

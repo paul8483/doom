@@ -99,8 +99,11 @@ namespace Doom.Stage3.PlayTests
             Assert.That(gfx.Current, Is.EqualTo(GraphicsMode.Enhanced));
         }
 
+        /// The Enhanced 2D mode (3D Objects toggle) was removed 2026-08-28:
+        /// Enhanced IS the 3D presentation, and Options stays the classic
+        /// six-row list in both graphics modes.
         [UnityTest]
-        public IEnumerator Options_3d_objects_hidden_in_Classic_visible_in_Enhanced_and_applies_hot()
+        public IEnumerator Options_stays_six_rows_in_both_graphics_modes()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlaying();
@@ -111,40 +114,13 @@ namespace Doom.Stage3.PlayTests
 
             settings.OpenOptions();
             Assert.That(settings.Current.GraphicsMode, Is.EqualTo(GraphicsMode.Classic));
-            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.False);
             Assert.That(settings.VisibleOptionCount, Is.EqualTo(6));
-            Assert.That(settings.Current.Enhanced3DObjects, Is.True);
 
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.True);
-            Assert.That(settings.VisibleOptionCount, Is.EqualTo(7));
-
-            bool applied = false;
-            void OnApplied(GameSettingsData d)
-            {
-                if (!d.Enhanced3DObjects) applied = true;
-            }
-            SettingsController.SettingsApplied += OnApplied;
-            try
-            {
-                settings.SetEnhanced3DObjects(false);
-                Assert.That(settings.Current.Enhanced3DObjects, Is.False);
-                Assert.That(applied, Is.True);
-            }
-            finally
-            {
-                SettingsController.SettingsApplied -= OnApplied;
-            }
-
-            var reloaded = new SettingsStore(memory).Load();
-            Assert.That(reloaded.Enhanced3DObjects, Is.False);
-            Assert.That(reloaded.GraphicsMode, Is.EqualTo(GraphicsMode.Enhanced));
+            Assert.That(settings.VisibleOptionCount, Is.EqualTo(6));
 
             settings.SetGraphicsMode(GraphicsMode.Classic);
-            Assert.That(settings.IsEnhanced3DObjectsOptionVisible, Is.False);
             Assert.That(settings.VisibleOptionCount, Is.EqualTo(6));
-            // Value retained while hidden (Classic ignores presentation toggle).
-            Assert.That(settings.Current.Enhanced3DObjects, Is.False);
         }
 
         [UnityTest]

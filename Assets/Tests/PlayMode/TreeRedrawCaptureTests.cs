@@ -63,7 +63,6 @@ namespace Doom.Stage3.PlayTests
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display);
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(false);
             // Let the Enhanced warm + billboard material swap settle.
             for (int i = 0; i < 120; i++) yield return null;
 
@@ -72,6 +71,10 @@ namespace Doom.Stage3.PlayTests
 
             GameObject tree = GameObject.Find("Thing_54_TRE2");
             Assert.That(tree, Is.Not.Null, "E1M1 should spawn a TRE2 (54) decoration");
+            // The Enhanced 2D mode is gone: expose the redraw billboard by
+            // hiding the mesh through the model's test seam instead.
+            var treeModel = tree.GetComponent<ExperimentalPickupModel>();
+            if (treeModel != null) treeModel.SetEnhancedForTest(false);
 
             var cam = Camera.main;
             Assert.That(cam, Is.Not.Null);
@@ -101,7 +104,6 @@ namespace Doom.Stage3.PlayTests
             Object.Destroy(rt);
             Debug.Log($"[TreeRedrawCapture] wrote {path}");
 
-            settings.SetEnhanced3DObjects(true);
             settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null;
         }

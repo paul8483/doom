@@ -90,11 +90,15 @@ namespace Doom.Stage3.PlayTests
             var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
             using (wad)
             {
-                var native = cache.WarmNativePickup("MEDI", 0, 0);
+                // BPAK is the one single-frame pickup with no display redraw.
+                // (MEDI, the previous subject, is redraw-covered — the old
+                // Enhanced 2D toggle merely hid that; since the mode removal
+                // the cascade serves its redraw honestly.)
+                var native = cache.WarmNativePickup("BPAK", 0, 0);
                 Assert.IsTrue(native.IsValid);
                 var nativeTexture = native.Material.mainTexture;
 
-                var enhanced = cache.GetPickup("MEDI", 0, 0);
+                var enhanced = cache.GetPickup("BPAK", 0, 0);
 
                 Assert.IsTrue(enhanced.IsValid);
                 Assert.AreSame(nativeTexture, enhanced.Material.mainTexture);

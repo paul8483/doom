@@ -95,9 +95,10 @@ namespace Doom.MapBuild
 
         bool ShouldUseDisplayRedraw(string sprite, int lumpIndex)
         {
-            // 3D On → meshes own the presentation; redraw is the 3D Off path.
-            if (Enhanced3DObjectsEnabled)
-                return false;
+            // Enhanced cascade is mesh -> redraw -> native per lump: the
+            // billboard carries the redraw, and things WITH a mesh hide their
+            // billboard anyway. (The Enhanced 2D mode that used to gate this
+            // — the 3D Objects toggle — was removed 2026-08-28.)
             if (lumpIndex < 0 || lumpIndex >= wad.Directory.Count)
                 return false;
             string lumpName = wad.Directory[lumpIndex].Name;
@@ -133,10 +134,6 @@ namespace Doom.MapBuild
             }
             return true;
         }
-
-        static bool Enhanced3DObjectsEnabled =>
-            SettingsController.Instance == null ||
-            SettingsController.Instance.Current.Enhanced3DObjects;
 
         /// Pickups, enemies and first-person weapons render native in Enhanced
         /// (EdgeMix 8× removed 2026-08-08); only unregistered sprites

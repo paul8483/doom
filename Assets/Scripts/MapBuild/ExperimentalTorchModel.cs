@@ -362,16 +362,13 @@ namespace Doom.MapBuild
         bool ResolveUseMesh()
         {
             GraphicsMode mode;
-            bool toggle3D;
             if (SettingsController.Instance != null)
             {
                 mode = SettingsController.Instance.Current.GraphicsMode;
-                toggle3D = SettingsController.Instance.Current.Enhanced3DObjects;
             }
             else if (GraphicsModeController.Instance != null)
             {
                 mode = GraphicsModeController.Instance.Current;
-                toggle3D = true;
             }
             else
             {
@@ -380,7 +377,6 @@ namespace Doom.MapBuild
 
             return ObjectPresentationResolver.Resolve(
                        mode,
-                       toggle3D,
                        hasMesh: HasModel,
                        hasDisplayRedraw: false,
                        isAnimated: true) == ObjectPresentation.Mesh;

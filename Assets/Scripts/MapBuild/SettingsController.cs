@@ -28,7 +28,6 @@ namespace Doom.MapBuild
             InvertY,
             Fullscreen,
             GraphicsMode,
-            Enhanced3DObjects,
         }
 
         SettingsStore store;
@@ -55,16 +54,6 @@ namespace Doom.MapBuild
             {
                 RebuildVisibleRows();
                 return visibleRows.Count;
-            }
-        }
-
-        /// Test seam: whether the 3D Objects row is listed (Enhanced only).
-        public bool IsEnhanced3DObjectsOptionVisible
-        {
-            get
-            {
-                RebuildVisibleRows();
-                return visibleRows.Contains(OptionRow.Enhanced3DObjects);
             }
         }
 
@@ -134,7 +123,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(v, Current.MusicVolume, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    Current.ResolutionHeight, Current.GraphicsMode,
                     out var next, out _))
                 return;
             Commit(next);
@@ -144,7 +133,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, v, Current.MouseSensitivity,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    Current.ResolutionHeight, Current.GraphicsMode,
                     out var next, out _))
                 return;
             Commit(next);
@@ -154,7 +143,7 @@ namespace Doom.MapBuild
         {
             if (!GameSettingsData.TryCreate(Current.SfxVolume, Current.MusicVolume, v,
                     Current.InvertY, Current.Fullscreen, Current.ResolutionWidth,
-                    Current.ResolutionHeight, Current.GraphicsMode, Current.Enhanced3DObjects,
+                    Current.ResolutionHeight, Current.GraphicsMode,
                     out var next, out _))
                 return;
             Commit(next);
@@ -179,11 +168,6 @@ namespace Doom.MapBuild
                 selected = visibleRows.Count - 1;
         }
 
-        public void SetEnhanced3DObjects(bool enabled)
-        {
-            Commit(Current.WithEnhanced3DObjects(enabled));
-        }
-
         public void CycleGraphicsMode(int dir)
         {
             var next = Current.GraphicsMode == GraphicsMode.Classic
@@ -192,12 +176,6 @@ namespace Doom.MapBuild
             // dir ignored for two-value toggle; kept for left/right symmetry.
             if (dir == 0) return;
             SetGraphicsMode(next);
-        }
-
-        public void CycleEnhanced3DObjects(int dir)
-        {
-            if (dir == 0) return;
-            SetEnhanced3DObjects(!Current.Enhanced3DObjects);
         }
 
         public void CloseOptions()
@@ -261,12 +239,10 @@ namespace Doom.MapBuild
             visibleRows.Add(OptionRow.InvertY);
             visibleRows.Add(OptionRow.Fullscreen);
             visibleRows.Add(OptionRow.GraphicsMode);
-            if (Current.GraphicsMode == GraphicsMode.Enhanced)
-                visibleRows.Add(OptionRow.Enhanced3DObjects);
         }
 
-        /// Matches the pre-toggle Options layout for the first six rows; 3D Objects
-        /// sits just under Graphics Mode when Enhanced.
+        /// The classic six-row Options layout (the Enhanced 2D mode's
+        /// 3D Objects row was removed 2026-08-28 — Enhanced IS the 3D mode).
         static float RowYForIndex(int index) => index switch
         {
             0 => 36f,  // SFX (+ thermo)
@@ -275,7 +251,6 @@ namespace Doom.MapBuild
             3 => 120f, // Invert Y
             4 => 136f, // Fullscreen
             5 => 152f, // Graphics Mode
-            6 => 168f, // 3D Objects (Enhanced only)
             _ => 36f + index * 16f,
         };
 
@@ -317,7 +292,6 @@ namespace Doom.MapBuild
                 case OptionRow.InvertY: SetInvertY(!Current.InvertY); break;
                 case OptionRow.Fullscreen: SetFullscreen(!Current.Fullscreen); break;
                 case OptionRow.GraphicsMode: CycleGraphicsMode(dir); break;
-                case OptionRow.Enhanced3DObjects: CycleEnhanced3DObjects(dir); break;
             }
         }
 
@@ -329,7 +303,6 @@ namespace Doom.MapBuild
                 case OptionRow.InvertY: SetInvertY(!Current.InvertY); break;
                 case OptionRow.Fullscreen: SetFullscreen(!Current.Fullscreen); break;
                 case OptionRow.GraphicsMode: CycleGraphicsMode(1); break;
-                case OptionRow.Enhanced3DObjects: CycleEnhanced3DObjects(1); break;
             }
         }
 
@@ -405,10 +378,6 @@ namespace Doom.MapBuild
                     DrawHuString(t, ItemX, y, "GRAPHICS MODE");
                     DrawHuString(t, ItemX + 140f, y,
                         Current.GraphicsMode == GraphicsMode.Enhanced ? "ENHANCED" : "CLASSIC");
-                    break;
-                case OptionRow.Enhanced3DObjects:
-                    DrawHuString(t, ItemX, y, "3D OBJECTS");
-                    DrawOnOff(t, ItemX + 120f, y, Current.Enhanced3DObjects);
                     break;
             }
         }

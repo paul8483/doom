@@ -75,7 +75,7 @@ namespace Doom.MapBuild
                 var bb = go.AddComponent<SpriteBillboard>();
                 bb.Init(cache, def.Sprite, def.Frame, worldScale,
                         doomAngleDeg: t.Angle, spawnCeiling: ceiling, ceilingY: ceilY);
-                // The intact barrel rides the pickup/redraw path in Enhanced 2D;
+                // The intact barrel rides the pickup/redraw path in Enhanced;
                 // its BEXP explosion switches back to the generic effects path.
                 // Redraw-covered decorations (trees, lamp) ride it too — the
                 // generic Super-xBR path would smear their display redraws.
@@ -173,7 +173,7 @@ namespace Doom.MapBuild
                         mc.Init(mdef, ambush, def.CorpseFrame, cache, worldScale, playerTransform,
                                 bb, col, eh, new DoomRandom(seedCounter++), t.Type, sound);
                         eh.SetController(mc);
-                        // Presentation-only stop-motion 3D monster (Enhanced+3D On).
+                        // Presentation-only stop-motion 3D monster (Enhanced).
                         // The spectre keeps its MF_SHADOW billboard: the shadow
                         // effect lives in the sprite material, not the mesh path.
                         if (t.Type != 58)

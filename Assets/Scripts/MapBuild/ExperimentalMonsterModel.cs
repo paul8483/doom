@@ -12,7 +12,7 @@ namespace Doom.MapBuild
     /// their whole mesh set is present, otherwise death falls back to the
     /// billboard permanently (barrel BEXP pattern). Gibs (XDEATH) always
     /// revert. Gameplay, collision and save identity stay on the original
-    /// thing root; Classic and Enhanced+3D Off keep the sprite billboard.
+    /// thing root; Classic keeps the sprite billboard.
     public sealed class ExperimentalMonsterModel : MonoBehaviour
     {
         const string ResourceRoot = "ExperimentalMonsters/";
@@ -784,16 +784,13 @@ namespace Doom.MapBuild
         bool ResolveUseMesh()
         {
             GraphicsMode mode;
-            bool toggle3D;
             if (SettingsController.Instance != null)
             {
                 mode = SettingsController.Instance.Current.GraphicsMode;
-                toggle3D = SettingsController.Instance.Current.Enhanced3DObjects;
             }
             else if (GraphicsModeController.Instance != null)
             {
                 mode = GraphicsModeController.Instance.Current;
-                toggle3D = true;
             }
             else
             {
@@ -802,7 +799,6 @@ namespace Doom.MapBuild
 
             return ObjectPresentationResolver.Resolve(
                        mode,
-                       toggle3D,
                        hasMesh: HasModel,
                        hasDisplayRedraw: false,
                        isAnimated: true) == ObjectPresentation.Mesh;

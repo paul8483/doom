@@ -56,25 +56,19 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
 
             Assert.That(model.ModelVisible, Is.True, "Enhanced+3D On → mesh");
             Assert.That(mr.enabled, Is.False);
             Assert.That(bb.enabled, Is.False);
 
-            settings.SetEnhanced3DObjects(false);
-            yield return null;
-            Assert.That(model.ModelVisible, Is.False, "3D Off → billboard");
-            Assert.That(mr.enabled, Is.True);
-            Assert.That(bb.enabled, Is.True);
-
             settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null;
             Assert.That(model.ModelVisible, Is.False, "Classic → billboard");
+            Assert.That(mr.enabled, Is.True);
+            Assert.That(bb.enabled, Is.True);
 
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.True, "hot-switch back → mesh");
 
@@ -109,7 +103,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.True);
 
@@ -137,10 +130,10 @@ namespace Doom.Stage3.PlayTests
             Assert.That(mr.enabled, Is.True, "death shows billboard frames");
             Assert.That(bb.enabled, Is.True);
 
-            // Toggle churn must not resurrect the mesh on a corpse.
-            settings.SetEnhanced3DObjects(false);
+            // Mode churn must not resurrect the mesh on a corpse.
+            settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null;
-            settings.SetEnhanced3DObjects(true);
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
             yield return null;
             Assert.That(model.ModelVisible, Is.False, "corpse never returns to mesh");
             Assert.That(mr.enabled, Is.True);
@@ -171,7 +164,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
 
             model.NotifyDeathStarted(extremeDeath: false);
@@ -243,7 +235,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
 
             Assert.That(flash.gameObject.activeInHierarchy, Is.False,
@@ -278,7 +269,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
 
             // Turn the corpse before its death meshes are instantiated.
@@ -344,7 +334,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.True);
 
@@ -389,7 +378,6 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.True);
 
@@ -418,7 +406,6 @@ namespace Doom.Stage3.PlayTests
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display);
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null; yield return null;
 
             ExperimentalMonsterModel found = null;

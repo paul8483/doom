@@ -12,7 +12,10 @@ using Doom.Wad;
 
 namespace Doom.Stage3.PlayTests
 {
-    public class Enhanced3DObjectsTogglePlayTests
+    /// Enhanced presentation cascade (mesh -> display redraw -> native) per
+    /// lump. The user-facing Enhanced 2D mode (3D Objects toggle) was removed
+    /// 2026-08-28: Enhanced IS the 3D presentation, Classic stays untouched.
+    public class EnhancedPresentationPlayTests
     {
         MemorySettingsStorage memory;
         FakeDisplayAdapter display;
@@ -39,7 +42,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Toggle_off_billboard_on_mesh_classic_untouched()
+        public IEnumerator Enhanced_shows_mesh_classic_untouched()
         {
             SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
             yield return WaitForPlaying();
@@ -47,24 +50,16 @@ namespace Doom.Stage3.PlayTests
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display);
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null; yield return null;
 
             var presentation = FindMeshPresentation();
             Assert.That(presentation, Is.Not.Null, "E1M1 should spawn a TRELLIS-routed thing");
-            Assert.That(presentation.ModelVisible, Is.True, "3D On → mesh");
+            Assert.That(presentation.ModelVisible, Is.True, "Enhanced → mesh");
 
             var mr = presentation.GetComponent<MeshRenderer>();
             var bb = presentation.GetComponent<SpriteBillboard>();
             Assert.That(mr.enabled, Is.False);
             Assert.That(bb == null || !bb.enabled, Is.True);
-
-            settings.SetEnhanced3DObjects(false);
-            yield return null; yield return null;
-
-            Assert.That(presentation.ModelVisible, Is.False, "3D Off → hide mesh");
-            Assert.That(mr.enabled, Is.True, "3D Off → billboard renderer");
-            if (bb != null) Assert.That(bb.enabled, Is.True);
 
             settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null; yield return null;
@@ -74,10 +69,10 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Toggle_off_allowlisted_single_frame_uses_redraw_resource()
+        public IEnumerator Resolver_serves_redraw_only_below_a_mesh()
         {
             // Synthetic SHOTA0 pickup: single-frame, allowlisted, has mesh.
-            var go = new GameObject("ToggleShot", typeof(MeshFilter), typeof(MeshRenderer));
+            var go = new GameObject("CascadeShot", typeof(MeshFilter), typeof(MeshRenderer));
             var bb = go.AddComponent<SpriteBillboard>();
             var presentation = ExperimentalPickupModel.TryAttach(go, 2001, 1f / 32f, bb);
             Assert.That(presentation, Is.Not.Null);
@@ -86,81 +81,84 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(false);
             yield return null;
 
-            Assert.That(presentation.ModelVisible, Is.False);
+            Assert.That(presentation.ModelVisible, Is.True, "Enhanced → mesh");
             Assert.That(Resources.Load<Texture2D>(
                     DisplayRedrawAllowlist.ResourcesPath("SHOTA0")),
                 Is.Not.Null);
 
-            // Resolver: Enhanced + 3D Off + redraw + not animated → RedrawBillboard.
+            // Pure cascade: a mesh wins; without one the redraw serves; an
+            // animated lump with partial coverage stays native.
             Assert.That(ObjectPresentationResolver.Resolve(
-                    GraphicsMode.Enhanced, false, true, true, false),
+                    GraphicsMode.Enhanced, hasMesh: true,
+                    hasDisplayRedraw: true, isAnimated: false),
+                Is.EqualTo(ObjectPresentation.Mesh));
+            Assert.That(ObjectPresentationResolver.Resolve(
+                    GraphicsMode.Enhanced, hasMesh: false,
+                    hasDisplayRedraw: true, isAnimated: false),
                 Is.EqualTo(ObjectPresentation.RedrawBillboard));
-
-            settings.SetEnhanced3DObjects(true);
-            yield return null;
-            Assert.That(presentation.ModelVisible, Is.True);
+            Assert.That(ObjectPresentationResolver.Resolve(
+                    GraphicsMode.Enhanced, hasMesh: false,
+                    hasDisplayRedraw: true, isAnimated: true),
+                Is.EqualTo(ObjectPresentation.NativeBillboard));
+            Assert.That(ObjectPresentationResolver.Resolve(
+                    GraphicsMode.Classic, hasMesh: true,
+                    hasDisplayRedraw: true, isAnimated: false),
+                Is.EqualTo(ObjectPresentation.NativeBillboard));
 
             Object.Destroy(go);
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator Barrel_explode_uses_billboard_for_both_toggle_values()
+        public IEnumerator Barrel_explode_hands_over_to_the_billboard()
         {
-            foreach (bool toggle3D in new[] { true, false })
-            {
-                var go = new GameObject($"Barrel3D_{toggle3D}",
-                    typeof(MeshFilter), typeof(MeshRenderer));
-                var mr = go.GetComponent<MeshRenderer>();
-                var bb = go.AddComponent<SpriteBillboard>();
-                var presentation = ExperimentalPickupModel.TryAttach(
-                    go, 2035, 1f / 32f, bb);
-                Assert.That(presentation, Is.Not.Null);
+            var go = new GameObject("BarrelCascade",
+                typeof(MeshFilter), typeof(MeshRenderer));
+            var mr = go.GetComponent<MeshRenderer>();
+            var bb = go.AddComponent<SpriteBillboard>();
+            var presentation = ExperimentalPickupModel.TryAttach(
+                go, 2035, 1f / 32f, bb);
+            Assert.That(presentation, Is.Not.Null);
 
-                var settings = SettingsController.Ensure();
-                settings.ConfigureForTests(new SettingsStore(memory), display,
-                    new NoOpGraphicsModeAdapter());
-                settings.SetGraphicsMode(GraphicsMode.Enhanced);
-                settings.SetEnhanced3DObjects(toggle3D);
-                yield return null;
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            yield return null;
 
-                if (toggle3D)
-                    Assert.That(presentation.ModelVisible, Is.True);
-                else
-                    Assert.That(presentation.ModelVisible, Is.False);
+            Assert.That(presentation.ModelVisible, Is.True);
 
-                var col = go.AddComponent<CapsuleCollider>();
-                var eh = go.AddComponent<EnemyHealth>();
-                eh.Init(1, -1, bb, col, countKill: false, noBlood: true);
-                var be = go.AddComponent<BarrelExplosion>();
-                be.Init(bb, col, cache: null, worldScale: 1f / 32f, sound: null);
-                eh.SetBarrel(be);
+            var col = go.AddComponent<CapsuleCollider>();
+            var eh = go.AddComponent<EnemyHealth>();
+            eh.Init(1, -1, bb, col, countKill: false, noBlood: true);
+            var be = go.AddComponent<BarrelExplosion>();
+            be.Init(bb, col, cache: null, worldScale: 1f / 32f, sound: null);
+            eh.SetBarrel(be);
 
-                eh.TakeDamage(1, DamageSource.Player());
-                yield return null;
+            eh.TakeDamage(1, DamageSource.Player());
+            yield return null;
 
-                Assert.That(presentation.ModelVisible, Is.False,
-                    $"toggle3D={toggle3D}: mesh hidden after explode");
-                Assert.That(mr.enabled, Is.True,
-                    $"toggle3D={toggle3D}: BEXP on billboard");
-                Assert.That(bb.enabled, Is.True);
+            Assert.That(presentation.ModelVisible, Is.False,
+                "mesh hidden after explode");
+            Assert.That(mr.enabled, Is.True, "BEXP on billboard");
+            Assert.That(bb.enabled, Is.True);
 
-                Object.Destroy(go);
-                yield return null;
-            }
+            Object.Destroy(go);
+            yield return null;
         }
 
+        /// The billboard under a mesh carries the display redraw (the model
+        /// hides it while the mesh shows), so fully covered animated lumps
+        /// serve per-frame redraw textures with native-header placement.
         [UnityTest]
-        public IEnumerator Toggle_off_fully_covered_animated_lumps_use_per_frame_redraws()
+        public IEnumerator Fully_covered_animated_lumps_use_per_frame_redraws()
         {
             var settings = SettingsController.Ensure();
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(false);
             yield return null;
 
             string wadPath = Path.Combine(
@@ -202,8 +200,6 @@ namespace Doom.Stage3.PlayTests
                 Assert.AreEqual(nativeB.Height, b.Height, sprite);
             }
 
-            // Do not leak Enhanced + 3D Off into later test classes.
-            settings.SetEnhanced3DObjects(true);
             settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null;
         }

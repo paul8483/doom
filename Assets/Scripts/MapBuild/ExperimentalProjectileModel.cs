@@ -15,7 +15,7 @@ namespace Doom.MapBuild
     /// pixels with no body to model, so impact hands presentation back to the
     /// billboard for good — the same pattern the barrel's BEXP and the
     /// monsters' xdeath gibs already use. Gameplay, collision and the save
-    /// snapshot stay on the projectile root; Classic and Enhanced+3D Off keep
+    /// snapshot stay on the projectile root; Classic keeps
     /// the billboard.
     public sealed class ExperimentalProjectileModel : MonoBehaviour
     {
@@ -215,16 +215,13 @@ namespace Doom.MapBuild
         bool ResolveUseMesh()
         {
             GraphicsMode mode;
-            bool toggle3D;
             if (SettingsController.Instance != null)
             {
                 mode = SettingsController.Instance.Current.GraphicsMode;
-                toggle3D = SettingsController.Instance.Current.Enhanced3DObjects;
             }
             else if (GraphicsModeController.Instance != null)
             {
                 mode = GraphicsModeController.Instance.Current;
-                toggle3D = true;
             }
             else
             {
@@ -233,7 +230,6 @@ namespace Doom.MapBuild
 
             return ObjectPresentationResolver.Resolve(
                        mode,
-                       toggle3D,
                        hasMesh: HasModel,
                        hasDisplayRedraw: false,
                        isAnimated: true) == ObjectPresentation.Mesh;

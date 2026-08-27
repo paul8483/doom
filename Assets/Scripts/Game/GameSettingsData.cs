@@ -5,7 +5,7 @@ namespace Doom.Game
     /// Validated runtime preferences. No Unity types; no PlayerPrefs.
     public sealed class GameSettingsData : IEquatable<GameSettingsData>
     {
-        public const int SchemaVersion = 3;
+        public const int SchemaVersion = 4;
         /// First schema that stores preferences (pre-GraphicsMode).
         public const int FirstSupportedSchemaVersion = 1;
 
@@ -16,8 +16,6 @@ namespace Doom.Game
         /// Matches PlayerController inspector default.
         public const float DefaultMouseSensitivity = 0.1f;
         public const GraphicsMode DefaultGraphicsMode = GraphicsMode.Classic;
-        /// Enhanced 3D mesh presentation; ignored in Classic. Default On.
-        public const bool DefaultEnhanced3DObjects = true;
 
         public float SfxVolume { get; }
         public float MusicVolume { get; }
@@ -28,9 +26,6 @@ namespace Doom.Game
         public int ResolutionWidth { get; }
         public int ResolutionHeight { get; }
         public GraphicsMode GraphicsMode { get; }
-        /// When GraphicsMode is Enhanced: true → TRELLIS meshes where available;
-        /// false → display-redraw / native billboards. Classic ignores this.
-        public bool Enhanced3DObjects { get; }
 
         public GameSettingsData(
             float sfxVolume,
@@ -40,8 +35,7 @@ namespace Doom.Game
             bool fullscreen,
             int resolutionWidth,
             int resolutionHeight,
-            GraphicsMode graphicsMode = DefaultGraphicsMode,
-            bool enhanced3DObjects = DefaultEnhanced3DObjects)
+            GraphicsMode graphicsMode = DefaultGraphicsMode)
         {
             SfxVolume = sfxVolume;
             MusicVolume = musicVolume;
@@ -51,7 +45,6 @@ namespace Doom.Game
             ResolutionWidth = resolutionWidth;
             ResolutionHeight = resolutionHeight;
             GraphicsMode = graphicsMode;
-            Enhanced3DObjects = enhanced3DObjects;
         }
 
         public static GameSettingsData Defaults { get; } = new GameSettingsData(
@@ -62,8 +55,7 @@ namespace Doom.Game
             fullscreen: true,
             resolutionWidth: 0,
             resolutionHeight: 0,
-            DefaultGraphicsMode,
-            DefaultEnhanced3DObjects);
+            DefaultGraphicsMode);
 
         public static bool TryCreate(
             float sfxVolume,
@@ -77,7 +69,7 @@ namespace Doom.Game
             out string error) =>
             TryCreate(sfxVolume, musicVolume, mouseSensitivity, invertY, fullscreen,
                 resolutionWidth, resolutionHeight, DefaultGraphicsMode,
-                DefaultEnhanced3DObjects, out data, out error);
+                out data, out error);
 
         public static bool TryCreate(
             float sfxVolume,
@@ -88,22 +80,6 @@ namespace Doom.Game
             int resolutionWidth,
             int resolutionHeight,
             GraphicsMode graphicsMode,
-            out GameSettingsData data,
-            out string error) =>
-            TryCreate(sfxVolume, musicVolume, mouseSensitivity, invertY, fullscreen,
-                resolutionWidth, resolutionHeight, graphicsMode,
-                DefaultEnhanced3DObjects, out data, out error);
-
-        public static bool TryCreate(
-            float sfxVolume,
-            float musicVolume,
-            float mouseSensitivity,
-            bool invertY,
-            bool fullscreen,
-            int resolutionWidth,
-            int resolutionHeight,
-            GraphicsMode graphicsMode,
-            bool enhanced3DObjects,
             out GameSettingsData data,
             out string error)
         {
@@ -142,8 +118,7 @@ namespace Doom.Game
                 fullscreen,
                 resolutionWidth,
                 resolutionHeight,
-                graphicsMode,
-                enhanced3DObjects);
+                graphicsMode);
             return true;
         }
 
@@ -165,7 +140,6 @@ namespace Doom.Game
 
         public GameSettingsData WithInvertY(bool v) => Clone(invert: v);
         public GameSettingsData WithFullscreen(bool v) => Clone(fs: v);
-        public GameSettingsData WithEnhanced3DObjects(bool v) => Clone(e3d: v);
         public GameSettingsData WithGraphicsMode(GraphicsMode mode)
         {
             if (!IsDefinedGraphicsMode(mode))
@@ -190,8 +164,7 @@ namespace Doom.Game
             bool? fs = null,
             int? rw = null,
             int? rh = null,
-            GraphicsMode? gfx = null,
-            bool? e3d = null) =>
+            GraphicsMode? gfx = null) =>
             new GameSettingsData(
                 sfx ?? SfxVolume,
                 music ?? MusicVolume,
@@ -200,8 +173,7 @@ namespace Doom.Game
                 fs ?? Fullscreen,
                 rw ?? ResolutionWidth,
                 rh ?? ResolutionHeight,
-                gfx ?? GraphicsMode,
-                e3d ?? Enhanced3DObjects);
+                gfx ?? GraphicsMode);
 
         static float RequireFinite(float v, string name)
         {
@@ -236,8 +208,7 @@ namespace Doom.Game
                    && Fullscreen == other.Fullscreen
                    && ResolutionWidth == other.ResolutionWidth
                    && ResolutionHeight == other.ResolutionHeight
-                   && GraphicsMode == other.GraphicsMode
-                   && Enhanced3DObjects == other.Enhanced3DObjects;
+                   && GraphicsMode == other.GraphicsMode;
         }
 
         public override bool Equals(object obj) => Equals(obj as GameSettingsData);
@@ -253,7 +224,6 @@ namespace Doom.Game
             hash.Add(ResolutionWidth);
             hash.Add(ResolutionHeight);
             hash.Add(GraphicsMode);
-            hash.Add(Enhanced3DObjects);
             return hash.ToHashCode();
         }
     }

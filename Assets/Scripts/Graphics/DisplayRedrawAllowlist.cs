@@ -1,6 +1,7 @@
 namespace Doom.Graphics
 {
-    /// Gate 0 approved display-grade redraw lumps for Enhanced + 3D Off.
+    /// Gate 0 approved display-grade redraw lumps — the Enhanced billboard
+    /// fallback under the mesh cascade.
     /// Sources live in Textures/Trellis2/ShapeHints/2D/ (the 3D/ sibling
     /// holds the volumetric TRELLIS conditioning renders, which are a
     /// different image for a different consumer); runtime copies land under

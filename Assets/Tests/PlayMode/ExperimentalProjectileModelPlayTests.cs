@@ -100,25 +100,19 @@ namespace Doom.Stage3.PlayTests
             settings.ConfigureForTests(new SettingsStore(memory), display,
                 new NoOpGraphicsModeAdapter());
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
 
             Assert.That(model.ModelVisible, Is.True, "Enhanced+3D On → ball");
             Assert.That(mr.enabled, Is.False);
             Assert.That(bb.enabled, Is.False);
 
-            settings.SetEnhanced3DObjects(false);
-            yield return null;
-            Assert.That(model.ModelVisible, Is.False, "3D Off → billboard");
-            Assert.That(mr.enabled, Is.True);
-            Assert.That(bb.enabled, Is.True);
-
             settings.SetGraphicsMode(GraphicsMode.Classic);
             yield return null;
             Assert.That(model.ModelVisible, Is.False, "Classic → billboard");
+            Assert.That(mr.enabled, Is.True);
+            Assert.That(bb.enabled, Is.True);
 
             settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            settings.SetEnhanced3DObjects(true);
             yield return null;
             Assert.That(model.ModelVisible, Is.True, "hot-switch back → ball");
 
