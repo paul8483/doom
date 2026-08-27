@@ -34,6 +34,17 @@ def wave1_lumps() -> list[str]:
     return lumps
 
 
+def face_lumps() -> list[str]:
+    lumps = []
+    for pain in range(5):
+        for look in range(3):
+            lumps.append(f"STFST{pain}{look}")
+        lumps += [f"STFTL{pain}0", f"STFTR{pain}0",
+                  f"STFOUCH{pain}", f"STFEVL{pain}", f"STFKILL{pain}"]
+    lumps += ["STFGOD0", "STFDEAD0"]
+    return lumps
+
+
 def decode_patch(name: str) -> np.ndarray:
     raw = doomify3d.wad_lump(name)
     w, h, _, _ = struct.unpack_from("<hhhh", raw, 0)

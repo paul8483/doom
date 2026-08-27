@@ -73,6 +73,20 @@ namespace Doom.Graphics
             "STKEYS6",
             "STKEYS7",
             "STKEYS8",
+            // HUD wave 2 set 1 (2026-08-28): the marine face, healthy band
+            // (pain 0) + god mode — the identity anchor for bands 1-4.
+            // Canvas filler healed deterministically (install_hud_faces.py):
+            // cream margins over the native dark outline go dark, margins
+            // over native face go transparent (the STBAR slot shows).
+            "STFST00",
+            "STFST01",
+            "STFST02",
+            "STFTL00",
+            "STFTR00",
+            "STFOUCH0",
+            "STFEVL0",
+            "STFKILL0",
+            "STFGOD0",
         };
 
         public static bool Contains(string lumpName)

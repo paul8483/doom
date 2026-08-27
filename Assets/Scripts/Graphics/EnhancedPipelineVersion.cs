@@ -102,6 +102,9 @@ namespace Doom.Graphics
         // v34 packs hold Super-xBR output under those names.
         // v36: HUD wave 1 set D (2026-08-28) — the 9 key icons; v35 packs
         // hold Super-xBR output under those names.
-        public const int Value = 36;
+        // v37: HUD wave 2 set 1 (2026-08-28) — the marine face, healthy
+        // band + god mode (9 lumps); v36 packs hold Super-xBR output
+        // under those names.
+        public const int Value = 37;
     }
 }

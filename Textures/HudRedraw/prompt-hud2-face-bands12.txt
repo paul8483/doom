@@ -1,0 +1,78 @@
+# HUD-волна 2, сет 2: лицо морпеха, полосы урона 1 и 2 — 16 картинок (GPT 5.6 SOL)
+
+Продолжение волны лица. Личность УЖЕ задана принятым сетом 1 — здесь
+те же восемь гримас в двух ступенях нарастающего урона. Запускать
+ТОЛЬКО после приёмки сета 1.
+
+## Как пользоваться (инструкция для нас, не для GPT)
+
+1. Отправить текст промпта ниже одной сессией.
+2. Выход: redraw.png в папке каждого лампа; холст РОВНО 16× натива,
+   точный даунскейл до 4× сделает ассистент.
+3. Сказать ассистенту — даунскейл, сверка личности с сетом 1, установка.
+
+---
+
+## Текст промпта (отсюда и до конца — в GPT)
+
+Перерисуй ШЕСТНАДЦАТЬ кадров лица морпеха со статус-панели DOOM
+(Freedoom): те же восемь гримас, что в эталоне, в ДВУХ ступенях
+нарастающего урона. Личность бери РОВНО с эталонных редравов (пути
+ниже) — это тот же персонаж, побитый сильнее.
+
+**ЭТАЛОНЫ ЛИЧНОСТИ (только читать, не перезаписывать) — принятые
+кадры здоровой полосы:**
+`D:\Development\doom\Textures\HudRedraw\STFST01\redraw.png` (идл прямо),
+`D:\Development\doom\Textures\HudRedraw\STFOUCH0\redraw.png` (боль),
+`D:\Development\doom\Textures\HudRedraw\STFEVL0\redraw.png` (ухмылка),
+`D:\Development\doom\Textures\HudRedraw\STFKILL0\redraw.png` (оскал).
+Волосы, кожа, форма лица, свет — ровно как там.
+
+**Входы и что рисовать (полные пути; холст РОВНО 16× натива):**
+ПОЛОСА 1 — лёгкий урон: ссадины, кровь у носа/губы, как в нативах:
+1. `D:\Development\doom\Textures\HudRedraw\STFST10\native.png` (24×29) —
+   идл, глаза вправо; холст 384×464
+2. `D:\Development\doom\Textures\HudRedraw\STFST11\native.png` (24×29) —
+   идл, глаза прямо; холст 384×464
+3. `D:\Development\doom\Textures\HudRedraw\STFST12\native.png` (24×29) —
+   идл, глаза влево; холст 384×464
+4. `D:\Development\doom\Textures\HudRedraw\STFTL10\native.png` (26×30) —
+   поворот влево; холст 416×480
+5. `D:\Development\doom\Textures\HudRedraw\STFTR10\native.png` (26×30) —
+   поворот вправо; холст 416×480
+6. `D:\Development\doom\Textures\HudRedraw\STFOUCH1\native.png` (24×31) —
+   боль; холст 384×496
+7. `D:\Development\doom\Textures\HudRedraw\STFEVL1\native.png` (24×30) —
+   ухмылка; холст 384×480
+8. `D:\Development\doom\Textures\HudRedraw\STFKILL1\native.png` (24×30) —
+   оскал; холст 384×480
+ПОЛОСА 2 — средний урон: кровь из носа и на подбородке, синяки:
+9. `D:\Development\doom\Textures\HudRedraw\STFST20\native.png` (24×30) —
+   идл, глаза вправо; холст 384×480
+10. `D:\Development\doom\Textures\HudRedraw\STFST21\native.png` (24×30) —
+    идл, глаза прямо; холст 384×480
+11. `D:\Development\doom\Textures\HudRedraw\STFST22\native.png` (24×30) —
+    идл, глаза влево; холст 384×480
+12. `D:\Development\doom\Textures\HudRedraw\STFTL20\native.png` (27×30) —
+    поворот влево; холст 432×480
+13. `D:\Development\doom\Textures\HudRedraw\STFTR20\native.png` (27×30) —
+    поворот вправо; холст 432×480
+14. `D:\Development\doom\Textures\HudRedraw\STFOUCH2\native.png` (24×31) —
+    боль; холст 384×496
+15. `D:\Development\doom\Textures\HudRedraw\STFEVL2\native.png` (24×30) —
+    ухмылка; холст 384×480
+16. `D:\Development\doom\Textures\HudRedraw\STFKILL2\native.png` (24×30) —
+    оскал; холст 384×480
+
+**Результаты:** redraw.png РЯДОМ с каждым native.png (та же папка),
+фон ПРОЗРАЧНЫЙ, кромка жёсткая.
+
+**Правила:**
+- Композиция один-в-один с нативом каждого кадра (силуэт, взгляд,
+  поворот, ГДЕ лежит кровь — раны на тех же местах, что в нативе).
+- Урон нарастает: полоса 1 заметно легче полосы 2; внутри полосы все
+  восемь кадров несут ОДИНАКОВЫЕ раны (это один момент времени).
+- Кровь только на лице, без капель в воздухе.
+- Стиль и личность — ровно как в эталонах; свет сверху; без
+  фотореализма, детали крупные и жёсткие; заливка гладкая, без
+  штриховки; клякса по контуру — брак.
