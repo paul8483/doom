@@ -272,14 +272,18 @@ namespace Doom.Map.Tests
         [Test]
         public void Muzzle_flash_rides_the_fire_frame_with_its_assets()
         {
-            Assert.That(ExperimentalMonsterModel.TryGetMuzzleFlashForTest(
-                "SPOS", out int frame, out string lutResource), Is.True,
-                "SPOS: the shotgun fire frame must declare the shader flash");
-            // S_SPOS_ATK2 (info.c) fires on frame F = index 5, fullbright.
-            Assert.That(frame, Is.EqualTo(5),
-                "SPOS: the flash belongs to fire frame F");
-            Assert.That(Resources.Load<Texture2D>(lutResource), Is.Not.Null,
-                $"missing flash LUT '{lutResource}'");
+            // Both hitscan shooters fire on frame F = index 5 (S_SPOS_ATK2 /
+            // S_POSS_ATK2 in info.c), fullbright.
+            foreach (string sprite in new[] { "SPOS", "POSS" })
+            {
+                Assert.That(ExperimentalMonsterModel.TryGetMuzzleFlashForTest(
+                    sprite, out int frame, out string lutResource), Is.True,
+                    $"{sprite}: the fire frame must declare the shader flash");
+                Assert.That(frame, Is.EqualTo(5),
+                    $"{sprite}: the flash belongs to fire frame F");
+                Assert.That(Resources.Load<Texture2D>(lutResource), Is.Not.Null,
+                    $"missing flash burst '{lutResource}'");
+            }
             Assert.That(Resources.Load<Shader>(
                 "ExperimentalMonsters/DoomExperimentalMuzzleFlash"),
                 Is.Not.Null, "missing Doom/ExperimentalMuzzleFlash shader");

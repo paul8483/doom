@@ -47,14 +47,32 @@ def decode_patch(name: str) -> np.ndarray:
 
 
 def flash_profile(lump: str, buckets: int = 8) -> np.ndarray:
-    """Radial mean colors of the native flash ball, core -> rim."""
+    """Radial mean colors of the native flash ball, core -> rim.
+
+    Two-stage selection: fire frames are FULLBRIGHT, so on a fully warm-lit
+    sprite (POSSF1) a plain warm-pixel mask grabs the whole body as one
+    component and the profile comes out body-colored. The ball is the only
+    place with a near-white core, so seed there and grow only that
+    component within the looser fire mask.
+    """
     a = decode_patch(lump).astype(float)
     op = a[..., 3] > 0
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
     fire = op & (r > 140) & (r > b + 60) & (g > b)
-    labels, n = ndimage.label(fire)
-    sizes = ndimage.sum(fire, labels, range(1, n + 1))
-    ball = labels == (1 + int(np.argmax(sizes)))
+    core = fire & (r > 230) & (g > 190) & (b < 180)
+    labels, n = ndimage.label(core)
+    sizes = ndimage.sum(core, labels, range(1, n + 1))
+    seed = labels == (1 + int(np.argmax(sizes)))
+    fire_labels, _ = ndimage.label(fire)
+    ball_id = np.bincount(fire_labels[seed]).argmax()
+    ball = fire_labels == ball_id
+    # A fullbright body connected to the ball through lit shoulders would
+    # still leak in — clamp the component to a tight disc around the seed.
+    ys, xs = np.where(seed)
+    scy, scx = ys.mean(), xs.mean()
+    seed_r = max(np.sqrt((xs - scx) ** 2 + (ys - scy) ** 2).max(), 1.0)
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    ball &= np.sqrt((xx - scx) ** 2 + (yy - scy) ** 2) <= seed_r * 3.0
     ys, xs = np.where(ball)
     cy, cx = ys.mean(), xs.mean()
     rad = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)

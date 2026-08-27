@@ -120,7 +120,11 @@ namespace Doom.MapBuild
                 // I0/J0 are pitched to the native aspect (90/40 deg), all
                 // three on the height rule.
                 flatFrames: new[] { ("K0", 48f), ("L0", 50f) },
-                xdeathCorpse: ("U0", 67f)),
+                xdeathCorpse: ("U0", 67f),
+                // Pistol fire frame F1: the mesh already aims down +Z, so no
+                // yaw bake — the flash sits at the measured pistol tip
+                // (max-Z cluster). Slightly smaller than the shotgun burst.
+                muzzleFlash: (5, new Vector3(0f, 0.34f, 0.42f), 0.40f)),
             // Attaches only once all 7 live frame meshes land in Resources
             // (live coverage is all-or-nothing), so listing ahead is safe.
             // H0-K0 are the accepted fall (Gate D1); L0 is the corpse heap.
