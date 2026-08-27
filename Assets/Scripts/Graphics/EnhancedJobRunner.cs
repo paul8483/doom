@@ -114,6 +114,21 @@ namespace Doom.Graphics
 
         static EnhancedJobResult RunRgba(EnhancedJob job, EnhancedJobKind kind)
         {
+            // Display-grade HUD redraw replaces Super-xBR as the finished 4×
+            // level (world-albedo pattern, 2026-08-28). It still takes the
+            // alpha-bleed dilate (digits and keys carry real holes — bilinear
+            // sampling would bleed the author's backdrop into the edges) and
+            // the same sharpen the Super-xBR output gets.
+            if (job.Redraw != null)
+            {
+                var source = job.ApplyAlphaBleed
+                    ? AlphaBleedGuard.Dilate(job.Redraw)
+                    : job.Redraw;
+                if (job.ApplySharpen)
+                    source = SharpenFilter.Apply(source);
+                return EnhancedJobResult.OkRgba(kind, source);
+            }
+
             var enhanced = BuildEnhanced4X(
                 job.Native, job.Wrap, job.ApplyDedither, job.ApplyAlphaBleed);
             if (job.ApplySharpen)

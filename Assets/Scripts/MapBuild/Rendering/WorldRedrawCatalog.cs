@@ -79,7 +79,9 @@ namespace Doom.MapBuild.Rendering
             redraw.Width == native.Width * WorldRedrawAllowlist.Scale &&
             redraw.Height == native.Height * WorldRedrawAllowlist.Scale;
 
-        static DecodedImage ToDecodedTopDown(Texture2D tex)
+        /// Shared with HudRedrawCatalog: decode a Resources texture into the
+        /// job pipeline's top-down RGBA image.
+        internal static DecodedImage ToDecodedTopDown(Texture2D tex)
         {
             // Resources textures may be non-readable; blit via RenderTexture then.
             Texture2D readable = tex;

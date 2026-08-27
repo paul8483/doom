@@ -115,13 +115,15 @@ namespace Doom.Graphics
             DecodedImage native,
             bool applyDedither,
             bool applyAlphaBleed = true,
-            bool applySharpen = true)
+            bool applySharpen = true,
+            DecodedImage redraw = null)
         {
             if (native == null) throw new ArgumentNullException(nameof(native));
             return new EnhancedJob(
                 EnhancedJobKind.Hud, itemId, native, PixelWrapMode.Clamp,
                 applyDedither, applyAlphaBleed, applySharpen,
-                MaterialSurfaceCategory.Unknown, spectre: false, palette: null, albedoMips: null);
+                MaterialSurfaceCategory.Unknown, spectre: false, palette: null,
+                albedoMips: null, redraw);
         }
 
     }

@@ -1,0 +1,89 @@
+namespace Doom.Graphics
+{
+    /// Status-bar UI patch names whose Enhanced texture is a display-grade
+    /// GPT redraw (Resources/EnhancedHud/&lt;NAME&gt;.png, exactly 4× native)
+    /// instead of the Super-xBR upscale. Provenance lives in
+    /// Textures/HudRedraw/&lt;NAME&gt;/ (native export, prompt, redraw).
+    /// The list grows per accepted set, like the world allowlist.
+    public static class HudRedrawAllowlist
+    {
+        public const string ResourcesFolder = "EnhancedHud";
+
+        /// Redraws are authored at exactly this multiple of the native patch
+        /// size (the slot the Super-xBR 4× occupies today). Placement stays
+        /// native-header based, so the multiple is a hard contract.
+        public const int Scale = 4;
+
+        /// HUD wave 1 set A (2026-08-28): the status-bar plate and the ARMS
+        /// inset — labels, bezels and LED strip pinned one-to-one (digits,
+        /// keys and the face land on fixed screen coordinates above them).
+        /// Set B (2026-08-28): the tall red counter digits — one enamel font
+        /// across all twelve (a first generation traced only the outer
+        /// silhouettes into blobs; the re-roll gate added an inner-pattern
+        /// correlation check beside the silhouette IoU).
+        public static readonly string[] Lumps =
+        {
+            "STARMS",
+            "STBAR",
+            "STTMINUS",
+            "STTNUM0",
+            "STTNUM1",
+            "STTNUM2",
+            "STTNUM3",
+            "STTNUM4",
+            "STTNUM5",
+            "STTNUM6",
+            "STTNUM7",
+            "STTNUM8",
+            "STTNUM9",
+            "STTPRCNT",
+            // Set C (2026-08-28): the 4x6 small digits are deterministic
+            // nearest-4x of the native (Tools/make_hud_crisp_redraw.py) —
+            // at 24 pixels every texel is load-bearing and two GPT passes
+            // mangled the interiors; the crisp Classic look in the redraw
+            // slot is the honest fix for the Super-xBR smear.
+            "STGNUM0",
+            "STGNUM1",
+            "STGNUM2",
+            "STGNUM3",
+            "STGNUM4",
+            "STGNUM5",
+            "STGNUM6",
+            "STGNUM7",
+            "STGNUM8",
+            "STGNUM9",
+            "STYSNUM0",
+            "STYSNUM1",
+            "STYSNUM2",
+            "STYSNUM3",
+            "STYSNUM4",
+            "STYSNUM5",
+            "STYSNUM6",
+            "STYSNUM7",
+            "STYSNUM8",
+            "STYSNUM9",
+            // Set D (2026-08-28): the key icons — cell layout and the color
+            // signal (blue/gold/red doors) pinned one-to-one.
+            "STKEYS0",
+            "STKEYS1",
+            "STKEYS2",
+            "STKEYS3",
+            "STKEYS4",
+            "STKEYS5",
+            "STKEYS6",
+            "STKEYS7",
+            "STKEYS8",
+        };
+
+        public static bool Contains(string lumpName)
+        {
+            if (string.IsNullOrEmpty(lumpName)) return false;
+            for (int i = 0; i < Lumps.Length; i++)
+                if (Lumps[i] == lumpName) return true;
+            return false;
+        }
+
+        public static string ResourcesPath(string name) =>
+            ResourcesFolder + "/" + name;
+    }
+}

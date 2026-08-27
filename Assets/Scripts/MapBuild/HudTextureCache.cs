@@ -172,12 +172,17 @@ namespace Doom.MapBuild
                 return null;
 
             var active = ResolveActiveProfile();
+            // Display-grade redraw (Resources/EnhancedHud) replaces the
+            // Super-xBR result when the patch is allowlisted and the file is
+            // valid; anything else falls back per item.
+            HudRedrawCatalog.TryGet(name, slot.NativeImage, out var redraw);
             return EnhancedJob.ForHud(
                 name,
                 slot.NativeImage,
                 applyDedither: active.WorldDedither,
                 applyAlphaBleed: true,
-                applySharpen: true);
+                applySharpen: true,
+                redraw: redraw);
         }
 
         /// Main-thread: upload Enhanced HUD patch or mark failed fallback.

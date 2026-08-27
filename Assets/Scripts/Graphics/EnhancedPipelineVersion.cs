@@ -92,6 +92,16 @@ namespace Doom.Graphics
         // AQF tech, lamp plates) incl. the STEP1_F/STEP2_F flat-namespace
         // aliases; v31 packs hold Super-xBR output under those names and
         // the pre-fix STEP floors held the wall composite.
-        public const int Value = 32;
+        // v33: HUD wave 1 set A (2026-08-28) — STBAR/STARMS display redraws
+        // enter the HUD job as the finished 4x level; v32 packs hold
+        // Super-xBR output under those names.
+        // v34: HUD wave 1 set B (2026-08-28) — the 12 tall red counter
+        // digits; v33 packs hold Super-xBR output under those names.
+        // v35: HUD wave 1 set C (2026-08-28) — the 20 small digits as
+        // deterministic nearest-4x (crisp Classic look in the redraw slot);
+        // v34 packs hold Super-xBR output under those names.
+        // v36: HUD wave 1 set D (2026-08-28) — the 9 key icons; v35 packs
+        // hold Super-xBR output under those names.
+        public const int Value = 36;
     }
 }
