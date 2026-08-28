@@ -87,6 +87,45 @@ namespace Doom.Graphics
             "STFEVL0",
             "STFKILL0",
             "STFGOD0",
+            // HUD wave 2 set 2 (2026-08-28): pain bands 1-2 — the same
+            // eight grimaces with escalating wounds, identity anchored on
+            // the accepted band-0 redraws.
+            "STFST10",
+            "STFST11",
+            "STFST12",
+            "STFTL10",
+            "STFTR10",
+            "STFOUCH1",
+            "STFEVL1",
+            "STFKILL1",
+            "STFST20",
+            "STFST21",
+            "STFST22",
+            "STFTL20",
+            "STFTR20",
+            "STFOUCH2",
+            "STFEVL2",
+            "STFKILL2",
+            // HUD wave 2 set 3 (2026-08-28): pain bands 3-4 + the death
+            // face — the wave's final set; every face patch the status bar
+            // can show now routes a display redraw.
+            "STFST30",
+            "STFST31",
+            "STFST32",
+            "STFTL30",
+            "STFTR30",
+            "STFOUCH3",
+            "STFEVL3",
+            "STFKILL3",
+            "STFST40",
+            "STFST41",
+            "STFST42",
+            "STFTL40",
+            "STFTR40",
+            "STFOUCH4",
+            "STFEVL4",
+            "STFKILL4",
+            "STFDEAD0",
         };
 
         public static bool Contains(string lumpName)

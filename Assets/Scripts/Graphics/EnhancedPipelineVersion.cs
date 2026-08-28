@@ -105,6 +105,11 @@ namespace Doom.Graphics
         // v37: HUD wave 2 set 1 (2026-08-28) — the marine face, healthy
         // band + god mode (9 lumps); v36 packs hold Super-xBR output
         // under those names.
-        public const int Value = 37;
+        // v38: HUD wave 2 set 2 (2026-08-28) — face pain bands 1-2
+        // (16 lumps); v37 packs hold Super-xBR output under those names.
+        // v39: HUD wave 2 set 3 (2026-08-28) — face pain bands 3-4 + the
+        // death face (17 lumps, wave complete); v38 packs hold Super-xBR
+        // output under those names.
+        public const int Value = 39;
     }
 }
