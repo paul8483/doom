@@ -187,7 +187,8 @@ namespace Doom.MapBuild
         void DrawPatch(string sprite, int frame, float sx, float sy,
                        in VirtualScreenRenderer.Transform t, Rect clip)
         {
-            // Weapon lumps render native; placement always uses
+            // Enhanced routes the display-grade weapon redraw when covered
+            // (native otherwise / in Classic); placement always uses
             // PatchHeader dims/offsets (not texture size).
             var sm = cache.GetWeapon(sprite, frame, 0);
             if (!sm.IsValid) return;

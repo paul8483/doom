@@ -66,7 +66,12 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--lumps", nargs="*", default=None)
     p.add_argument("--wave1", action="store_true")
+    p.add_argument("--out-root", default=None,
+                   help="Textures subfolder to export into (default HudRedraw)")
     a = p.parse_args()
+    global OUT_ROOT
+    if a.out_root:
+        OUT_ROOT = OUT_ROOT.parent / a.out_root
 
     lumps = list(a.lumps or [])
     if a.wave1:

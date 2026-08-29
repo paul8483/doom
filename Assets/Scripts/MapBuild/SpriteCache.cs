@@ -45,6 +45,7 @@ namespace Doom.MapBuild
         private readonly HashSet<int> pickupLumps = new();
         private readonly HashSet<int> enemyLumps = new();
         private readonly HashSet<int> weaponLumps = new();
+        private readonly HashSet<int> rejectedWeaponRedraws = new();
         private readonly List<int> nativeLumpOrder = new();
 
         int enhancedVariantCount;
@@ -135,9 +136,11 @@ namespace Doom.MapBuild
             return true;
         }
 
-        /// Pickups, enemies and first-person weapons render native in Enhanced
-        /// (EdgeMix 8× removed 2026-08-08); only unregistered sprites
-        /// (projectiles/effects/decorations) keep the Super-xBR 4× path.
+        /// Pickups, enemies and first-person weapons never take the Super-xBR
+        /// path (EdgeMix 8× removed 2026-08-08): they render native in
+        /// Enhanced unless an explicitly requested display/weapon redraw
+        /// covers the lump; only unregistered sprites (projectiles/effects/
+        /// decorations) keep the Super-xBR 4× path.
         bool IsNativeOnlyLump(int lumpIndex) =>
             pickupLumps.Contains(lumpIndex) ||
             enemyLumps.Contains(lumpIndex) ||
@@ -211,7 +214,25 @@ namespace Doom.MapBuild
         public SpriteMaterial GetWeapon(string sprite, int frame, int rotationIndex = 0)
         {
             RegisterWeaponLump(sprite, frame, rotationIndex);
-            return Get(sprite, frame, rotationIndex, spectre: false, WorldTextureVariant.Native);
+            return Get(sprite, frame, rotationIndex, spectre: false,
+                ActiveWeaponVariant(sprite, frame, rotationIndex));
+        }
+
+        /// Enhanced viewmodel frames route the display-grade weapon redraw
+        /// when the lump is allowlisted; everything else (Classic, frames
+        /// outside the WeaponTable set) stays native. Placement is header
+        /// based either way, so the variant only changes texel density.
+        WorldTextureVariant ActiveWeaponVariant(string sprite, int frame, int rotationIndex)
+        {
+            if (!materials.ActiveProfile.SpritesUpscale4X)
+                return WorldTextureVariant.Native;
+            if (!sprites.TryGet(sprite, frame, rotationIndex, out var refr))
+                return WorldTextureVariant.Native;
+            if (refr.LumpIndex < 0 || refr.LumpIndex >= wad.Directory.Count)
+                return WorldTextureVariant.Native;
+            return WeaponRedrawAllowlist.Contains(wad.Directory[refr.LumpIndex].Name)
+                ? WorldTextureVariant.EnhancedWeaponRedraw
+                : WorldTextureVariant.Native;
         }
 
         void RegisterPickupLump(string sprite, int frame, int rotationIndex)
@@ -247,10 +268,14 @@ namespace Doom.MapBuild
 
             if (variant == WorldTextureVariant.EnhancedDisplayRedraw)
                 pickupLumps.Add(refr.LumpIndex);
-            // Display-redraw is requested explicitly; registered pickup/enemy/
-            // weapon lumps remap to Native, everything else to Enhanced4X.
+            if (variant == WorldTextureVariant.EnhancedWeaponRedraw)
+                weaponLumps.Add(refr.LumpIndex);
+            // Display/weapon redraws are requested explicitly; registered
+            // pickup/enemy/weapon lumps remap to Native, everything else to
+            // Enhanced4X.
             if (variant != WorldTextureVariant.Native &&
-                variant != WorldTextureVariant.EnhancedDisplayRedraw)
+                variant != WorldTextureVariant.EnhancedDisplayRedraw &&
+                variant != WorldTextureVariant.EnhancedWeaponRedraw)
                 variant = EnhancedVariantForLump(refr.LumpIndex);
 
             if (failedLumps.Contains(refr.LumpIndex))
@@ -411,6 +436,8 @@ namespace Doom.MapBuild
         {
             if (variant == WorldTextureVariant.EnhancedDisplayRedraw)
                 return CreateDisplayRedrawTexture(lumpIndex);
+            if (variant == WorldTextureVariant.EnhancedWeaponRedraw)
+                return CreateWeaponRedrawTexture(lumpIndex);
 
             if (variant != WorldTextureVariant.Native &&
                 failedEnhancedLumps.Contains(lumpIndex))
@@ -457,6 +484,62 @@ namespace Doom.MapBuild
             var subject = DisplayRedrawRegistration.ExtractSubjectRect(
                 canvas, header.Width, header.Height);
             var tex = ToTexture2D(subject, forcePointFilter: true);
+            texByLumpVariant[key] = tex;
+            context?.RegisterTexture(tex);
+            enhancedVariantCount++;
+            enhancedTextureBytes += (long)tex.width * tex.height * 4L;
+            return tex;
+        }
+
+        /// Weapon viewmodel redraw: exact-4× RGBA from Resources, Point
+        /// filtered on the native quad. Invalid or missing files fall back
+        /// native per lump; the rejection is remembered because WeaponView
+        /// resolves its material every OnGUI repaint.
+        Texture2D CreateWeaponRedrawTexture(int lumpIndex)
+        {
+            var key = (lumpIndex, WorldTextureVariant.EnhancedWeaponRedraw);
+            if (texByLumpVariant.TryGetValue(key, out var existing))
+                return existing;
+            if (rejectedWeaponRedraws.Contains(lumpIndex))
+                return CreateNativeTexture(lumpIndex);
+
+            if (lumpIndex < 0 || lumpIndex >= wad.Directory.Count)
+                return CreateNativeTexture(lumpIndex);
+
+            string lumpName = wad.Directory[lumpIndex].Name;
+            if (!WeaponRedrawAllowlist.Contains(lumpName))
+            {
+                rejectedWeaponRedraws.Add(lumpIndex);
+                return CreateNativeTexture(lumpIndex);
+            }
+
+            var resource = Resources.Load<Texture2D>(
+                WeaponRedrawAllowlist.ResourcesPath(lumpName));
+            if (resource == null)
+            {
+                Debug.LogWarning(
+                    $"SpriteCache: missing EnhancedWeapons resource for {lumpName} — native fallback");
+                rejectedWeaponRedraws.Add(lumpIndex);
+                return CreateNativeTexture(lumpIndex);
+            }
+
+            var header = headerByLump.TryGetValue(lumpIndex, out var h)
+                ? h
+                : Patch.ReadHeader(wad.ReadLump(lumpIndex));
+            headerByLump[lumpIndex] = header;
+
+            if (resource.width != header.Width * WeaponRedrawAllowlist.Scale ||
+                resource.height != header.Height * WeaponRedrawAllowlist.Scale)
+            {
+                Debug.LogWarning(
+                    $"SpriteCache: {lumpName} weapon redraw is {resource.width}x{resource.height}, " +
+                    $"want {header.Width * WeaponRedrawAllowlist.Scale}x{header.Height * WeaponRedrawAllowlist.Scale} — native fallback");
+                rejectedWeaponRedraws.Add(lumpIndex);
+                return CreateNativeTexture(lumpIndex);
+            }
+
+            var decoded = TextureToDecodedTopDown(resource);
+            var tex = ToTexture2D(decoded, forcePointFilter: true);
             texByLumpVariant[key] = tex;
             context?.RegisterTexture(tex);
             enhancedVariantCount++;

@@ -111,7 +111,7 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
-        public IEnumerator Enhanced_weapon_stays_native_with_header_dims()
+        public IEnumerator Enhanced_weapon_routes_display_redraw_with_header_dims()
         {
             LogAssert.ignoreFailingMessages = true;
             yield return null;
@@ -126,15 +126,45 @@ namespace Doom.Stage3.PlayTests
                 var enhanced = cache.GetWeapon("PISG", 0, 0);
 
                 Assert.IsTrue(enhanced.IsValid);
-                Assert.AreSame(nativeTexture, enhanced.Material.mainTexture);
+                // The redraw texture replaces native at exactly 4x the patch
+                // size; placement dims/offsets stay the native header's.
+                Assert.AreNotSame(nativeTexture, enhanced.Material.mainTexture);
+                Assert.AreEqual(
+                    native.Width * WeaponRedrawAllowlist.Scale,
+                    enhanced.Material.mainTexture.width);
+                Assert.AreEqual(
+                    native.Height * WeaponRedrawAllowlist.Scale,
+                    enhanced.Material.mainTexture.height);
                 Assert.AreEqual(native.Width, enhanced.Width);
                 Assert.AreEqual(native.Height, enhanced.Height);
                 Assert.AreEqual(native.LeftOffset, enhanced.LeftOffset);
                 Assert.AreEqual(native.TopOffset, enhanced.TopOffset);
-                Assert.AreEqual(0, cache.EnhancedVariantCount);
+                Assert.AreEqual(1, cache.EnhancedVariantCount);
                 Assert.AreSame(
                     enhanced.Material,
                     cache.GetWeapon("PISG", 0, 0).Material);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Enhanced_weapon_frame_outside_allowlist_stays_native()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return null;
+
+            var cache = OpenSpriteCache(GraphicsProfile.Enhanced, out var wad);
+            using (wad)
+            {
+                // PISGD0 exists in the WAD but the WeaponTable never requests
+                // it, so it carries no redraw — the weapon path serves native.
+                var native = cache.WarmNativeWeapon("PISG", 3, 0);
+                Assert.IsTrue(native.IsValid);
+
+                var enhanced = cache.GetWeapon("PISG", 3, 0);
+                Assert.IsTrue(enhanced.IsValid);
+                Assert.AreSame(
+                    native.Material.mainTexture, enhanced.Material.mainTexture);
+                Assert.AreEqual(0, cache.EnhancedVariantCount);
             }
         }
 

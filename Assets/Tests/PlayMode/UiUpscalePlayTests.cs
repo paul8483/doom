@@ -146,9 +146,13 @@ namespace Doom.Stage3.PlayTests
                 var enhanced = cache.GetWeapon("PISG", 0, 0);
                 Assert.IsTrue(native.IsValid);
                 Assert.IsTrue(enhanced.IsValid);
-                // EdgeMix removed: Enhanced serves the native weapon texture.
-                Assert.AreSame(native.Material.mainTexture,
+                // Enhanced serves the 4x display redraw; the placement rect
+                // must not move, because it is built from header dims only.
+                Assert.AreNotSame(native.Material.mainTexture,
                     enhanced.Material.mainTexture);
+                Assert.AreEqual(
+                    native.Width * WeaponRedrawAllowlist.Scale,
+                    enhanced.Material.mainTexture.width);
                 Assert.AreEqual(native.Width, enhanced.Width);
                 Assert.AreEqual(native.Height, enhanced.Height);
                 Assert.AreEqual(native.LeftOffset, enhanced.LeftOffset);
@@ -270,10 +274,13 @@ namespace Doom.Stage3.PlayTests
             Assert.AreEqual(hudW, enhancedHud.Width);
             Assert.AreEqual(hudH, enhancedHud.Height);
 
-            // EdgeMix removed: the weapon serves the native texture in Enhanced too.
+            // Enhanced routes the 4x weapon display redraw; header dims stay.
             var enhancedWeapon = loader.Sprites.GetWeapon("PISG", 0, 0);
             Assert.IsTrue(enhancedWeapon.IsValid);
-            Assert.AreSame(classicWeaponTex, enhancedWeapon.Material.mainTexture);
+            Assert.AreNotSame(classicWeaponTex, enhancedWeapon.Material.mainTexture);
+            Assert.AreEqual(
+                classicWeaponTex.width * WeaponRedrawAllowlist.Scale,
+                enhancedWeapon.Material.mainTexture.width);
             Assert.AreEqual(classicWeapon.Width, enhancedWeapon.Width);
 
             int texCountAfterEnhanced = gfx.Context != null ? gfx.Context.TextureCount : 0;

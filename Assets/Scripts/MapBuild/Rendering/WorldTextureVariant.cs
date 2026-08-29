@@ -14,5 +14,8 @@ namespace Doom.MapBuild.Rendering
         // 3–5 were EdgeMix Pickup/Enemy/Weapon 8× variants, removed 2026-08-08.
         /// Gate-0 display-grade redraw (Resources/EnhancedSprites) on native quad.
         EnhancedDisplayRedraw = 6,
+        /// First-person weapon display redraw (Resources/EnhancedWeapons,
+        /// exactly 4× the native patch); placement stays native-header based.
+        EnhancedWeaponRedraw = 7,
     }
 }
