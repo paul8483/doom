@@ -241,6 +241,7 @@ namespace Doom.Stage3.PlayTests
                          43,   // TRE1 burnt tree
                          54,   // TRE2 large brown tree
                          47,   // SMIT stalagmite / leafy tree
+                         48,   // ELEC tall techno pillar
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);

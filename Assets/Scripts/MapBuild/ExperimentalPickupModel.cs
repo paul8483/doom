@@ -101,10 +101,14 @@ namespace Doom.MapBuild
                 // glint animation stays billboard-only, so no blink animation
                 // even though 2014 sits in PickupAnimationTable.
                 2014 => ResourceRoot + "BON1A0/BON1A0_emission",
+                // Techno pillar: recessed blue CRT screens glow STEADY on the
+                // lamp path (no animation, blink parked bright); the thing's
+                // dynamic tech light from EnhancedEmissionTable is unchanged.
+                48 => ResourceRoot + "ELECA0/ELECA0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018 || doomedNum == 2035
-                || doomedNum == 2028 || doomedNum == 2014;
+                || doomedNum == 2028 || doomedNum == 2014 || doomedNum == 48;
             // Which animation frame is the mask's BRIGHT phase: the armor gem
             // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
             int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
@@ -262,6 +266,11 @@ namespace Doom.MapBuild
                     return true;
                 case 47:
                     resource = ResourceRoot + "SMITA0/SMITA0";
+                    return true;
+                case 48:
+                    // Tall techno pillar; patch height (128) equals the mobjinfo
+                    // collision height, so SpriteHeightPx needs no override.
+                    resource = ResourceRoot + "ELECA0/ELECA0";
                     return true;
                 default:
                     resource = null;
