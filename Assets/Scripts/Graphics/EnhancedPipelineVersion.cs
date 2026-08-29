@@ -110,6 +110,13 @@ namespace Doom.Graphics
         // v39: HUD wave 2 set 3 (2026-08-28) — face pain bands 3-4 + the
         // death face (17 lumps, wave complete); v38 packs hold Super-xBR
         // output under those names.
-        public const int Value = 39;
+        // v40: world wave 14 (2026-08-29) — the AQ wall tail, 23 lumps
+        // (panels/pipes/rust/tiles + 9 masked); v39 packs hold Super-xBR
+        // output under those names.
+        // v41: wave 14 close (2026-08-29) — the remaining 28 AQ lumps
+        // (metal/support anti-copy re-rolls, concrete/trim, PANL09+SECT07
+        // composition re-rolls, the AQLITE flicker five); v40 packs hold
+        // Super-xBR output under those names.
+        public const int Value = 41;
     }
 }

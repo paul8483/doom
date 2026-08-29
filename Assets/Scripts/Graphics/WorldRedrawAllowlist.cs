@@ -104,6 +104,26 @@ namespace Doom.Graphics
         /// TLITE6_1/FLAT2 (bulb grids position-pinned for the lamp
         /// flicker) + the FLAT22 blue dome. Every non-animated flat
         /// with 15+ E1 surfaces is now covered.
+        /// Wave 14 2026-08-29: the AQ wall tail (every aquatex wall under
+        /// 15 E1 sidedefs) — installed 23 of the 51-lump scan: riveted
+        /// AQPANL panels with machinery cutouts (per-channel tone match
+        /// restored the olive-green backing the generation greyed out),
+        /// AQPIPE ducts/pipe stacks, AQRUST shutters and streaked walls,
+        /// the octagon AQTILE pair, and 9 masked lumps with the native
+        /// hole mask re-applied texel-exact after seam healing (chains
+        /// AQMETL17, edge-grid fragments AQMETL24/25/27, mesh AQMETL26,
+        /// slat rows AQMETL02/29/31, the AQDIRT03 ground fringe). The
+        /// AQMETL opaque-grille set and the AQSUPP support set first came
+        /// back as smoothed copies (HF energy 0.46-0.99 of native) and
+        /// were re-rolled with the anti-copy prompt (HF 1.0-2.0 after);
+        /// AQPANL09 (stripe density/color) and AQSECT07 (two light bars
+        /// merged, staggered cells regularized) were re-rolled with
+        /// percent-pinned composition; the AQLITE flicker five shipped
+        /// with capsule grids pinned texel-exact (IoU 0.87-1.00, centroid
+        /// shift ~0). The AQCONC/AQTRIM eight ship as the first
+        /// generation by user decision (composition and seams clean;
+        /// the anti-copy re-roll never landed on disk). Every AQ* wall
+        /// used on E1 is now covered.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -116,11 +136,18 @@ namespace Doom.Graphics
             "A-VINE3",
             "AQCOMP01",
             "AQCONC04",
+            "AQCONC05",
             "AQCONC06",
             "AQCONC07",
+            "AQCONC08",
             "AQCONC10",
+            "AQCONC11",
+            "AQCONC13",
             "AQCONC14",
+            "AQCONC15",
             "AQCONC16",
+            "AQCONC18",
+            "AQDIRT03",
             "AQDOOR01",
             "AQDOOR02",
             "AQF024",
@@ -128,28 +155,72 @@ namespace Doom.Graphics
             "AQF028",
             "AQF032",
             "AQF054",
+            "AQLITE01",
+            "AQLITE07",
+            "AQLITE08",
+            "AQLITE15",
+            "AQLITE17",
             "AQLITE18",
+            "AQMETL01",
+            "AQMETL02",
             "AQMETL03",
+            "AQMETL06",
             "AQMETL07",
+            "AQMETL09",
             "AQMETL10",
             "AQMETL11",
             "AQMETL12",
             "AQMETL13",
             "AQMETL14",
             "AQMETL15",
+            "AQMETL17",
             "AQMETL20",
             "AQMETL21",
+            "AQMETL24",
+            "AQMETL25",
+            "AQMETL26",
+            "AQMETL27",
+            "AQMETL28",
+            "AQMETL29",
+            "AQMETL30",
+            "AQMETL31",
+            "AQMETL32",
+            "AQMETL33",
+            "AQPANL01",
+            "AQPANL02",
+            "AQPANL04",
+            "AQPANL05",
             "AQPANL06",
+            "AQPANL08",
+            "AQPANL09",
+            "AQPIPE01",
+            "AQPIPE02",
             "AQPIPE05",
+            "AQPIPE06",
+            "AQPIPE08",
+            "AQPIPE09",
             "AQPIPE14",
+            "AQRUST02",
+            "AQRUST05",
             "AQRUST09",
             "AQRUST10",
+            "AQSECT07",
             "AQSECT11",
+            "AQSUPP01",
+            "AQSUPP04",
+            "AQSUPP05",
             "AQSUPP06",
             "AQSUPP08",
+            "AQSUPP09",
+            "AQSUPP10",
+            "AQSUPP11",
             "AQSUPP12",
             "AQSUPP13",
+            "AQTILE01",
+            "AQTILE02",
+            "AQTRIM02",
             "AQTRIM05",
+            "AQTRIM07",
             "ASHWALL",
             "ASHWALL2",
             "ASHWALL4",
