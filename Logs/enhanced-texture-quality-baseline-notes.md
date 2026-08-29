@@ -2742,3 +2742,37 @@ Date: 2026-08-29 19:36
 | HUD Enhanced bytes | 2,8 MB |
 | Managed (GC.GetTotalMemory) | 1189,0 MB |
 | Mitigation ladder | none applied |
+
+## Task 9 performance gate (E1M7)
+
+Date: 2026-08-30 00:19
+| Metric | Value |
+|--------|-------|
+| Map build time | 1,59s |
+| Classic→Enhanced first switch (yielded warm) | 7,10s |
+| Avg repeat switch (20×, timeScale=0) | 18,7ms |
+| TextureCount / MaterialCount / NormalMapCount | 1471 / 332 / 241 |
+| EnhancedVariantCount | 241 |
+| Enhanced 4× albedo bytes | 154,8 MB |
+| Normal+height bytes | 154,8 MB |
+| Sprite Enhanced bytes | 16,9 MB |
+| HUD Enhanced bytes | 2,8 MB |
+| Mitigation ladder | none applied |
+
+## Task 9 performance gate (E1M1)
+
+Date: 2026-08-30 00:20
+| Metric | Value |
+|--------|-------|
+| Map build time | 0,88s |
+| Classic→Enhanced first switch (yielded warm) | 7,17s |
+| Repeat Classic↔Enhanced (warm) | 16,6ms |
+| TextureCount / MaterialCount / NormalMapCount | 1415 / 316 / 231 |
+| EnhancedVariantCount | 231 |
+| Native albedo bytes | 7,4 MB |
+| Enhanced 4× albedo bytes | 158,4 MB |
+| Normal+height bytes | 158,4 MB |
+| Sprite Enhanced bytes | 16,9 MB |
+| HUD Enhanced bytes | 2,8 MB |
+| Managed (GC.GetTotalMemory) | 1206,2 MB |
+| Mitigation ladder | none applied |

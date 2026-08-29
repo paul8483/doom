@@ -147,6 +147,20 @@ namespace Doom.Graphics.Tests
         }
 
         [Test]
+        public void Classifier_waterfalls_are_all_fluid()
+        {
+            // Wave 15: WFALL was the one waterfall missing from IsFluid —
+            // no cross-fade, no fluid shader, wall normal profile. All three
+            // fall families must classify Fluid together.
+            Assert.AreEqual(MaterialSurfaceCategory.Fluid,
+                MaterialSurfaceClassifier.Classify("SFALL1", isFlat: false));
+            Assert.AreEqual(MaterialSurfaceCategory.Fluid,
+                MaterialSurfaceClassifier.Classify("BFALL1", isFlat: false));
+            Assert.AreEqual(MaterialSurfaceCategory.Fluid,
+                MaterialSurfaceClassifier.Classify("WFALL1", isFlat: false));
+        }
+
+        [Test]
         public void Classifier_static_slime13_plus_is_not_fluid()
         {
             // Only SLIME01-12 animate as fluid; SLIME13/14/16 are static

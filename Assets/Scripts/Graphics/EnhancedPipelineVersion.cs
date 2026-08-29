@@ -117,6 +117,11 @@ namespace Doom.Graphics
         // (metal/support anti-copy re-rolls, concrete/trim, PANL09+SECT07
         // composition re-rolls, the AQLITE flicker five); v40 packs hold
         // Super-xBR output under those names.
-        public const int Value = 41;
+        // v42: wave 15 (2026-08-30) — the animated walls, 20 lumps (falls
+        // SFALL/WFALL/BFALL with frames 2-4 synthesized by scrolling the
+        // frame-1 anchor, ROCKRED/SLADRIP anchor-pinned in-place frames,
+        // the FIREBLU chaos pair); v41 packs hold Super-xBR output under
+        // those names. WFALL also joins the fluid class this version.
+        public const int Value = 42;
     }
 }

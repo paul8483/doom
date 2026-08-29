@@ -110,7 +110,10 @@ namespace Doom.Graphics
         static bool IsFluid(string n) =>
             n.Contains("NUKAGE") || n.Contains("LAVA") || n.Contains("BLOOD") ||
             n.Contains("WATER") || IsSlimeFluid(n) || n.Contains("FWATER") ||
-            n.Contains("SFALL") || n.Contains("BFALL") || n.Contains("DBRAIN");
+            // WFALL joined its SFALL/BFALL siblings in wave 15 (2026-08-30):
+            // it was the one waterfall without cross-fade and the fluid shader.
+            n.Contains("SFALL") || n.Contains("BFALL") || n.Contains("WFALL") ||
+            n.Contains("DBRAIN");
 
         // Only SLIME01-12 animate as fluid (TextureAnimationCatalog); SLIME13+
         // are static stone/metal flats and must keep the Flat profile.

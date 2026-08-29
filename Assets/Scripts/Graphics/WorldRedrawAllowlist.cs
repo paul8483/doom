@@ -124,6 +124,21 @@ namespace Doom.Graphics
         /// generation by user decision (composition and seams clean;
         /// the anti-copy re-roll never landed on disk). Every AQ* wall
         /// used on E1 is now covered.
+        /// Wave 15 2026-08-30: the animated walls — every animated wall
+        /// texture used on E1 (20 lumps, ~71 sidedefs). The falls
+        /// (SFALL/WFALL/BFALL) draw ONLY frame 1; frames 2-4 are the
+        /// anchor rolled down 128 px per frame (Tools/make_fall_frames.py)
+        /// so the 4-frame loop closes exactly and every frame shares the
+        /// same texels — inter-frame consistency by construction (natives:
+        /// WFALL is a true 32 px/frame scroll, SFALL/BFALL boil in place;
+        /// the synthesized scroll replaces the boil with steady flow by
+        /// the wave's approach decision). ROCKRED/SLADRIP animate in
+        /// place: frames 2-3 are pinned to the frame-1 anchor outside the
+        /// dilated native change zone (Tools/enforce_anim_frames.py, the
+        /// switch-pair instrument generalized; outside-diff 0.00% on all
+        /// four). FIREBLU is a chaos pair drawn in one session; native
+        /// flips just as hard. Ships with WFALL joining IsFluid — it was
+        /// the one waterfall without cross-fade and the fluid shader.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -226,6 +241,10 @@ namespace Doom.Graphics
             "ASHWALL4",
             "BASE",
             "BASE2",
+            "BFALL1",
+            "BFALL2",
+            "BFALL3",
+            "BFALL4",
             "BIGBRIK2",
             "BIGDOOR1",
             "BIGDOOR2",
@@ -297,6 +316,8 @@ namespace Doom.Graphics
             "EXITSGN2",
             "EXITSIGN",
             "FCGRATE2",
+            "FIREBLU1",
+            "FIREBLU2",
             "FLAT1",
             "FLAT10",
             "FLAT14",
@@ -374,11 +395,18 @@ namespace Doom.Graphics
             "PLAT1",
             "PWHITE",
             "ROCK5",
+            "ROCKRED1",
+            "ROCKRED2",
+            "ROCKRED3",
             "RROCK03",
             "RROCK14",
             "RROCK17",
             "RROCK18",
             "RROCK19",
+            "SFALL1",
+            "SFALL2",
+            "SFALL3",
+            "SFALL4",
             "SHAWN02",
             "SHAWN1",
             "SHAWN2",
@@ -390,6 +418,9 @@ namespace Doom.Graphics
             "SK_LEFT",
             "SK_RIGHT",
             "SLADPOIS",
+            "SLADRIP1",
+            "SLADRIP2",
+            "SLADRIP3",
             "SLADSKUL",
             "SLADWALL",
             "SLIME14",
@@ -467,6 +498,10 @@ namespace Doom.Graphics
             "TLITE6_1",
             "TLITE6_5",
             "TLITE6_6",
+            "WFALL1",
+            "WFALL2",
+            "WFALL3",
+            "WFALL4",
             "WOOD1",
             "WOODMET1",
             "ZIMMER3",
