@@ -338,6 +338,15 @@ namespace Doom.Stage3.PlayTests
                 "green armor keeps its static facing");
             armor.SetEnhancedForTest(true);
 
+            var soulGo = new GameObject("Spin_2013",
+                typeof(MeshFilter), typeof(MeshRenderer));
+            var soul = ExperimentalPickupModel.TryAttach(
+                soulGo, 2013, worldScale, billboard: null);
+            Assert.That(soul, Is.Not.Null);
+            Assert.That(soul.SpinsForTest, Is.True,
+                "soulsphere skull ball should spin like the armor bonus");
+            Object.Destroy(soulGo);
+
             Quaternion bonusBefore =
                 bonusGo.transform.Find("Enhanced3DModel").rotation;
             Quaternion armorBefore =

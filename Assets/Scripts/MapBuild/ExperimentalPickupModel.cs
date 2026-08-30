@@ -145,10 +145,10 @@ namespace Doom.MapBuild
                      PickupAnimationTable.TryGet(doomedNum, out var blinkAnim))
                 presentation.blinkAnimation = blinkAnim;
             presentation.brightFrame = blinkBrightFrame;
-            // Armor bonus: the shield is a flat plaque whose facing comes from
-            // the thing's WAD angle (random for items) — spin it slowly instead
-            // of trying to face the camera.
-            presentation.spinYaw = doomedNum == 2015;
+            // Armor bonus and soulsphere: their facing comes from the thing's
+            // WAD angle (random for items) — spin slowly instead of trying to
+            // face the camera (the skull ball reads best in motion).
+            presentation.spinYaw = doomedNum == 2015 || doomedNum == 2013;
             presentation.Init(
                 resource,
                 Mathf.Max(0.01f, heightUnits * worldScale),
