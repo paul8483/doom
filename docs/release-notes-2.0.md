@@ -1,53 +1,76 @@
-# DoomUnity 2.0 — Release Notes (черновик)
+# Doom Unity Remake 3D 2.0.0 (draft)
 
-Ремейк DOOM на Unity, написанный с нуля: рендер, физика и геймплей — свои,
-данные — из WAD (в поставке Freedoom Phase 1 v0.13.0). Полная кампания
-эпизода 1: девять карт, все восемь видов оружия, монстры, секреты, сейвы,
-меню, музыка через OPL3-синтез.
+*(Release title gains «3D» from 2.0 on — the headline change of this
+generation; the executable and zip names keep the DoomUnity prefix, and
+productName/companyName stay untouched so 1.x saves keep their path.)*
 
-## Главное в 2.0
+The Enhanced mode generation update: AI-derived 3D objects and monsters,
+and a full-episode set of redrawn world textures. Episode 1 remains fully
+playable with Freedoom Phase 1 bundled.
 
-### Enhanced 3D-объекты (AI-derived)
-- Все пикапы, декорации, факелы, колонны, лампы, бочки и деревья эпизода —
-  текстурированные 3D-меши, сгенерированные из родных WAD-спрайтов
-  (TRELLIS.2 + детерминированная «думификация»: децимация до 40k tris,
-  нативная палитра, тон по спрайту).
-- Все пять монстров эпизода — стоп-моушен 3D в стиле Voxel Doom: ходьба,
-  атаки, боль, полная цепочка смерти до трупа на полу; лужи XDEATH-останков
-  и мёртвые морпехи карт — тоже меши. Спектр — призрачный полупрозрачный
-  меш (аналог MF_SHADOW).
-- Файербол импа — объёмный шар с горячим ядром, вспышки выстрелов зомби —
-  шейдерные бёрсты из нативных текселей.
+### What's new since 1.0.3
 
-### Перерисованные текстуры мира (Enhanced)
-- Полное покрытие эпизода дисплейными редравами 4×: стены (15 волн, включая
-  двери, переключатели, решётки с альфой), полы и потолки, анимированные
-  водопады с покадровой консистентностью и кросс-фейдом. Единственное
-  исключение — небо (нативное).
-- Оружие от первого лица — редравы 4× всех восьми стволов.
-- Мерцание ламп, многомасштабные нормали + параллакс, динамические свет и
-  туман секторов, WAD-небо на сфере.
+**Enhanced 3D objects (AI-derived from the WAD sprites)**
+- Every pickup, decoration, torch, pillar, lamp, barrel, tree and corpse of
+  the episode is now a textured 3D mesh generated from its own WAD sprite
+  (TRELLIS.2 + a deterministic doomify pass: ~40k tris, native sprite
+  palette, tone matched to the sprite on screen)
+- All five E1 monsters run stop-motion 3D, Voxel-Doom style: walk, attack,
+  pain, and the whole death chain down to the body on the floor; XDEATH gib
+  pools and map-placed dead marines are meshes too
+- The spectre is a translucent ghost mesh (MF_SHADOW analog with UV
+  shimmer); Classic and 3D Off keep the sprite fuzz billboard
+- The imp fireball is a volumetric ball with a hot core; zombie gunfire
+  shows shader muzzle bursts baked from native sprite texels
+- Options → «3D Objects» On/Off toggles the whole layer at runtime
 
-### Classic
-- Режим бит-верного WAD-рендера не тронут; горячее переключение
-  Classic ↔ Enhanced в любой момент.
-- Починены пробелы бит-верности: переключатели теперь меняют текстуру при
-  нажатии (порт P_ChangeSwitchTexture), декорации и сферы анимируются в
-  родной каденции, коллизия имён флэтов и стен (STEP1/STEP2) разведена.
+**Redrawn world textures (Enhanced)**
+- Full episode coverage with exact-4× GPT redraws: all walls (15 waves —
+  panels, brick, metal, doors, switches, hell stone, masked grates with
+  true alpha), all floors and ceilings, and the animated waterfalls with
+  frame-consistent scrolling and cross-fade. The only exception is the sky
+  (native)
+- First-person weapons: 4× redraws for all eight guns, muzzle flashes
+  included
+- EdgeMix 8× from 1.0.2/1.0.3 is removed entirely — Enhanced sprites now
+  route mesh → redraw → native, with no transitional blur
 
-## Совместимость
-- Сейвы прежних версий загружаются (схемы v1–v6 читаются с миграцией на
-  лету); сейв более новой версии отклоняется с внятной ошибкой.
-- Настройки прежних версий подхватываются; незнакомая схема безопасно
-  сбрасывается в дефолты.
+**Classic-fidelity fixes (both modes)**
+- Switches now change texture when pressed (P_ChangeSwitchTexture port
+  with the pressed/unpressed pair swap; the port never did this before)
+- Decorations, torches and power-up spheres animate at their vanilla
+  cadence; per-fixture lamp flicker on light panels in Enhanced
+- Flat/wall texture name collision (STEP1/STEP2) resolved — 57 surfaces
+  were silently rendering the wrong image since 1.0.x
 
-## Известные ограничения
-- Небо (SKY1) рендерится нативным (редрав отложен).
-- В Classic текстурные анимации статичны (ванилла крутит их жёсткими
-  сменами по 8 тиков) — кандидат на 2.x.
-- Меню и интермиссия — нативные WAD-патчи без апскейла.
+**Distribution**
+- The build now ships a `Licenses/` folder: Freedoom (BSD), LibTessDotNet
+  (SGI Free B 2.0), Nuked OPL3 (LGPL-2.1), Super-xBR (MIT)
 
-## Поставка
-- Windows x64, ~560 МБ (AI-ассеты внутри).
-- Папка `Licenses/` в комплекте: Freedoom (BSD), LibTessDotNet (SGI B 2.0),
-  Nuked OPL3 (LGPL-2.1), Super-xBR (MIT).
+### Compatibility
+
+- Saves from 1.x load (schemas v1–v6 migrate on read); saves from a newer
+  version are rejected with a clear message
+- Settings from 1.x are picked up; an unknown schema safely falls back to
+  defaults
+
+### Download
+
+- `DoomUnity-2.0.0-windows-x64.zip` — unpack and run `DoomUnity.exe`
+- `DoomUnity-2.0.0-linux-x64.zip` — unpack and run `DoomUnity.x86_64`
+  (`chmod +x` if needed)
+
+### Requirements
+
+- 64-bit Windows or 64-bit Linux
+- No Unity Editor needed
+
+### Notes
+
+- IWAD: Freedoom Phase 1 (`freedoom1.wad`) is included via StreamingAssets
+- Commercial `DOOM.WAD` is not required
+- Classic mode is unchanged; switch Classic/Enhanced in Options
+- Known limits: the sky stays native; Classic texture animations are still
+  static (vanilla flips them every 8 tics) — candidate for 2.x; menus and
+  intermission stay native
+- macOS builds are not in this release
