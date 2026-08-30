@@ -93,3 +93,6 @@ Desktop.ini
 # runnable straight from a clean clone).
 
 Tools/__pycache__/
+
+# Local screenshot staging (curated copies live in docs/screenshots)
+/Screenshots/
