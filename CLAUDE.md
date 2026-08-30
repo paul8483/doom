@@ -184,6 +184,7 @@ Prefer landing each stage as its own visible milestone rather than building seve
 - `Packages/`, `ProjectSettings/`, `UserSettings/` — Unity project metadata (committed; `UserSettings/` ignored per gitignore).
 - `Library/`, `Temp/`, `Logs/`, `obj/` — Unity-generated, gitignored.
 - `docs/` — design docs, including the stage-by-stage plan.
+- `docs/backlog.md` — бэклог: принятые пользователем решения, ещё не превращённые в спеку/план (например, спектр в 3D, решение 2026-08-30). Проверять при выборе следующей волны.
 
 ## Toolchain
 
