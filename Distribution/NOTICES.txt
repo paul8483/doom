@@ -1,0 +1,29 @@
+DoomUnity — Third-party notices
+===============================
+
+This game is a from-scratch remake of DOOM built with Unity. All rendering,
+physics and game logic are original; the game data and the components below
+are third-party.
+
+1) Freedoom (game data: freedoom1.wad)
+   Freedoom Phase 1, v0.13.0 — https://freedoom.github.io/
+   Copyright (c) 2001-2024 Contributors to the Freedoom project.
+   License: BSD-style (see FREEDOOM-LICENSE.txt)
+
+2) LibTessDotNet (polygon tessellation)
+   https://github.com/speps/LibTessDotNet (v1.1.15)
+   License: SGI Free Software License B 2.0 (see LIBTESSDOTNET-LICENSE.txt)
+
+3) Nuked OPL3, managed port (OPL3 FM synthesis for music playback)
+   C# port: https://github.com/SaxxonPike/NukedOpl (commit dc939ea)
+   Original C core: https://github.com/nukeykt/Nuked-OPL3
+   License: GNU Lesser General Public License v2.1 (see NUKEDOPL-LICENSE.txt)
+   The corresponding source of the port is available from the upstream
+   repositories above.
+
+4) Super-xBR upscaling algorithm
+   Copyright (c) 2016 Hyllian
+   License: MIT (see SUPERXBR-LICENSE.txt)
+
+The Unity engine runtime is (c) Unity Technologies and is distributed under
+the Unity Terms of Service.

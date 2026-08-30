@@ -17,6 +17,19 @@ namespace Doom.MapBuild.Editor
         const string ProfilingOutputDir = "Builds/WindowsProfile";
         const string ProfilingExeName = "DoomUnityProfile.exe";
 
+        /// Shipped next to the player in <outDir>/Licenses. Freedoom's BSD
+        /// notice and the LGPL text for the Nuked OPL3 port are redistribution
+        /// REQUIREMENTS, not niceties — a build without them is not shippable,
+        /// so the preflight refuses it (source path → file name in the build).
+        static readonly (string SourcePath, string ShipName)[] DistributionLicenses =
+        {
+            ("Distribution/NOTICES.txt", "NOTICES.txt"),
+            ("Distribution/FREEDOOM-LICENSE.txt", "FREEDOOM-LICENSE.txt"),
+            ("Assets/ThirdParty/LibTessDotNet/LICENSE.txt", "LIBTESSDOTNET-LICENSE.txt"),
+            ("Assets/ThirdParty/NukedOpl/LICENSE.txt", "NUKEDOPL-LICENSE.txt"),
+            ("Assets/ThirdParty/SuperXbr/LICENSE.txt", "SUPERXBR-LICENSE.txt"),
+        };
+
         static readonly string[] RequiredDoomShaders =
         {
             "Doom/ClassicOpaque",
@@ -141,8 +154,11 @@ namespace Doom.MapBuild.Editor
             BuildReport report = BuildPipeline.BuildPlayer(options);
             bool ok = report.summary.result == BuildResult.Succeeded;
             if (ok)
+            {
+                CopyDistributionLicenses(projectRoot, outDir);
                 Debug.Log($"[Stage8] {target} build OK → {exePath} " +
                           $"({report.summary.totalSize} bytes, options={buildOptions})");
+            }
             else
                 Debug.LogError($"[Stage8] {target} build failed: {report.summary.result}");
 
@@ -191,7 +207,28 @@ namespace Doom.MapBuild.Editor
                 }
             }
 
+            string root = Path.GetDirectoryName(Application.dataPath);
+            foreach (var (sourcePath, _) in DistributionLicenses)
+            {
+                if (!File.Exists(Path.Combine(root, sourcePath)))
+                {
+                    error = $"Missing distribution license file: {sourcePath}";
+                    return false;
+                }
+            }
+
             return true;
+        }
+
+        static void CopyDistributionLicenses(string projectRoot, string outDir)
+        {
+            string licenseDir = Path.Combine(outDir, "Licenses");
+            Directory.CreateDirectory(licenseDir);
+            foreach (var (sourcePath, shipName) in DistributionLicenses)
+                File.Copy(Path.Combine(projectRoot, sourcePath),
+                          Path.Combine(licenseDir, shipName), overwrite: true);
+            Debug.Log($"[Stage8] Shipped {DistributionLicenses.Length} license " +
+                      $"files → {licenseDir}");
         }
     }
 }
