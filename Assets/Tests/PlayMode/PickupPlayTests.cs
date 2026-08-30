@@ -316,6 +316,61 @@ namespace Doom.Stage3.PlayTests
         }
 
         [UnityTest]
+        public IEnumerator Armor_bonus_mesh_spins_green_armor_does_not()
+        {
+            float worldScale = 1f / 32f;
+
+            var bonusGo = new GameObject("Spin_2015",
+                typeof(MeshFilter), typeof(MeshRenderer));
+            var bonus = ExperimentalPickupModel.TryAttach(
+                bonusGo, 2015, worldScale, billboard: null);
+            Assert.That(bonus, Is.Not.Null);
+            Assert.That(bonus.SpinsForTest, Is.True,
+                "armor bonus should spin (WAD thing angle is random for items)");
+            bonus.SetEnhancedForTest(true);
+
+            var armorGo = new GameObject("Spin_2018",
+                typeof(MeshFilter), typeof(MeshRenderer));
+            var armor = ExperimentalPickupModel.TryAttach(
+                armorGo, 2018, worldScale, billboard: null);
+            Assert.That(armor, Is.Not.Null);
+            Assert.That(armor.SpinsForTest, Is.False,
+                "green armor keeps its static facing");
+            armor.SetEnhancedForTest(true);
+
+            Quaternion bonusBefore =
+                bonusGo.transform.Find("Enhanced3DModel").rotation;
+            Quaternion armorBefore =
+                armorGo.transform.Find("Enhanced3DModel").rotation;
+            // Without a real Enhanced settings state, Update re-hides the mesh
+            // every frame (RefreshVisibility) — re-force the test presentation
+            // each frame so the spin path sees a visible model, as in-game.
+            float elapsed = 0f;
+            while (elapsed < 0.25f)
+            {
+                bonus.SetEnhancedForTest(true);
+                armor.SetEnhancedForTest(true);
+                yield return null;
+                elapsed += Time.deltaTime;
+            }
+
+            Assert.That(
+                Quaternion.Angle(
+                    bonusBefore,
+                    bonusGo.transform.Find("Enhanced3DModel").rotation),
+                Is.GreaterThan(1f), "armor bonus mesh should rotate over time");
+            Assert.That(
+                Quaternion.Angle(
+                    armorBefore,
+                    armorGo.transform.Find("Enhanced3DModel").rotation),
+                Is.LessThan(0.01f), "green armor mesh should stay put");
+
+            Object.Destroy(bonusGo);
+            Object.Destroy(armorGo);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator IronFeet_blocks_floor_damage()
         {
             yield return LoadLevel();

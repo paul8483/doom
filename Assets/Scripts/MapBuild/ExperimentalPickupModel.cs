@@ -29,6 +29,12 @@ namespace Doom.MapBuild
         // Corpse decorations are lying slabs: scale X to the patch width and
         // keep the mesh's own thickness (the monster-table flat-frame rule).
         bool normalizeByWidth;
+        // Small pickups inherit the thing's WAD angle, which reads as random
+        // for items; a slow spin makes the mesh readable from every approach.
+        bool spinYaw;
+        const float SpinDegreesPerSecond = 45f;
+
+        public bool SpinsForTest => spinYaw;
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
@@ -139,6 +145,10 @@ namespace Doom.MapBuild
                      PickupAnimationTable.TryGet(doomedNum, out var blinkAnim))
                 presentation.blinkAnimation = blinkAnim;
             presentation.brightFrame = blinkBrightFrame;
+            // Armor bonus: the shield is a flat plaque whose facing comes from
+            // the thing's WAD angle (random for items) — spin it slowly instead
+            // of trying to face the camera.
+            presentation.spinYaw = doomedNum == 2015;
             presentation.Init(
                 resource,
                 Mathf.Max(0.01f, heightUnits * worldScale),
@@ -455,6 +465,14 @@ namespace Doom.MapBuild
         {
             if (gemBlink && ModelVisible)
                 ApplyGemBlink(force: false);
+
+            // Spin around the vertical axis through the thing root: bounds were
+            // centred on the root in NormalizeToPickup, so the mesh turns in
+            // place. Time.deltaTime freezes on pause with the rest of the game.
+            if (spinYaw && ModelVisible)
+                modelRoot.transform.RotateAround(
+                    transform.position, Vector3.up,
+                    SpinDegreesPerSecond * Time.deltaTime);
 
             bool hasSettings = SettingsController.Instance != null;
             if (hasSettings && settingsControllerSeen) return;
