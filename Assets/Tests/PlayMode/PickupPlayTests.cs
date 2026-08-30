@@ -242,6 +242,7 @@ namespace Doom.Stage3.PlayTests
                          54,   // TRE2 large brown tree
                          47,   // SMIT stalagmite / leafy tree
                          48,   // ELEC tall techno pillar
+                         2013, // soulsphere (single frame-A mesh)
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
@@ -270,6 +271,7 @@ namespace Doom.Stage3.PlayTests
                     43 => "TRE1A0",
                     54 => "TRE2A0",
                     47 => "SMITA0",
+                    2013 => "SOULA0",
                     _ => null,
                 };
                 float heightUnits = def.Height;

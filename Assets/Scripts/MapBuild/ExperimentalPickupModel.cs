@@ -105,10 +105,16 @@ namespace Doom.MapBuild
                 // lamp path (no animation, blink parked bright); the thing's
                 // dynamic tech light from EnhancedEmissionTable is unchanged.
                 48 => ResourceRoot + "ELECA0/ELECA0_emission",
+                // Soulsphere: the golden shell glows steady (skull recesses
+                // dark); the laugh animation A-D stays billboard-only like
+                // BON1's star glint, so no blink animation even though 2013
+                // sits in PickupAnimationTable.
+                2013 => ResourceRoot + "SOULA0/SOULA0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018 || doomedNum == 2035
-                || doomedNum == 2028 || doomedNum == 2014 || doomedNum == 48;
+                || doomedNum == 2028 || doomedNum == 2014 || doomedNum == 48
+                || doomedNum == 2013;
             // Which animation frame is the mask's BRIGHT phase: the armor gem
             // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
             int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
@@ -168,6 +174,7 @@ namespace Doom.MapBuild
                 case 43: return 70f;   // TRE1A0
                 case 54: return 124f;  // TRE2A0
                 case 47: return 69f;   // SMITA0
+                case 2013: return 25f; // SOULA0 (collision 16; patch is taller)
                 default: return collisionHeight;
             }
         }
@@ -271,6 +278,12 @@ namespace Doom.MapBuild
                     // Tall techno pillar; patch height (128) equals the mobjinfo
                     // collision height, so SpriteHeightPx needs no override.
                     resource = ResourceRoot + "ELECA0/ELECA0";
+                    return true;
+                case 2013:
+                    // Soulsphere: single frame-A mesh — the laugh morph A-D
+                    // would need four TRELLIS runs and jitter (COL5/monster
+                    // lesson), so the animation stays billboard-only.
+                    resource = ResourceRoot + "SOULA0/SOULA0";
                     return true;
                 default:
                     resource = null;
