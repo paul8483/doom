@@ -181,6 +181,7 @@ namespace Doom.MapBuild
                 case 2047: return 12f; // CELLA0
                 case 2048: return 16f; // AMMOA0 (matches collision height)
                 case 2049: return 13f; // SBOXA0
+                case 2046: return 20f; // BROKA0 (collision 16; patch is taller)
                 case 30: return 56f;   // COL1A0 (collision 48; patch is taller)
                 case 31: return 41f;   // COL2A0 (collision 36)
                 case 32: return 55f;   // COL3A0 (collision 48)
@@ -252,6 +253,9 @@ namespace Doom.MapBuild
                     return true;
                 case 2049:
                     resource = ResourceRoot + "SBOXA0/SBOXA0";
+                    return true;
+                case 2046:
+                    resource = ResourceRoot + "BROKA0/BROKA0";
                     return true;
                 case 17:
                     resource = ResourceRoot + "CELPA0/CELPA0";

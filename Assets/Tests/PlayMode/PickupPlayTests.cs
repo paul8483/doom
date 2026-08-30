@@ -232,6 +232,7 @@ namespace Doom.Stage3.PlayTests
                          17,   // cell pack
                          2048, // bullet box
                          2049, // shell box
+                         2046, // rocket box
                          2028, // COLU floor lamp
                          30,   // COL1 tall green pillar
                          31,   // COL2 short green pillar
@@ -265,6 +266,7 @@ namespace Doom.Stage3.PlayTests
                     2047 => "CELLA0",
                     2048 => "AMMOA0",
                     2049 => "SBOXA0",
+                    2046 => "BROKA0",
                     30 => "COL1A0",
                     31 => "COL2A0",
                     32 => "COL3A0",
