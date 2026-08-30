@@ -10,19 +10,12 @@ Development and distribution use **[Freedoom](https://freedoom.github.io/)** (Ph
 
 ## Screenshots
 
-**The same place, both modes** — bit-faithful Classic on the left, Enhanced on the right:
-
-| Classic | Enhanced |
-| --- | --- |
-| ![Classic hall](docs/screenshots/hall-classic.png) | ![Enhanced hall](docs/screenshots/hall-enhanced.png) |
-
-**Enhanced:**
-
 | | |
 | --- | --- |
 | ![3D imp in the fog](docs/screenshots/imp-fog.png) | ![Spectre ghost mesh](docs/screenshots/spectre.png) |
 | ![Tech hall firefight](docs/screenshots/tech-hall.png) | ![Computer corridor](docs/screenshots/computer-corridor.png) |
-| ![Shotgun pickup on a crate](docs/screenshots/shotgun-crate.png) | ![Swamp fight](docs/screenshots/swamp-fight.png) |
+| ![Pillared hall](docs/screenshots/hall-enhanced.png) | ![Shotgun pickup on a crate](docs/screenshots/shotgun-crate.png) |
+| ![Swamp fight](docs/screenshots/swamp-fight.png) | ![Observation window](docs/screenshots/window-room.png) |
 
 ## What's inside
 
