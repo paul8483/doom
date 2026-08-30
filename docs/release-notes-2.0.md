@@ -1,8 +1,4 @@
-# Doom Unity 3D Remake 2.0.0 (draft)
-
-*(The project title gains «3D» from 2.0 on — the headline change of this
-generation; the executable and zip names keep the DoomUnity prefix, and
-productName/companyName stay untouched so 1.x saves keep their path.)*
+# Doom Unity 3D Remake 2.0.0
 
 The Enhanced mode generation update: AI-derived 3D objects and monsters,
 and a full-episode set of redrawn world textures. Episode 1 remains fully
