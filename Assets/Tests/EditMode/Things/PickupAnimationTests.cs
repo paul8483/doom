@@ -12,6 +12,8 @@ namespace Doom.Things.Tests
         [TestCase(2015, 4, 6)]
         [TestCase(2013, 4, 6)]
         [TestCase(2018, 2, 6)]
+        [TestCase(2022, 4, 6)]
+        [TestCase(2024, 4, 6)]
         [TestCase(5, 2, 10)]
         public void Genuine_pickup_sequences_match_spawn_states(
             int doomEdNum, int frameCount, int firstTics)

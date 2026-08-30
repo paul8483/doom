@@ -243,6 +243,7 @@ namespace Doom.Stage3.PlayTests
                          47,   // SMIT stalagmite / leafy tree
                          48,   // ELEC tall techno pillar
                          2013, // soulsphere (single frame-A mesh)
+                         2022, // invulnerability sphere (absent from E1 maps)
                      })
             {
                 Assert.That(ThingTable.TryGet(doomedNum, out var def), Is.True);
@@ -272,6 +273,7 @@ namespace Doom.Stage3.PlayTests
                     54 => "TRE2A0",
                     47 => "SMITA0",
                     2013 => "SOULA0",
+                    2022 => "PINVA0",
                     _ => null,
                 };
                 float heightUnits = def.Height;

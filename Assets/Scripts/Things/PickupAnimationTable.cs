@@ -29,6 +29,10 @@ namespace Doom.Things
             [2014] = new PickupAnimation(FourFrames, FourTics), // BON1
             [2015] = new PickupAnimation(FourFrames, FourTics), // BON2
             [2013] = new PickupAnimation(FourFrames, FourTics), // SOUL
+            // S_PINV/S_PINS spin A-D at 6 tics (info.c); the port froze both
+            // spheres on frame A until 2026-08-30 (torch/COL5 class of gap).
+            [2022] = new PickupAnimation(FourFrames, FourTics), // PINV
+            [2024] = new PickupAnimation(FourFrames, FourTics), // PINS
             [2018] = new PickupAnimation(TwoFrames, TwoTics),   // ARM1
             [2019] = new PickupAnimation(TwoFrames, TwoTics),   // ARM2
             [5] = new PickupAnimation(TwoFrames, KeyTics),      // BKEY

@@ -110,11 +110,15 @@ namespace Doom.MapBuild
                 // BON1's star glint, so no blink animation even though 2013
                 // sits in PickupAnimationTable.
                 2013 => ResourceRoot + "SOULA0/SOULA0_emission",
+                // Invulnerability: the green glass glows steady, the pentagram
+                // engraving stays dark; the A-D sheen animation is billboard-
+                // only like the soulsphere's laugh.
+                2022 => ResourceRoot + "PINVA0/PINVA0_emission",
                 _ => null,
             };
             bool gemBlink = doomedNum == 2018 || doomedNum == 2035
                 || doomedNum == 2028 || doomedNum == 2014 || doomedNum == 48
-                || doomedNum == 2013;
+                || doomedNum == 2013 || doomedNum == 2022;
             // Which animation frame is the mask's BRIGHT phase: the armor gem
             // shines on A (frame 0), the barrel's lamps flash on B (frame 1).
             int blinkBrightFrame = doomedNum == 2035 ? 1 : 0;
@@ -175,6 +179,7 @@ namespace Doom.MapBuild
                 case 54: return 124f;  // TRE2A0
                 case 47: return 69f;   // SMITA0
                 case 2013: return 25f; // SOULA0 (collision 16; patch is taller)
+                case 2022: return 25f; // PINVA0 (collision 16; patch is taller)
                 default: return collisionHeight;
             }
         }
@@ -284,6 +289,13 @@ namespace Doom.MapBuild
                     // would need four TRELLIS runs and jitter (COL5/monster
                     // lesson), so the animation stays billboard-only.
                     resource = ResourceRoot + "SOULA0/SOULA0";
+                    return true;
+                case 2022:
+                    // Invulnerability sphere: single frame-A mesh (frames A-D
+                    // differ only in glass sheen); absent from E1 maps but the
+                    // asset rides ahead of later episodes. Deliberately a flat
+                    // medallion — user-accepted shape (2026-08-30).
+                    resource = ResourceRoot + "PINVA0/PINVA0";
                     return true;
                 default:
                     resource = null;
