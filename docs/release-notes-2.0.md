@@ -1,6 +1,6 @@
-# Doom Unity Remake 3D 2.0.0 (draft)
+# Doom Unity 3D Remake 2.0.0 (draft)
 
-*(Release title gains «3D» from 2.0 on — the headline change of this
+*(The project title gains «3D» from 2.0 on — the headline change of this
 generation; the executable and zip names keep the DoomUnity prefix, and
 productName/companyName stay untouched so 1.x saves keep their path.)*
 
