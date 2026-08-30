@@ -18,10 +18,9 @@ playable with Freedoom Phase 1 bundled.
   shimmer); Classic and 3D Off keep the sprite fuzz billboard
 - The imp fireball is a volumetric ball with a hot core; zombie gunfire
   shows shader muzzle bursts baked from native sprite texels
-- Options → «3D Objects» On/Off toggles the whole layer at runtime
 
 **Redrawn world textures (Enhanced)**
-- Full episode coverage with exact-4× GPT redraws: all walls (15 waves —
+- Full episode coverage with exact-4× redraws: all walls (15 waves —
   panels, brick, metal, doors, switches, hell stone, masked grates with
   true alpha), all floors and ceilings, and the animated waterfalls with
   frame-consistent scrolling and cross-fade. The only exception is the sky
