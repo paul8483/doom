@@ -390,6 +390,100 @@ namespace Doom.Stage3.PlayTests
             yield return null;
         }
 
+        // The spectre (58) shares the demon's meshes; MF_SHADOW moves to the
+        // ghost mesh material (2026-08-30). The demon itself must stay on the
+        // opaque unlit shader — a shared-material leak would ghost them both.
+        [UnityTest]
+        public IEnumerator Spectre_routes_demon_meshes_with_ghost_material()
+        {
+            var spectreGo = NewMonsterRoot(out var spectreBb);
+            var spectreModel = ExperimentalMonsterModel.TryAttach(
+                spectreGo, "SARG", 1f / 32f, spectreBb, spectre: true);
+            Assert.That(spectreModel, Is.Not.Null,
+                "the spectre must attach the shared SARG meshes");
+            Assert.That(spectreModel.SpectreForTest, Is.True);
+
+            var demonGo = NewMonsterRoot(out var demonBb);
+            var demonModel = ExperimentalMonsterModel.TryAttach(
+                demonGo, "SARG", 1f / 32f, demonBb);
+            Assert.That(demonModel, Is.Not.Null);
+            Assert.That(demonModel.SpectreForTest, Is.False);
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            yield return null;
+            Assert.That(spectreModel.ModelVisible, Is.True);
+
+            // A death frame instantiates lazily and must configure the same
+            // ghost material as the live frames.
+            spectreModel.NotifyDeathStarted(extremeDeath: false);
+            spectreModel.NotifyFrame(8);
+            yield return null;
+
+            foreach (var (root, expected) in new[]
+                     { (spectreGo, "Doom/ExperimentalSpectre"),
+                       (demonGo, "Doom/ExperimentalPickupUnlit") })
+            {
+                int checkedMats = 0;
+                foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (r.gameObject == root) continue; // the sprite billboard
+                    foreach (var mat in r.sharedMaterials)
+                    {
+                        Assert.That(mat, Is.Not.Null);
+                        Assert.That(mat.shader.name, Is.EqualTo(expected),
+                            $"{root.name}: frame '{r.transform.parent?.name}'");
+                        Assert.That(mat.mainTexture, Is.Not.Null,
+                            "the ghost keeps the frame's own albedo");
+                        checkedMats++;
+                    }
+                }
+                Assert.That(checkedMats, Is.GreaterThan(0));
+            }
+
+            Object.Destroy(spectreGo);
+            Object.Destroy(demonGo);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator E1m2_spawns_spectre_with_ghost_mesh()
+        {
+            // Set the map AFTER SetUp's ResetForTests — GameSessionHost's
+            // reset clears MapNameOverride (the E1M5 torch-suite trap).
+            MapLoader.MapNameOverride = "E1M2";
+            SceneManager.LoadScene("Stage2_MapPreview", LoadSceneMode.Single);
+            for (int i = 0; i < 600; i++)
+            {
+                var flow = GameFlowController.Instance;
+                if (flow != null && flow.State == GameFlowState.Playing &&
+                    GameObject.Find("Player") != null)
+                    break;
+                yield return null;
+            }
+
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display);
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            yield return null; yield return null;
+
+            ExperimentalMonsterModel spectre = null;
+            foreach (var m in Object.FindObjectsByType<ExperimentalMonsterModel>(
+                         FindObjectsSortMode.None))
+            {
+                if (m != null && m.HasModel && m.SpectreForTest)
+                { spectre = m; break; }
+            }
+            Assert.That(spectre, Is.Not.Null,
+                "E1M2 must spawn at least one mesh-routed spectre (thing 58)");
+            Assert.That(spectre.ModelVisible, Is.True);
+            var bb = spectre.GetComponent<SpriteBillboard>();
+            Assert.That(bb.IsSpectre, Is.True,
+                "the billboard fallback keeps the sprite spectre shader");
+        }
+
         [UnityTest]
         public IEnumerator E1m1_spawns_mesh_routed_poss_monster()
         {

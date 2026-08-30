@@ -288,5 +288,19 @@ namespace Doom.Map.Tests
                 "ExperimentalMonsters/DoomExperimentalMuzzleFlash"),
                 Is.Not.Null, "missing Doom/ExperimentalMuzzleFlash shader");
         }
+
+        /// The spectre (58) rides the demon's meshes with the ghost material
+        /// (2026-08-30) — the runtime Resources.Loads this shader at attach
+        /// time, and a missing asset would silently render the spectre with
+        /// the demon's opaque unlit look.
+        [Test]
+        public void Spectre_ghost_shader_ships_in_resources()
+        {
+            var shader = Resources.Load<Shader>(
+                "ExperimentalMonsters/DoomExperimentalSpectre");
+            Assert.That(shader, Is.Not.Null,
+                "missing Doom/ExperimentalSpectre shader");
+            Assert.That(shader.name, Is.EqualTo("Doom/ExperimentalSpectre"));
+        }
     }
 }

@@ -145,8 +145,8 @@ namespace Doom.MapBuild
                 // boosted for game-distance readability).
                 muzzleFlash: (5, new Vector3(0f, 0.076f, 0.5f), 0.45f)),
             // Demon: melee attack spans E-F-G, pain is H (8 live frames).
-            // The spectre (58) never routes here — ThingSpawner keeps it on
-            // the MF_SHADOW billboard.
+            // The spectre (58) shares this whole set — same meshes, same
+            // chain — with the ghost material swapped in (spectre flag).
             // Death: the demon bursts — I0/J0 still have a body, K0-M0 are
             // spraying gore and N0 is the corpse pool.
             ["SARG"] = new MonsterModelSet(
@@ -271,6 +271,9 @@ namespace Doom.MapBuild
         /// How many death frames after LiveFrameCount have meshes on disk —
         /// presentation hands over to the billboard at the first frame past it.
         int coveredDeathFrames;
+        /// MF_SHADOW thing (58): frame meshes take the translucent ghost
+        /// shader instead of the opaque unlit one.
+        bool spectre;
         readonly List<Material> ownedMaterials = new List<Material>();
 
         int currentFrame;
@@ -298,6 +301,7 @@ namespace Doom.MapBuild
         public bool RevertedForTest => reverted;
         public bool DeathCoveredForTest => coveredDeathFrames > 0;
         public int CoveredDeathFramesForTest => coveredDeathFrames;
+        public bool SpectreForTest => spectre;
 
         /// Test seam: pretend only this many death meshes are on disk. Every
         /// routed monster now ships its whole chain, so the "death tail is
@@ -315,7 +319,8 @@ namespace Doom.MapBuild
             GameObject monsterRoot,
             string sprite,
             float worldScale,
-            SpriteBillboard billboard)
+            SpriteBillboard billboard,
+            bool spectre = false)
         {
             if (monsterRoot == null || sprite == null) return null;
             if (!Sets.TryGetValue(sprite, out var set)) return null;
@@ -357,7 +362,7 @@ namespace Doom.MapBuild
                 model.xdeathPrefab = Resources.Load<GameObject>(
                     ResourceRoot + set.Sprite + "/" + set.Sprite + set.XdeathLump);
             model.Init(set, prefabs, emissionMasks, coveredDeathFrames, worldScale,
-                       billboard);
+                       billboard, spectre);
             if (!model.HasModel)
             {
                 Destroy(model);
@@ -368,9 +373,11 @@ namespace Doom.MapBuild
 
         void Init(MonsterModelSet set, GameObject[] prefabs,
                   Texture2D[] emissionMasks, int deathFramesCovered,
-                  float worldScaleUnits, SpriteBillboard sourceBillboard)
+                  float worldScaleUnits, SpriteBillboard sourceBillboard,
+                  bool asSpectre)
         {
             this.set = set;
+            spectre = asSpectre;
             framePrefabs = prefabs;
             frameEmission = emissionMasks;
             coveredDeathFrames = deathFramesCovered;
@@ -579,11 +586,14 @@ namespace Doom.MapBuild
         /// Same presentation stack as pickups/decorations: Resources-loaded
         /// unlit shader (exposure 1.0, SectorFog aware). An optional emission
         /// mask lights masked texels steadily in the albedo's own hue (blue
-        /// visor) — discrete-blink path with _Blink pinned to 1.
+        /// visor) — discrete-blink path with _Blink pinned to 1. The spectre
+        /// takes the translucent ghost shader instead (MF_SHADOW analog:
+        /// depth-primed single-layer blend + UV shimmer, no emission).
         void ConfigureMaterials(Renderer[] renderers, Texture2D emissionMask)
         {
             Shader shader = Resources.Load<Shader>(
-                "ExperimentalPickups/DoomExperimentalPickupUnlit");
+                spectre ? "ExperimentalMonsters/DoomExperimentalSpectre"
+                        : "ExperimentalPickups/DoomExperimentalPickupUnlit");
             if (shader == null) return;
 
             foreach (var renderer in renderers)
@@ -601,7 +611,7 @@ namespace Doom.MapBuild
                     material.SetFloat("_Exposure", 1f);
                     material.SetFloat("_EmissionStrength", 0f);
                     material.SetColor("_ColorTint", Color.white);
-                    if (emissionMask != null)
+                    if (!spectre && emissionMask != null)
                     {
                         material.SetTexture("_EmissionMask", emissionMask);
                         material.SetFloat("_BlinkMode", 1f);
