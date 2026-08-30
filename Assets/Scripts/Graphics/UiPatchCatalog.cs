@@ -76,13 +76,25 @@ namespace Doom.Graphics
             return catalog;
         }
 
-        /// Convenience: status bar + optional UI names in one pass.
+        /// Convenience: status bar + optional UI names in one pass, plus the
+        /// runtime-composed menu word patches (Options Graphics Mode values).
         public static UiPatchCatalog LoadStandard(WadFile wad, Palette palette)
         {
             var names = new List<string>(StatusBarNames.Count + OptionalUiNames.Count);
             names.AddRange(StatusBarNames);
             names.AddRange(OptionalUiNames);
-            return Load(wad, palette, names);
+            var catalog = Load(wad, palette, names);
+            MenuWordPatches.Install(catalog);
+            return catalog;
+        }
+
+        /// Register a runtime-composed patch (assembled from WAD pixels, not a
+        /// lump of its own). Never overwrites a present entry.
+        public void AddComposed(UiPatchInfo info)
+        {
+            if (string.IsNullOrEmpty(info.Name) || !info.IsPresent) return;
+            if (byName.TryGetValue(info.Name, out var existing) && existing.IsPresent) return;
+            byName[info.Name] = info;
         }
 
         public bool TryGet(string name, out UiPatchInfo info)
@@ -181,6 +193,9 @@ namespace Doom.Graphics
                 "M_OPTTTL", "M_SFXVOL", "M_MUSVOL", "M_MSENS",
                 "M_THERML", "M_THERMM", "M_THERMR", "M_THERMO",
                 "M_MSGON", "M_MSGOFF",
+                // Donor words for the composed Graphics Mode values
+                // (MenuWordPatches cuts single letters out of these).
+                "M_SETUP", "M_HORSEN", "M_SOUND", "M_GENERL",
                 // Intentionally absent sentinel — verifies controlled miss path.
                 "ZZNOUIXX",
             };

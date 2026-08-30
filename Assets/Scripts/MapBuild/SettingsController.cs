@@ -376,8 +376,14 @@ namespace Doom.MapBuild
                     break;
                 case OptionRow.GraphicsMode:
                     DrawHuString(t, ItemX, y, "GRAPHICS MODE");
-                    DrawHuString(t, ItemX + 140f, y,
-                        Current.GraphicsMode == GraphicsMode.Enhanced ? "ENHANCED" : "CLASSIC");
+                    // Composed big-font word (same menu font as the ON/OFF
+                    // patches, assembled from WAD letters); STCFN fallback.
+                    bool enhanced = Current.GraphicsMode == GraphicsMode.Enhanced;
+                    string wordPatch = enhanced
+                        ? Doom.Graphics.MenuWordPatches.EnhancedName
+                        : Doom.Graphics.MenuWordPatches.ClassicName;
+                    if (!DrawPatch(t, wordPatch, ItemX + 120f, y))
+                        DrawHuString(t, ItemX + 140f, y, enhanced ? "ENHANCED" : "CLASSIC");
                     break;
             }
         }
