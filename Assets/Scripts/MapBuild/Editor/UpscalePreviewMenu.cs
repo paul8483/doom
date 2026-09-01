@@ -56,7 +56,19 @@ namespace Doom.MapBuild.Editor
             "CRATINY", "CRATE3", "LITEBLU1", "LITEBLU3", "LITE4", "LITERED",
         };
 
-        static readonly string[] FlatNames = { "FLOOR4_8", "NUKAGE1", "CEIL3_5" };
+        static readonly string[] FlatNames =
+        {
+            "FLOOR4_8", "NUKAGE1", "CEIL3_5",
+            // Wave 16 (2026-09-01): the AQF flat tail (39 names; the plate set
+            // AQF016..AQF075 below arrives with the second generation pass).
+            "AQF001", "AQF002", "AQF003", "AQF004", "AQF007", "AQF009",
+            "AQF010", "AQF012", "AQF013", "AQF014", "AQF016", "AQF017",
+            "AQF018", "AQF021", "AQF022", "AQF029", "AQF030", "AQF031",
+            "AQF033", "AQF034", "AQF044", "AQF046", "AQF050", "AQF051",
+            "AQF052", "AQF055", "AQF057", "AQF058", "AQF059", "AQF060",
+            "AQF065", "AQF067", "AQF068", "AQF069", "AQF070", "AQF071",
+            "AQF072", "AQF073", "AQF075",
+        };
 
         [MenuItem("Tools/Doom/Dump Upscale Preview")]
         public static void Dump()

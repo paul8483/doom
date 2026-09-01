@@ -126,6 +126,10 @@ namespace Doom.Graphics
         // switch plate drew ~10 texels low and narrow, cropping the keypad in
         // the 32-unit E1M2 niche (line 1854); v42 packs hold the drifted
         // plate under those names.
-        public const int Value = 43;
+        // v44: wave 16 (2026-09-01) — the AQF flat tail, 39 lumps (rust metal,
+        // grey plates incl. the AQF051 lift floor, dark grates, light panels
+        // with flicker grids pinned, specials; AQF003/AQF055 composition
+        // re-rolls); v43 packs hold Super-xBR output under those names.
+        public const int Value = 44;
     }
 }

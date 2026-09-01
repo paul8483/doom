@@ -139,6 +139,24 @@ namespace Doom.Graphics
         /// four). FIREBLU is a chaos pair drawn in one session; native
         /// flips just as hard. Ships with WFALL joining IsFluid — it was
         /// the one waterfall without cross-fade and the fluid shader.
+        /// Wave 16 2026-09-01: the AQF flat tail — every remaining AQF*
+        /// flat used on E1 (39 lumps, ~143 surfaces; trigger: the blurry
+        /// AQF051 lift floor on E1M3, found via the slot-0 save). Five
+        /// material sets: riveted rust metal (plates, weave, slot
+        /// ladders, plank rows), grey steel/concrete plates (incl. the
+        /// AQF051 lift plates and the AQF068 hazard-framed pad), dark
+        /// grate decks over black voids, light panels (AQF010/012/014/
+        /// 044/058/059 sit in the lamp flicker — segment grids verified
+        /// IoU 0.956-1.000, centroid shift &lt;=0.3px; AQF060/065 strips
+        /// held to the same grid), and specials (broken ceramic AQF013,
+        /// hazard-striped planks AQF018, green moss AQF022 with green
+        /// identity preserved). AQF003 (square slots vs native arches)
+        /// and AQF055 (extra bottom light line) were re-rolled with
+        /// percent-pinned composition. AQF055's vertical wrap is a
+        /// native content boundary (dark bottom into the next tile's
+        /// light band, jump 59 vs native 58) — the seam validator's
+        /// FAIL there is the clean-interior artifact, accepted as is.
+        /// AQF* flat coverage on E1 is now COMPLETE.
         /// Names are WAD texture/flat names.
         public static readonly string[] Names =
         {
@@ -165,11 +183,50 @@ namespace Doom.Graphics
             "AQDIRT03",
             "AQDOOR01",
             "AQDOOR02",
+            "AQF001",
+            "AQF002",
+            "AQF003",
+            "AQF004",
+            "AQF007",
+            "AQF009",
+            "AQF010",
+            "AQF012",
+            "AQF013",
+            "AQF014",
+            "AQF016",
+            "AQF017",
+            "AQF018",
+            "AQF021",
+            "AQF022",
             "AQF024",
             "AQF025",
             "AQF028",
+            "AQF029",
+            "AQF030",
+            "AQF031",
             "AQF032",
+            "AQF033",
+            "AQF034",
+            "AQF044",
+            "AQF046",
+            "AQF050",
+            "AQF051",
+            "AQF052",
             "AQF054",
+            "AQF055",
+            "AQF057",
+            "AQF058",
+            "AQF059",
+            "AQF060",
+            "AQF065",
+            "AQF067",
+            "AQF068",
+            "AQF069",
+            "AQF070",
+            "AQF071",
+            "AQF072",
+            "AQF073",
+            "AQF075",
             "AQLITE01",
             "AQLITE07",
             "AQLITE08",
