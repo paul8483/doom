@@ -122,6 +122,10 @@ namespace Doom.Graphics
         // frame-1 anchor, ROCKRED/SLADRIP anchor-pinned in-place frames,
         // the FIREBLU chaos pair); v41 packs hold Super-xBR output under
         // those names. WFALL also joins the fluid class this version.
-        public const int Value = 42;
+        // v43: SW1COMP/SW2COMP composition re-roll (2026-09-01) — the wave-12
+        // switch plate drew ~10 texels low and narrow, cropping the keypad in
+        // the 32-unit E1M2 niche (line 1854); v42 packs hold the drifted
+        // plate under those names.
+        public const int Value = 43;
     }
 }
