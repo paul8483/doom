@@ -65,14 +65,17 @@ namespace Doom.Map.Tests
         [Test]
         public void OneSided_lower_unpegged_shifts_v_so_bottom_sits_at_floor()
         {
-            // Same wall but Lower-unpegged (flag 0x0008). With height==texHeight==128
-            // the difference from default is zero, so use height 64, texHeight 128
-            // (Unity-v: 1 - doomV):
+            // Same wall but Lower-unpegged: ML_DONTPEGBOTTOM = 0x0010 (doomdata.h).
+            // Раньше тест пинил 0x0008 — это ML_DONTPEGTOP, и перепутанные
+            // константы жили со Stage 4 (ниша SW1COMP на E1M2 line 1854 показывала
+            // металл из-под плиты вместо переключателя).
+            // With height==texHeight==128 the difference from default is zero, so
+            // use height 64, texHeight 128 (Unity-v: 1 - doomV):
             // default top-pegged: bottom v = 1 - 64/128 = 0.5
             // lower-unpegged: bottom v = 1 - 1.0 = 0.0 (texture bottom pinned to floor)
             var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
             var linesDefault = new[] { new LineDef(0, 1, 0, 0, 0, 0, -1) };
-            var linesUnpeg   = new[] { new LineDef(0, 1, 0x0008, 0, 0, 0, -1) };
+            var linesUnpeg   = new[] { new LineDef(0, 1, 0x0010, 0, 0, 0, -1) };
             var sides = new[] { new SideDef(0,0,"-","-","W",0) };
             var sectors = new[] { new Sector(0, 64, "F", "F", 255, 0, 0) };
             var sizes = new Sizes().Add("W", 64, 128);
@@ -85,6 +88,57 @@ namespace Doom.Map.Tests
             float defBottom = BottomV(def), unpBottom = BottomV(unp);
             Assert.That(defBottom, Is.EqualTo(0.5f).Within(0.001f));
             Assert.That(unpBottom, Is.EqualTo(0.0f).Within(0.001f));
+        }
+
+        [Test]
+        public void OneSided_dontpegtop_flag_does_not_move_middle()
+        {
+            // ML_DONTPEGTOP (0x0008) касается только верхних текстур; one-sided
+            // middle остаётся top-pegged. Сторож от повторного перепутывания
+            // констант (0x0008 <-> 0x0010).
+            var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
+            var lines = new[] { new LineDef(0, 1, 0x0008, 0, 0, 0, -1) };
+            var sides = new[] { new SideDef(0,0,"-","-","W",0) };
+            var sectors = new[] { new Sector(0, 64, "F", "F", 255, 0, 0) };
+            var map = new MapData("T", verts, lines, sides, sectors, System.Array.Empty<Thing>());
+
+            var sec = First(WallMeshBuilder.BuildForSector(map, 0, new Sizes().Add("W", 64, 128)));
+            Assert.That(BottomV(sec), Is.EqualTo(0.5f).Within(0.001f),
+                "DONTPEGTOP must leave the one-sided middle top-pegged");
+        }
+
+        [Test]
+        public void Upper_dontpegtop_pins_texture_top_to_ceiling()
+        {
+            // Two-sided line, back ceiling ниже: upper-секция 96..128.
+            // Default (pegged): низ текстуры у нижней кромки (v понизу = 1 - 0 = ...):
+            // верх текстуры на yLow+texH=224, у yHigh=128 doomV=(224-128)/128=0.75
+            // -> Unity v = 0.25; у yLow=96 doomV=1.0 -> v=0.
+            // ML_DONTPEGTOP (0x0008): верх текстуры у потолка (yHigh) -> v=1 сверху.
+            var verts = new[] { new Vertex(0, 0), new Vertex(64, 0) };
+            var sides = new[]
+            {
+                new SideDef(0,0,"UP","-","-",0),
+                new SideDef(0,0,"-","-","-",1),
+            };
+            var sectors = new[]
+            {
+                new Sector(0, 128, "F", "F", 255, 0, 0),
+                new Sector(0, 96,  "F", "F", 255, 0, 0),
+            };
+            var sizes = new Sizes().Add("UP", 64, 128);
+
+            var pegged = First(WallMeshBuilder.BuildForSector(
+                new MapData("T", verts, new[] { new LineDef(0, 1, 0, 0, 0, 0, 1) },
+                    sides, sectors, System.Array.Empty<Thing>()), 0, sizes));
+            var unpeg = First(WallMeshBuilder.BuildForSector(
+                new MapData("T", verts, new[] { new LineDef(0, 1, 0x0008, 0, 0, 0, 1) },
+                    sides, sectors, System.Array.Empty<Thing>()), 0, sizes));
+
+            Assert.That(TopV(pegged), Is.EqualTo(0.25f).Within(0.001f),
+                "default upper is bottom-pegged to the lower ceiling edge");
+            Assert.That(TopV(unpeg), Is.EqualTo(1f).Within(0.001f),
+                "DONTPEGTOP pins the upper texture top to the ceiling");
         }
 
         [Test]
@@ -174,6 +228,14 @@ namespace Doom.Map.Tests
                 if (x > 63f) Assert.That(u, Is.EqualTo(0f).Within(0.001f), "u=0 у V2");
                 if (x < 1f)  Assert.That(u, Is.EqualTo(1f).Within(0.001f), "u=1 у V1");
             }
+        }
+
+        private static float TopV(WallSection s)
+        {
+            float topY = -1e9f, v = 0;
+            for (int i = 0; i < s.Mesh.Vertices.Length; i++)
+                if (s.Mesh.Vertices[i].Y > topY) { topY = s.Mesh.Vertices[i].Y; v = s.Mesh.Uv[i].Y; }
+            return v;
         }
 
         private static float BottomV(WallSection s)

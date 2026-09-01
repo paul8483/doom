@@ -8,8 +8,13 @@ namespace Doom.Map
     /// per-vertex sector light. Two-sided middle textures become masked sections.
     public static class WallMeshBuilder
     {
-        private const ushort FlagLowerUnpegged = 0x0008;
-        private const ushort FlagUpperUnpegged = 0x0010;
+        // doomdata.h: ML_DONTPEGTOP = 8 (upper unpegged), ML_DONTPEGBOTTOM = 16
+        // (lower unpegged). Эти два значения были перепутаны местами со Stage 4 —
+        // частичные one-sided стены с ML_DONTPEGBOTTOM (ниши переключателей,
+        // DOORTRAK) рисовали полосу текстуры на wallHeight ниже ванильной
+        // (E1M2 line 1854: вместо плиты SW1COMP — пустой металл из-под неё).
+        private const ushort FlagUpperUnpegged = 0x0008;
+        private const ushort FlagLowerUnpegged = 0x0010;
 
         // Accumulates geometry per (texture, masked) bucket.
         private sealed class Bucket
