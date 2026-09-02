@@ -61,14 +61,37 @@ def rasterize(face_ids, color_test):
     return hit
 
 def glass_green(r, g, b):
-    return g > 70 and g > r * 1.2 and g > b * 1.2
+    # Hue test only — the first cut (g > 70) left every darker green shade
+    # of the bake unmasked, and with the steady 0.85 glow on its neighbours
+    # an unmasked glass texel renders at ~54% brightness: the "black
+    # speckles" on the flask (2026-09-02). Dark green is still glass.
+    return g > 30 and g > r * 1.15 and g > b * 1.15
 
 # The glass body: below the collar (the cap up top is green too, but dull —
 # native shows it unlit).
-glass = rasterize(np.nonzero(tri_yn < 0.72)[0], glass_green)
+glass_faces = np.nonzero(tri_yn < 0.72)[0]
+glass = rasterize(glass_faces, glass_green)
+
+# Close the remaining holes (grey bake noise inside the glass) within the
+# glass zone only, so the straps and collar stay dark.
+from scipy import ndimage
+zone_backup = mask.copy()
+mask[:] = 0
+rasterize(glass_faces, lambda r, g, b: True)
+zone = mask > 0
+mask[:] = zone_backup
+closed = ndimage.binary_closing(mask > 0, iterations=3) & zone
+mask[closed] = 255
+
+# Padding between the UV islands takes the nearest island's mask value so
+# the mip chain does not fade the glow along every triangle border.
+from doomify3d import uv_coverage_mask
+cov = uv_coverage_mask(dst / "BON1A0.obj", (W, H))
+_, (iy, ix) = ndimage.distance_transform_edt(~cov, return_indices=True)
+mask = mask[iy, ix]
 
 out = np.zeros((H, W, 4), dtype=np.uint8)
 out[:, :, 0] = mask
 out[:, :, 3] = 255
 Image.fromarray(out).save(dst / "BON1A0_emission.png")
-print(f"glass texels {glass}, mask -> BON1A0_emission.png")
+print(f"glass texels {glass}, closed {int(closed.sum())}, mask -> BON1A0_emission.png")

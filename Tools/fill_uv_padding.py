@@ -51,6 +51,13 @@ def lum(rgb: np.ndarray) -> np.ndarray:
     return rgb[..., 0] * 0.299 + rgb[..., 1] * 0.587 + rgb[..., 2] * 0.114
 
 
+def sat(rgb: np.ndarray) -> np.ndarray:
+    """HSV saturation (0..1) of an (..., 3) array."""
+    mx = rgb.max(-1).astype(float)
+    mn = rgb.min(-1).astype(float)
+    return np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
+
+
 def nearest_fill(rgb: np.ndarray, keep: np.ndarray) -> np.ndarray:
     """Every texel outside `keep` takes the colour of the nearest kept texel."""
     if keep.all():
@@ -88,7 +95,28 @@ def despeckle(rgb: np.ndarray, region: np.ndarray, thr: float) -> np.ndarray:
     return out, int(dark.sum())
 
 
-def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2):
+def rel_despeckle(rgb: np.ndarray, region: np.ndarray, ratio: float, size: int = 7):
+    """Texels darker than `ratio` x their local median (inside `region`, where
+    the median itself is a lit surface) take the median colour. Relative
+    rather than absolute: the flask's glass sits around lum 90-100 and its
+    bake noise at 55-65 slipped under the absolute cut yet reads as dots
+    once the steady glow multiplies the contrast."""
+    out = rgb.copy()
+    L = lum(rgb)
+    medL = ndimage.median_filter(L, size=size)
+    med = np.stack([ndimage.median_filter(rgb[..., c], size=size) for c in range(3)], -1)
+    # A grey texel next to coloured glass is a strap edge, not noise: only
+    # repaint when the texel itself is coloured or the target is grey too.
+    grey_guard = (sat(rgb) >= 0.2) | (sat(med) < 0.2)
+    dark = region & (medL > 40) & (L < medL * ratio) & grey_guard
+    if not dark.any():
+        return out, 0
+    out[dark] = med[dark]
+    return out, int(dark.sum())
+
+
+def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2,
+                  ratio: float = None):
     """Mesh-aware despeckle: a triangle whose atlas footprint is dark while
     most of its vertex-adjacent neighbours are bright takes the median colour
     of those neighbours. Aimed at the 40k-triangle decimations whose tiny
@@ -129,16 +157,26 @@ def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2):
         meanL = mean @ np.array([0.299, 0.587, 0.114])
         fixed = 0
         for i in range(n):
-            if meanL[i] >= thr:
-                continue
             nb = [j for j in adj[i] if j != i]
             if not nb:
                 continue
             nbL = meanL[nb]
-            bright = nbL > thr + 30
+            if ratio is None:
+                if meanL[i] >= thr:
+                    continue
+                bright = nbL > thr + 30
+            else:
+                nbMed = float(np.median(nbL))
+                if nbMed <= 40 or meanL[i] >= nbMed * ratio:
+                    continue
+                bright = nbL > nbMed * 0.8
             if bright.mean() < 0.6:
                 continue
             col = np.median(mean[np.array(nb)[bright]], axis=0)
+            # Grey triangle (strap edge) beside coloured glass: repaint only
+            # when nearly all neighbours agree it is an island of noise.
+            if sat(mean[i]) < 0.2 and sat(col) >= 0.2 and bright.mean() < 0.85:
+                continue
             foot = ids == i
             foot[cy[i], cx[i]] = True
             foot = ndimage.binary_dilation(foot, iterations=1) & ((ids == i) | ~inside | foot)
@@ -174,6 +212,10 @@ def main() -> None:
     ap.add_argument("--despeckle", type=float, default=None)
     ap.add_argument("--tri-despeckle", type=float, default=None,
                     help="repaint dark triangles among bright neighbours (lum threshold)")
+    ap.add_argument("--rel-despeckle", type=float, default=None,
+                    help="texel darker than RATIO x local median takes the median")
+    ap.add_argument("--tri-rel", type=float, default=None,
+                    help="triangle darker than RATIO x neighbour median takes their median")
     ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--dump-mask", action="store_true")
     a = ap.parse_args()
@@ -195,9 +237,12 @@ def main() -> None:
     n_spec = 0
     if a.despeckle is not None:
         work, n_spec = despeckle(work, keep, a.despeckle)
-    if a.tri_despeckle is not None:
-        work, n_tri = tri_despeckle(work, a.obj, a.tri_despeckle)
-        print(f"  tri-despeckle {a.tri_despeckle}: repainted {n_tri} triangles")
+    if a.rel_despeckle is not None:
+        work, n_rel = rel_despeckle(work, keep, a.rel_despeckle)
+        print(f"  rel-despeckle {a.rel_despeckle}: replaced {n_rel} texels")
+    if a.tri_despeckle is not None or a.tri_rel is not None:
+        work, n_tri = tri_despeckle(work, a.obj, a.tri_despeckle or 0.0, ratio=a.tri_rel)
+        print(f"  tri-despeckle (thr {a.tri_despeckle}, ratio {a.tri_rel}): repainted {n_tri} triangles")
     filled = nearest_fill(work, keep)
     changed = np.any(filled != rgb, axis=-1)
     filled = snap_to_palette(filled, changed, palette)
