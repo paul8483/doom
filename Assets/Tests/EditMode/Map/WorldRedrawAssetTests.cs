@@ -7,7 +7,8 @@ using Doom.Wad;
 namespace Doom.Map.Tests
 {
     /// World redraw assets (Resources/EnhancedWorld): every allowlisted texture
-    /// ships a PNG at exactly 4x its native composite size, fully opaque, with
+    /// ships a PNG at exactly its authoring scale (4x; SKY1 8x) times the
+    /// native composite size, fully opaque, with
     /// a horizontal wrap seam no worse than the native's own (walls tile along
     /// the map). Decoding goes through raw PNG bytes so the suite stays green
     /// under -nographics.
@@ -70,9 +71,10 @@ namespace Doom.Map.Tests
                 var tex = LoadPng(path);
                 try
                 {
-                    Assert.AreEqual(native.Width * WorldRedrawAllowlist.Scale, tex.width,
+                    int scale = WorldRedrawAllowlist.ScaleFor(name);
+                    Assert.AreEqual(native.Width * scale, tex.width,
                         name + " width");
-                    Assert.AreEqual(native.Height * WorldRedrawAllowlist.Scale, tex.height,
+                    Assert.AreEqual(native.Height * scale, tex.height,
                         name + " height");
 
                     var pixels = tex.GetPixels32();

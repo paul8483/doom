@@ -135,6 +135,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("lumps", nargs="+")
     ap.add_argument("--file", default="redraw.png")
+    ap.add_argument("--scale", type=int, default=4,
+                    help="authoring scale (SKY1 uses 8)")
     ap.add_argument("--vertical", action="store_true",
                     help="also check the vertical wrap (flats)")
     ap.add_argument("--max-ratio", type=float, default=2.0)
@@ -143,6 +145,7 @@ if __name__ == "__main__":
                     help="masked mid-texture: require alpha holes close to the "
                          "native fraction, seam over premultiplied RGB")
     a = ap.parse_args()
+    globals()["SCALE"] = a.scale
     good = all(check(l.upper(), a.file, a.vertical, a.max_ratio, a.slack,
                      a.masked)
                for l in a.lumps)

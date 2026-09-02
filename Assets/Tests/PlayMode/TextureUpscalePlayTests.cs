@@ -168,8 +168,11 @@ namespace Doom.Stage3.PlayTests
 
             var enhancedSky = loader.WorldTextures.GetTexture(
                 WadSkyRenderer.SkyTextureName, WorldTextureVariant.Enhanced4X);
-            Assert.AreEqual(nativeSky.width * 4, enhancedSky.width);
-            Assert.AreEqual(nativeSky.height * 4, enhancedSky.height);
+            // SKY1 ships an 8x redraw (WorldRedrawAllowlist.ScaleFor); the
+            // Enhanced slot simply carries the larger level zero.
+            int skyScale = WorldRedrawAllowlist.ScaleFor(WadSkyRenderer.SkyTextureName);
+            Assert.AreEqual(nativeSky.width * skyScale, enhancedSky.width);
+            Assert.AreEqual(nativeSky.height * skyScale, enhancedSky.height);
             Assert.That(enhancedSky.mipmapCount, Is.GreaterThan(1));
             Assert.AreEqual(FilterMode.Trilinear, enhancedSky.filterMode);
 

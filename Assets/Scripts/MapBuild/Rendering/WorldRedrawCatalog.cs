@@ -31,7 +31,8 @@ namespace Doom.MapBuild.Rendering
             overrides.Clear();
         }
 
-        /// True when a valid redraw exists for the name at 4× the native size.
+        /// True when a valid redraw exists for the name at its authoring scale
+        /// (WorldRedrawAllowlist.ScaleFor: 4×, SKY1 8×) times the native size.
         /// Returns the decoded top-down RGBA image ready for the job.
         public static bool TryGet(string name, DecodedImage native, out DecodedImage redraw)
         {
@@ -40,7 +41,7 @@ namespace Doom.MapBuild.Rendering
 
             if (overrides.TryGetValue(name, out var injected))
             {
-                if (!SizeValid(injected, native)) return false;
+                if (!SizeValid(name, injected, native)) return false;
                 redraw = injected;
                 return true;
             }
@@ -60,11 +61,11 @@ namespace Doom.MapBuild.Rendering
             }
 
             var decoded = ToDecodedTopDown(resource);
-            if (!SizeValid(decoded, native))
+            if (!SizeValid(name, decoded, native))
             {
                 Debug.LogWarning(
                     $"WorldRedrawCatalog: {name} redraw is {decoded.Width}x{decoded.Height}, " +
-                    $"want {native.Width * WorldRedrawAllowlist.Scale}x{native.Height * WorldRedrawAllowlist.Scale} — Super-xBR fallback");
+                    $"want {native.Width * WorldRedrawAllowlist.ScaleFor(name)}x{native.Height * WorldRedrawAllowlist.ScaleFor(name)} — Super-xBR fallback");
                 rejected.Add(name);
                 return false;
             }
@@ -74,10 +75,13 @@ namespace Doom.MapBuild.Rendering
             return true;
         }
 
-        static bool SizeValid(DecodedImage redraw, DecodedImage native) =>
-            redraw != null &&
-            redraw.Width == native.Width * WorldRedrawAllowlist.Scale &&
-            redraw.Height == native.Height * WorldRedrawAllowlist.Scale;
+        static bool SizeValid(string name, DecodedImage redraw, DecodedImage native)
+        {
+            int scale = WorldRedrawAllowlist.ScaleFor(name);
+            return redraw != null &&
+                redraw.Width == native.Width * scale &&
+                redraw.Height == native.Height * scale;
+        }
 
         /// Shared with HudRedrawCatalog: decode a Resources texture into the
         /// job pipeline's top-down RGBA image.

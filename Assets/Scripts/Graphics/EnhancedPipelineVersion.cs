@@ -130,6 +130,6 @@ namespace Doom.Graphics
         // grey plates incl. the AQF051 lift floor, dark grates, light panels
         // with flicker grids pinned, specials; AQF003/AQF055 composition
         // re-rolls); v43 packs hold Super-xBR output under those names.
-        public const int Value = 44;
+        public const int Value = 45;
     }
 }

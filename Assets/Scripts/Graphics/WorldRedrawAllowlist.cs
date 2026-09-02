@@ -13,6 +13,16 @@ namespace Doom.Graphics
         /// composite texture size (the slot Super-xBR 4× occupies today).
         public const int Scale = 4;
 
+        /// Per-name authoring scale. SKY1 (wave 17, 2026-09-02) is the one
+        /// exception: WadSkyRenderer stretches a single 256×128 copy over
+        /// the whole sphere (360° of yaw, zenith to nadir), the largest
+        /// magnification in the game (~30 screen px per native texel at
+        /// 1920/FOV 90), so its redraw is authored at 8× = 2048×1024. The
+        /// Enhanced job only builds mips from level zero, so a larger level
+        /// zero needs no other runtime change.
+        public static int ScaleFor(string name) =>
+            name == "SKY1" ? 8 : Scale;
+
         /// Pilot 2026-08-23: full-color variant chosen on the bylo/stalo panel
         /// (PLAYPAL quant kept in provenance). Wave 1 2026-08-24: the rest of
         /// the COMP* family + the aquatex computer AQCOMP01 (AQPANL* examined
@@ -81,6 +91,13 @@ namespace Doom.Graphics
         /// planks/metal, stone/organic + the TLITE6_5 lamp plate whose
         /// four bulbs are position-pinned for the lamp flicker.
         /// F_SKY1 and the animated fluids stay excluded.
+        /// Wave 17 2026-09-02: SKY1 — the episode sky, last texture without
+        /// a redraw. Authored at 8× (see ScaleFor): the sphere maps one copy
+        /// over 360°. Horizontal seam only (panorama); the polar rows are
+        /// near-uniform by prompt so nothing pinches into a star at zenith/
+        /// nadir. Accepted as-is on the panel (composition and hill ridge
+        /// within ~4 rows; hill green restored by the tone match from 1.8%
+        /// to 19.8% vs native 24%).
         /// Wave 11 2026-08-26: the masked mid-textures — grates, bars,
         /// lattice, barbed wire, the broken window, hanging vines and the
         /// BRNSMAL wall stubs. First redraws with REAL alpha: every set
@@ -474,6 +491,7 @@ namespace Doom.Graphics
             "SKSNAKE2",
             "SK_LEFT",
             "SK_RIGHT",
+            "SKY1",
             "SLADPOIS",
             "SLADRIP1",
             "SLADRIP2",

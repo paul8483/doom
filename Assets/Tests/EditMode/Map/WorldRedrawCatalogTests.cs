@@ -48,6 +48,25 @@ namespace Doom.Map.Tests
         }
 
         [Test]
+        public void Sky_is_authored_at_8x_and_a_4x_sky_falls_back()
+        {
+            // SKY1 stretches one copy over the whole sky sphere; its contract
+            // is 8x (wave 17). Any other name keeps the 4x slot.
+            Assert.AreEqual(8, WorldRedrawAllowlist.ScaleFor("SKY1"));
+            Assert.AreEqual(4, WorldRedrawAllowlist.ScaleFor("STONE2"));
+
+            var native = Opaque(256, 128);
+            WorldRedrawCatalog.SetOverrideForTests("SKY1", Opaque(1024, 512));
+            Assert.IsFalse(WorldRedrawCatalog.TryGet("SKY1", native, out _),
+                "a 4x sky is not the 8x contract - Super-xBR fallback expected");
+
+            var redraw = Opaque(2048, 1024);
+            WorldRedrawCatalog.SetOverrideForTests("SKY1", redraw);
+            Assert.IsTrue(WorldRedrawCatalog.TryGet("SKY1", native, out var got));
+            Assert.AreSame(redraw, got);
+        }
+
+        [Test]
         public void Allowlist_scale_matches_superxbr_slot()
         {
             Assert.AreEqual(4, WorldRedrawAllowlist.Scale,
