@@ -115,8 +115,24 @@ def rel_despeckle(rgb: np.ndarray, region: np.ndarray, ratio: float, size: int =
     return out, int(dark.sum())
 
 
+def chroma_despeckle(rgb: np.ndarray, region: np.ndarray, size: int = 7):
+    """Grey texels sitting inside a saturated neighbourhood take the local
+    median colour: the TRELLIS bake paints some glass islands with the strap
+    metal (BON1A0), and with the glass glowing those read as pale specks.
+    Strap texels are safe: their own neighbourhood is grey."""
+    out = rgb.copy()
+    med = np.stack([ndimage.median_filter(rgb[..., c], size=size) for c in range(3)], -1)
+    grey = sat(rgb) < 0.2
+    sat_nb = ndimage.uniform_filter((sat(rgb) >= 0.25).astype(float), size=size)
+    fix = region & grey & (sat(med) >= 0.25) & (sat_nb >= 0.7)
+    if not fix.any():
+        return out, 0
+    out[fix] = med[fix]
+    return out, int(fix.sum())
+
+
 def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2,
-                  ratio: float = None):
+                  ratio: float = None, chroma: bool = False):
     """Mesh-aware despeckle: a triangle whose atlas footprint is dark while
     most of its vertex-adjacent neighbours are bright takes the median colour
     of those neighbours. Aimed at the 40k-triangle decimations whose tiny
@@ -161,7 +177,13 @@ def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2,
             if not nb:
                 continue
             nbL = meanL[nb]
-            if ratio is None:
+            if chroma:
+                # grey triangle whose neighbours are almost all saturated
+                nb_sat = sat(mean[np.array(nb)])
+                if sat(mean[i]) >= 0.2 or (nb_sat >= 0.25).mean() < 0.7:
+                    continue
+                bright = nb_sat >= 0.25
+            elif ratio is None:
                 if meanL[i] >= thr:
                     continue
                 bright = nbL > thr + 30
@@ -175,7 +197,7 @@ def tri_despeckle(rgb: np.ndarray, obj_path: Path, thr: float, passes: int = 2,
             col = np.median(mean[np.array(nb)[bright]], axis=0)
             # Grey triangle (strap edge) beside coloured glass: repaint only
             # when nearly all neighbours agree it is an island of noise.
-            if sat(mean[i]) < 0.2 and sat(col) >= 0.2 and bright.mean() < 0.85:
+            if not chroma and sat(mean[i]) < 0.2 and sat(col) >= 0.2 and bright.mean() < 0.85:
                 continue
             foot = ids == i
             foot[cy[i], cx[i]] = True
@@ -216,6 +238,8 @@ def main() -> None:
                     help="texel darker than RATIO x local median takes the median")
     ap.add_argument("--tri-rel", type=float, default=None,
                     help="triangle darker than RATIO x neighbour median takes their median")
+    ap.add_argument("--chroma-despeckle", action="store_true",
+                    help="grey texels/triangles inside saturated neighbourhoods take the neighbours' colour")
     ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--dump-mask", action="store_true")
     a = ap.parse_args()
@@ -240,6 +264,10 @@ def main() -> None:
     if a.rel_despeckle is not None:
         work, n_rel = rel_despeckle(work, keep, a.rel_despeckle)
         print(f"  rel-despeckle {a.rel_despeckle}: replaced {n_rel} texels")
+    if a.chroma_despeckle:
+        work, n_ch = chroma_despeckle(work, keep)
+        work, n_cht = tri_despeckle(work, a.obj, 0.0, chroma=True)
+        print(f"  chroma-despeckle: {n_ch} texels, {n_cht} triangles")
     if a.tri_despeckle is not None or a.tri_rel is not None:
         work, n_tri = tri_despeckle(work, a.obj, a.tri_despeckle or 0.0, ratio=a.tri_rel)
         print(f"  tri-despeckle (thr {a.tri_despeckle}, ratio {a.tri_rel}): repainted {n_tri} triangles")
