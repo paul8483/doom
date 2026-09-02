@@ -288,6 +288,20 @@ namespace Doom.MapBuild
         bool gibInterlude;
         bool xdeathShown;
 
+        // Rest offset: a lying corpse mesh is a slab of ~50 DOOM units, while
+        // the thing is a point. Killed with its centre on a sector edge (the
+        // E1M3 lift 47 sergeant, 2026-09-02) the slab hangs half over the
+        // neighbour and gets sliced once that floor moves. The pivot — never
+        // the thing — slides inside its own sector across the death chain
+        // (vanilla corpses slide on momentum too); the gameplay origin,
+        // collision and save identity stay put. Resolved once per death from
+        // the final covered frame's footprint; a restored corpse snaps.
+        const float RestSlideRate = 4f; // fraction per second
+        Vector3 restOffset;
+        bool restOffsetResolved;
+        float restFractionTarget;
+        float restFractionShown;
+
         // Gameplay pose interpolation (mirrors SpriteBillboard's opt-in interp:
         // MonsterController moves the transform in 35 Hz steps).
         bool poseSeeded;
@@ -302,6 +316,9 @@ namespace Doom.MapBuild
         public bool DeathCoveredForTest => coveredDeathFrames > 0;
         public int CoveredDeathFramesForTest => coveredDeathFrames;
         public bool SpectreForTest => spectre;
+        /// World-space XZ shift the pivot takes at rest (zero until death).
+        public Vector3 RestOffsetForTest => restOffset;
+        public float RestFractionForTest => restFractionShown;
 
         /// Test seam: pretend only this many death meshes are on disk. Every
         /// routed monster now ships its whole chain, so the "death tail is
@@ -655,6 +672,8 @@ namespace Doom.MapBuild
                 RevertToBillboard();
                 return;
             }
+            if (frame >= set.LiveFrameCount)
+                AdvanceRestOffset(frame);
             if (ModelVisible)
             {
                 if (frameModels[currentFrame] != null)
@@ -734,8 +753,16 @@ namespace Doom.MapBuild
 
         void LateUpdate()
         {
-            if (!ModelVisible) return;
+            if (!ModelVisible)
+            {
+                // A corpse that died on the billboard side of a hot-switch
+                // must not slide when the mesh comes back.
+                restFractionShown = restFractionTarget;
+                return;
+            }
 
+            restFractionShown = Mathf.MoveTowards(
+                restFractionShown, restFractionTarget, Time.deltaTime * RestSlideRate);
             poseAlpha = Mathf.Clamp01(poseAlpha + Time.deltaTime * PoseInterpRate);
             float renderAngle = Mathf.LerpAngle(prevAngleDeg, currAngleDeg, poseAlpha);
             Vector3 visualPos = Vector3.Lerp(prevPos, currPos, poseAlpha);
@@ -743,7 +770,56 @@ namespace Doom.MapBuild
             // DOOM angle is CCW from East; Unity yaw is CW from +Z (North).
             yawPivot.rotation =
                 Quaternion.Euler(0f, 90f - renderAngle + set.YawOffsetDeg, 0f);
-            yawPivot.position = transform.position + (visualPos - currPos);
+            yawPivot.position = transform.position + (visualPos - currPos)
+                                + restOffset * restFractionShown;
+        }
+
+        // ── Rest offset (corpse footprint inside its own sector) ─────────────
+
+        /// Death frame `frame` arrived: resolve the slide once, then move the
+        /// target fraction along the chain so the body settles fully inside
+        /// its sector on the corpse frame. The first frame seen being the
+        /// corpse itself (save restore, or a chain of one) snaps — there is
+        /// no fall to slide through.
+        void AdvanceRestOffset(int frame)
+        {
+            bool first = !restOffsetResolved;
+            if (first)
+            {
+                int last = set.LiveFrameCount + coveredDeathFrames - 1;
+                if (last < frame) last = frame;
+                if (EnsureFrameInstance(last))
+                    ResolveRestOffset(frameModels[last]);
+                else
+                    restOffsetResolved = true;
+            }
+            int chain = set.FrameLumps.Length - set.LiveFrameCount;
+            float target = chain > 0
+                ? Mathf.Clamp01((frame - set.LiveFrameCount + 1) / (float)chain)
+                : 1f;
+            if (target > restFractionTarget) restFractionTarget = target;
+            if (first && target >= 1f) restFractionShown = 1f;
+        }
+
+        /// Measure the (normalised) frame's footprint in pivot space and ask
+        /// the map for the shift that keeps it inside the sector under the
+        /// thing. Facing is read from the billboard: it carries the restored
+        /// angle of a saved corpse, which never went through a gameplay pose.
+        void ResolveRestOffset(GameObject instance)
+        {
+            restOffsetResolved = true;
+            restOffset = Vector3.zero;
+            if (instance == null || yawPivot == null) return;
+            var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (renderers.Length == 0) return;
+
+            if (billboard != null)
+                currAngleDeg = prevAngleDeg = billboard.DoomAngleDegrees;
+            float yaw = 90f - currAngleDeg + set.YawOffsetDeg;
+            Bounds bounds = PivotBounds(instance, renderers);
+            restOffset = CorpseFootprintClamp.Resolve(
+                transform.position, yaw,
+                bounds.extents.x, bounds.extents.z, worldScale);
         }
 
         /// The gib-corpse mesh, built on first use (a level's population
@@ -770,6 +846,9 @@ namespace Doom.MapBuild
                 ConfigureMaterials(renderers, null);
                 xdeathInstance = instance;
             }
+            // The gib spray hid the body, so the pool appears already in place.
+            ResolveRestOffset(xdeathInstance);
+            restFractionTarget = restFractionShown = 1f;
             xdeathShown = true;
             gibInterlude = false;
             if (frameModels != null)

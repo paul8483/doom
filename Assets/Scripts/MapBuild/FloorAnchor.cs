@@ -71,9 +71,12 @@ namespace Doom.MapBuild
         /// overlap in a DOOM map and floors only ever move along Y, so the hit
         /// IDENTITY is stable even against not-yet-synced colliders; the target
         /// height comes from RuntimeSectorHeights, not from the hit point.
-        int FindSectorBelow()
+        int FindSectorBelow() => FindSectorBelow(transform.position);
+
+        /// Shared with CorpseFootprintClamp: the sector whose floor lies under a
+        /// world point, by the same highest-"Floor"-collider pick.
+        internal static int FindSectorBelow(Vector3 p)
         {
-            Vector3 p = transform.position;
             var hits = Physics.RaycastAll(
                 new Vector3(p.x, p.y + Far, p.z), Vector3.down, 2f * Far);
             float bestY = float.NegativeInfinity;

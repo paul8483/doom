@@ -38,6 +38,11 @@ namespace Doom.MapBuild
 
         public bool HasModel => modelRoot != null;
         public bool ModelVisible => HasModel && modelRoot.activeSelf;
+        /// Set for corpse decorations: enables the sector footprint clamp.
+        float footprintWorldScale;
+        Vector3 corpseShift;
+        /// World-space shift the corpse mesh took to stay inside its sector.
+        public Vector3 CorpseShiftForTest => corpseShift;
 
         public static ExperimentalPickupModel TryAttach(
             GameObject pickupRoot,
@@ -57,6 +62,7 @@ namespace Doom.MapBuild
             {
                 var corpse = pickupRoot.AddComponent<ExperimentalPickupModel>();
                 corpse.normalizeByWidth = corpseByWidth;
+                corpse.footprintWorldScale = worldScale;
                 corpse.Init(
                     corpseResource,
                     Mathf.Max(0.01f, corpseSizePx * worldScale),
@@ -357,6 +363,7 @@ namespace Doom.MapBuild
             }
 
             NormalizeToPickup(targetHeight);
+            ClampCorpseFootprint();
             ConfigureMaterials(useUnlit, emissionStrength, pulseMaskResource, pulseStrength, pulseSpeed);
             SettingsController.SettingsApplied += OnSettingsApplied;
             RefreshVisibility(force: true);
@@ -381,6 +388,21 @@ namespace Doom.MapBuild
                 rootPosition.x - bounds.center.x,
                 rootPosition.y - bounds.min.y,
                 rootPosition.z - bounds.center.z);
+        }
+
+        /// Map-placed corpses (things 10/12/15/18-21) lie as slabs like a
+        /// killed monster's corpse, so the same rule applies: the mesh slides
+        /// inside the sector under the thing (capped), the thing stays put.
+        /// The model root is unrotated for these, so yaw is 0.
+        void ClampCorpseFootprint()
+        {
+            if (!normalizeByWidth || footprintWorldScale <= 0f) return;
+            Bounds bounds = CombinedBounds();
+            Vector3 shift = CorpseFootprintClamp.Resolve(
+                transform.position, 0f,
+                bounds.extents.x, bounds.extents.z, footprintWorldScale);
+            modelRoot.transform.position += shift;
+            corpseShift = shift;
         }
 
         Bounds CombinedBounds()
