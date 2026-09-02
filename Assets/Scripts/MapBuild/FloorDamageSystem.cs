@@ -44,9 +44,15 @@ namespace Doom.MapBuild
         public int TryApplyFloorDamageOnce()
         {
             if (cc != null && !cc.isGrounded) return 0;
-            if (inventory != null && inventory.Powers.IronFeetTics > 0) return 0;
             int special = SectorSpecialUnderPlayer();
             if (special < 0) return 0;
+            // P_PlayerInSpecialSector: the radiation suit blocks 5/7 fully,
+            // 16/4 except a 5/256 leak per damage tick, and never the
+            // special-11 exit floor (the E1M8 finale must still hurt and exit).
+            if (inventory != null && inventory.Powers.IronFeetTics > 0 &&
+                special != ExitSectorRules.ExitDamageSpecial &&
+                !SuitLeaks(special))
+                return 0;
             int dmg = SectorDamageTable.DamagePerTick(special);
             if (dmg > 0) health.TakeDamage(dmg);
 
@@ -58,6 +64,9 @@ namespace Doom.MapBuild
 
             return dmg;
         }
+
+        static bool SuitLeaks(int special) =>
+            (special == 16 || special == 4) && UnityEngine.Random.Range(0, 256) < 5;
 
         /// The Special of the sector whose floor the player stands on, or -1 if a
         /// downward raycast finds no SectorRef. Public so tests can assert the
@@ -77,13 +86,14 @@ namespace Doom.MapBuild
             Vector3 origin = transform.position + Vector3.up * (16f * worldScale);
             float range = 48f * worldScale;
 
-            var hits = Physics.RaycastAll(origin, Vector3.down, range,
-                                          ~0, QueryTriggerInteraction.Ignore);
+            int count = Physics.RaycastNonAlloc(origin, Vector3.down, RaycastScratch.Hits,
+                                                range, ~0, QueryTriggerInteraction.Ignore);
 
             float bestDist = float.MaxValue;
             SectorRef bestRef = null;
-            foreach (var hit in hits)
+            for (int i = 0; i < count; i++)
             {
+                var hit = RaycastScratch.Hits[i];
                 if (cc != null && hit.collider == (Collider)(object)cc) continue;
                 var sref = hit.collider.GetComponentInParent<SectorRef>();
                 if (sref == null) continue;

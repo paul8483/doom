@@ -122,6 +122,25 @@ namespace Doom.MapBuild
             }
         }
 
+        /// Destroy every texture this cache created when no WorldRenderContext
+        /// owns them (the main-menu UI-only load). Context-owned caches are
+        /// released by the context's Dispose instead; calling this on one is a
+        /// no-op so a double release cannot destroy textures twice.
+        public void DestroyOwnerless()
+        {
+            if (context != null) return;
+            foreach (var slot in slots.Values)
+            {
+                if (slot.NativeTex != null) UnityEngine.Object.Destroy(slot.NativeTex);
+                if (slot.EnhancedTex != null) UnityEngine.Object.Destroy(slot.EnhancedTex);
+                if (slot.GrayTex != null) UnityEngine.Object.Destroy(slot.GrayTex);
+                slot.NativeTex = null;
+                slot.EnhancedTex = null;
+                slot.GrayTex = null;
+            }
+            slots.Clear();
+        }
+
         public void SetActiveProfile(GraphicsProfile profile)
         {
             this.profile = profile;
@@ -492,13 +511,7 @@ namespace Doom.MapBuild
             tex.filterMode = FilterMode.Point;
             tex.anisoLevel = anisoLevel;
 
-            var src = img.Rgba;
-            var flipped = new byte[w * h * 4];
-            int stride = w * 4;
-            for (int y = 0; y < h; y++)
-                Array.Copy(src, y * stride, flipped, (h - 1 - y) * stride, stride);
-
-            tex.LoadRawTextureData(flipped);
+            tex.LoadRawTextureData(FlipScratch.Flipped(img));
             tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
             return tex;
         }

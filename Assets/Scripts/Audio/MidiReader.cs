@@ -38,7 +38,10 @@ namespace Doom.Audio
 
             int pos = 8 + headerLen;
             var absolute = new List<AbsEvent>(1024);
-            int tempo = DefaultTempoMicroseconds;
+            // Every Set Tempo meta (tick, µs/quarter) from every track; the
+            // conversion integrates piecewise instead of applying whichever
+            // tempo was read last to the whole song.
+            var tempos = new List<TempoChange>(8);
 
             for (int t = 0; t < trackCount; t++)
             {
@@ -53,7 +56,7 @@ namespace Doom.Audio
                 int trackEnd = trackStart + trackLen;
                 if (trackEnd > lump.Length)
                     throw new InvalidDataException("MIDI track exceeds lump length");
-                ParseTrack(lump, trackStart, trackEnd, absolute, ref tempo);
+                ParseTrack(lump, trackStart, trackEnd, absolute, tempos);
                 pos = trackEnd;
             }
 
@@ -62,13 +65,14 @@ namespace Doom.Audio
                 int c = a.Tick.CompareTo(b.Tick);
                 return c != 0 ? c : a.Order.CompareTo(b.Order);
             });
+            tempos.Sort((a, b) => a.Tick.CompareTo(b.Tick));
 
-            var events = ToMusEvents(absolute, division, tempo);
+            var events = ToMusEvents(absolute, division, tempos);
             return new MusSong(0, 0, 0, 0, Array.Empty<ushort>(), events);
         }
 
         private static void ParseTrack(
-            byte[] lump, int start, int end, List<AbsEvent> into, ref int tempo)
+            byte[] lump, int start, int end, List<AbsEvent> into, List<TempoChange> tempos)
         {
             int pos = start;
             long tick = 0;
@@ -110,8 +114,9 @@ namespace Doom.Audio
                     }
                     if (meta == 0x51 && len == 3)
                     {
-                        tempo = (lump[pos] << 16) | (lump[pos + 1] << 8) | lump[pos + 2];
+                        int tempo = (lump[pos] << 16) | (lump[pos + 1] << 8) | lump[pos + 2];
                         if (tempo <= 0) tempo = DefaultTempoMicroseconds;
+                        tempos.Add(new TempoChange(tick, tempo));
                     }
                     pos += len;
                     continue;
@@ -148,17 +153,31 @@ namespace Doom.Audio
             }
         }
 
-        private static MusEvent[] ToMusEvents(List<AbsEvent> absolute, int division, int tempoUs)
+        private static MusEvent[] ToMusEvents(
+            List<AbsEvent> absolute, int division, List<TempoChange> tempos)
         {
             var list = new List<MusEvent>(absolute.Count + 1);
             long prevMusTick = 0;
-            // Accumulate fractional MUS ticks so we don't lose time to truncation.
-            double musTickAccum = 0;
+
+            // Piecewise tempo integration: seconds elapsed at the start of the
+            // current tempo segment + (tick − segment tick) × µs/tick.
+            int tempoIdx = 0;
+            long segTick = 0;
+            int segTempo = DefaultTempoMicroseconds;
+            double segMusTicks = 0; // exact MUS ticks at segTick
 
             for (int i = 0; i < absolute.Count; i++)
             {
                 AbsEvent e = absolute[i];
-                double musTickExact = MidiTicksToMusTicks(e.Tick, division, tempoUs);
+                while (tempoIdx < tempos.Count && tempos[tempoIdx].Tick <= e.Tick)
+                {
+                    var tc = tempos[tempoIdx++];
+                    segMusTicks += MidiTicksToMusTicks(tc.Tick - segTick, division, segTempo);
+                    segTick = tc.Tick;
+                    segTempo = tc.TempoUs;
+                }
+                double musTickExact =
+                    segMusTicks + MidiTicksToMusTicks(e.Tick - segTick, division, segTempo);
                 long musTick = (long)Math.Round(musTickExact);
                 if (musTick < prevMusTick) musTick = prevMusTick;
 
@@ -166,9 +185,15 @@ namespace Doom.Audio
                         out bool hasVol))
                     continue;
 
-                // Attach delay to the previous emitted event.
-                if (list.Count > 0 && musTick > prevMusTick)
+                if (list.Count == 0)
                 {
+                    // MUS has no leading rest; start the clock at the first
+                    // event instead of re-applying its offset after it.
+                    prevMusTick = musTick;
+                }
+                else if (musTick > prevMusTick)
+                {
+                    // Attach delay to the previous emitted event.
                     int delay = (int)Math.Min(int.MaxValue, musTick - prevMusTick);
                     MusEvent prev = list[list.Count - 1];
                     list[list.Count - 1] = new MusEvent(
@@ -177,11 +202,17 @@ namespace Doom.Audio
                 }
 
                 list.Add(new MusEvent(type, musCh, d1, d2, 0, hasVol));
-                musTickAccum = musTick;
             }
 
             list.Add(new MusEvent(MusEventType.ScoreEnd, 0, 0, 0, 0));
             return list.ToArray();
+        }
+
+        private readonly struct TempoChange
+        {
+            public TempoChange(long tick, int tempoUs) { Tick = tick; TempoUs = tempoUs; }
+            public long Tick { get; }
+            public int TempoUs { get; }
         }
 
         private static bool TryMap(

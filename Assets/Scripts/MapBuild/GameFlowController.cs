@@ -38,7 +38,12 @@ namespace Doom.MapBuild
             // Fresh Windows build must open main menu, not E1M1. Leave Editor/PlayMode
             // on AutoStartPlaying=true so existing tests keep auto-building the map.
             if (!Application.isEditor)
+            {
                 AutoStartPlaying = false;
+                // Players see the intermission and confirm it (Enter / Space /
+                // Use / Fire); tests keep the immediate path.
+                LevelTransitionController.ImmediateConfirmForTests = false;
+            }
         }
 
         public static GameFlowController Ensure()
@@ -85,6 +90,22 @@ namespace Doom.MapBuild
                 return;
 
             var kb = Keyboard.current;
+
+            if (State == GameFlowState.Intermission)
+            {
+                // WI_Ticker: any use/fire/accept press advances the stats screen.
+                var mouse = Mouse.current;
+                bool confirm =
+                    (kb != null && (kb.enterKey.wasPressedThisFrame ||
+                                    kb.numpadEnterKey.wasPressedThisFrame ||
+                                    kb.spaceKey.wasPressedThisFrame ||
+                                    kb.eKey.wasPressedThisFrame)) ||
+                    (mouse != null && mouse.leftButton.wasPressedThisFrame);
+                if (confirm)
+                    LevelTransitionController.Instance?.ConfirmIntermission();
+                return;
+            }
+
             if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
 
             // Slot submenus handle Escape themselves (Back).
@@ -183,6 +204,9 @@ namespace Doom.MapBuild
 
             Menu.Hide();
             SetState(GameFlowState.Intermission);
+            // Like pause: the world stops under the stats screen (monsters kept
+            // ticking on Time.deltaTime and could kill the frozen player).
+            SaveAndZeroTimeScale();
             FreezeGameplay();
             UnlockCursor();
         }

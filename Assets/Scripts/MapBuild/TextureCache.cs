@@ -668,7 +668,9 @@ namespace Doom.MapBuild
                 mipChain: hasMips, linear: false);
             tex.name = name;
             ConfigureWrap(tex, entry);
-            if (hasMips && WorldRedrawCatalog.TryGet(name, entry.Native, out _))
+            // Allowlist membership only: the catalog's TryGet would Resources.Load
+            // and CPU-decode the redraw PNG just to answer this on disk-pack hits.
+            if (hasMips && WorldRedrawAllowlist.Contains(name))
                 tex.mipMapBias = RedrawMipBias;
             // Controlled mips: Trilinear minification (LOD0 stays sharp via mip content).
             tex.filterMode = hasMips ? FilterMode.Trilinear : FilterMode.Point;
@@ -737,13 +739,7 @@ namespace Doom.MapBuild
 
         static void UploadFlipped(Texture2D tex, DecodedImage img, int mipLevel)
         {
-            int w = img.Width, h = img.Height;
-            var flipped = new byte[img.Rgba.Length];
-            int stride = w * 4;
-            for (int y = 0; y < h; y++)
-                System.Array.Copy(img.Rgba, y * stride, flipped, (h - 1 - y) * stride, stride);
-
-            tex.SetPixelData(flipped, mipLevel);
+            tex.SetPixelData(FlipScratch.Flipped(img), mipLevel);
         }
 
         static long TextureBytes(Texture2D tex)

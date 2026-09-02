@@ -10,8 +10,22 @@ namespace Doom.MapBuild
         {
             if (required == KeyKind.None) return true;
             if (required == KeyKind.Any) return keys.HasAny();
-            return ToPlayerKey(required, out var pk) && keys.Has(pk);
+            // EV_VerticalDoor / EV_DoLockedDoor: the card OR the skull of the
+            // colour opens the door (`!cards[it_bluecard] && !cards[it_blueskull]`).
+            return ToPlayerKey(required, out var pk) &&
+                   (keys.Has(pk) || keys.Has(SameColourCounterpart(pk)));
         }
+
+        static PlayerKey SameColourCounterpart(PlayerKey key) => key switch
+        {
+            PlayerKey.BlueCard => PlayerKey.BlueSkull,
+            PlayerKey.BlueSkull => PlayerKey.BlueCard,
+            PlayerKey.YellowCard => PlayerKey.YellowSkull,
+            PlayerKey.YellowSkull => PlayerKey.YellowCard,
+            PlayerKey.RedCard => PlayerKey.RedSkull,
+            PlayerKey.RedSkull => PlayerKey.RedCard,
+            _ => key,
+        };
 
         public static bool ToPlayerKey(KeyKind kind, out PlayerKey key)
         {

@@ -100,6 +100,12 @@ namespace Doom.MapBuild
 
         public ProjectileSnapshot CaptureSnapshot(int spawnId, WorldStateRegistry registry)
         {
+            // Impact damage is already dealt and the snapshot carries no
+            // exploding phase for monster missiles: restoring one would revive
+            // it as a motionless, immortal fireball. Same rule as the player
+            // projectiles — the explosion is presentation only.
+            if (exploding) return null;
+
             var ownerId = SaveEntityId.None;
             if (owner != null && registry != null)
                 ownerId = registry.ResolveEntity(owner.transform);
@@ -147,6 +153,16 @@ namespace Doom.MapBuild
             transform.position += delta;
         }
 
+        /// PIT_CheckThing: a missile fired by a monster explodes on, but does
+        /// not damage, a monster of the same type (imps never infight imps).
+        static bool SameSpecies(EnemyHealth shooter, EnemyHealth victim)
+        {
+            if (shooter == null || victim == null) return false;
+            var a = shooter.GetComponent<MonsterController>();
+            var b = victim.GetComponent<MonsterController>();
+            return a != null && b != null && a.DoomEdNum == b.DoomEdNum;
+        }
+
         void OnImpact(Collider hitCollider)
         {
             sound?.PlayAt("DSFIRXPL", transform.position);
@@ -156,7 +172,7 @@ namespace Doom.MapBuild
             var player = hitCollider.GetComponent<PlayerHealth>();
             var enemy = hitCollider.GetComponent<EnemyHealth>();
             if (player != null) player.TakeDamage(damage);
-            else if (enemy != null && !enemy.IsDead)
+            else if (enemy != null && !enemy.IsDead && !SameSpecies(owner, enemy))
                 enemy.TakeDamage(damage, owner != null ? DamageSource.Monster(owner) : DamageSource.Player());
 
             // Presentation only — after damage attribution.

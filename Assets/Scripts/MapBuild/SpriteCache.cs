@@ -46,6 +46,9 @@ namespace Doom.MapBuild
         private readonly HashSet<int> enemyLumps = new();
         private readonly HashSet<int> weaponLumps = new();
         private readonly HashSet<int> rejectedWeaponRedraws = new();
+        /// Display redraws whose Resources file is missing: remembered so the
+        /// per-frame billboard resolve does not Resources.Load + warn forever.
+        private readonly HashSet<int> rejectedDisplayRedraws = new();
         private readonly List<int> nativeLumpOrder = new();
 
         int enhancedVariantCount;
@@ -459,12 +462,18 @@ namespace Doom.MapBuild
             if (texByLumpVariant.TryGetValue(key, out var existing))
                 return existing;
 
+            if (rejectedDisplayRedraws.Contains(lumpIndex))
+                return CreateNativeTexture(lumpIndex);
+
             if (lumpIndex < 0 || lumpIndex >= wad.Directory.Count)
                 return CreateNativeTexture(lumpIndex);
 
             string lumpName = wad.Directory[lumpIndex].Name;
             if (!DisplayRedrawAllowlist.Contains(lumpName))
+            {
+                rejectedDisplayRedraws.Add(lumpIndex);
                 return CreateNativeTexture(lumpIndex);
+            }
 
             var resource = Resources.Load<Texture2D>(
                 DisplayRedrawAllowlist.ResourcesPath(lumpName));
@@ -472,6 +481,7 @@ namespace Doom.MapBuild
             {
                 Debug.LogWarning(
                     $"SpriteCache: missing EnhancedSprites resource for {lumpName}");
+                rejectedDisplayRedraws.Add(lumpIndex);
                 return CreateNativeTexture(lumpIndex);
             }
 
@@ -733,13 +743,7 @@ namespace Doom.MapBuild
             tex.filterMode = forcePointFilter ? FilterMode.Point : materials.WorldFilterMode;
             tex.anisoLevel = anisoLevel;
 
-            var src = img.Rgba;
-            var flipped = new byte[w * h * 4];
-            int stride = w * 4;
-            for (int y = 0; y < h; y++)
-                System.Array.Copy(src, y * stride, flipped, (h - 1 - y) * stride, stride);
-
-            tex.LoadRawTextureData(flipped);
+            tex.LoadRawTextureData(FlipScratch.Flipped(img));
             tex.Apply(updateMipmaps: true, makeNoLongerReadable: true);
             return tex;
         }

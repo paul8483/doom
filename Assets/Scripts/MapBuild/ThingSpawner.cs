@@ -48,6 +48,9 @@ namespace Doom.MapBuild
             {
                 var t = map.Things[thingIndex];
                 if (IsSpawnPoint(t.Type)) continue;
+                // P_SpawnMapThing: skill bit + MTF_NOTSINGLE. The WAD index stays
+                // the save identity, so filtered things are skipped, not renumbered.
+                if (!ThingSpawnRules.ShouldSpawnSinglePlayer(t.Flags)) continue;
                 if (!ThingTable.TryGet(t.Type, out var def)) continue;
                 bool isPickup = ItemRules.IsPickup(t.Type);
                 bool isEnemy = MonsterTable.TryGet(t.Type, out var monsterDef);

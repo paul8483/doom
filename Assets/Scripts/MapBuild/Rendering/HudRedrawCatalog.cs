@@ -31,6 +31,9 @@ namespace Doom.MapBuild.Rendering
             overrides.Clear();
         }
 
+        /// Drop decoded images once a warm consumed them (see WorldRedrawCatalog).
+        public static void ReleaseDecoded() => cache.Clear();
+
         /// True when a valid redraw exists for the patch at 4× the native
         /// size. Returns the decoded top-down RGBA image ready for the job.
         public static bool TryGet(string name, DecodedImage native, out DecodedImage redraw)
@@ -60,6 +63,7 @@ namespace Doom.MapBuild.Rendering
             }
 
             var decoded = WorldRedrawCatalog.ToDecodedTopDown(resource);
+            Resources.UnloadAsset(resource);
             if (!SizeValid(decoded, native))
             {
                 Debug.LogWarning(

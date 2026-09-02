@@ -77,8 +77,13 @@ namespace Doom.MapBuild
             }
             if (controller != null)
             {
-                if (source.MonsterAttacker != null && source.MonsterAttacker != this)
-                    controller.SetTarget(source.MonsterAttacker.transform);
+                // P_DamageMobj: any source (player included) becomes the new
+                // target unless the threshold still holds (100 tics after the
+                // last retarget) — the controller applies that rule.
+                var attacker = source.MonsterAttacker != null && source.MonsterAttacker != this
+                    ? source.MonsterAttacker.transform
+                    : null;
+                controller.NotifyDamagedBy(attacker);
                 controller.NotifyDamaged();
             }
         }

@@ -58,19 +58,32 @@ namespace Doom.MapBuild
             Vector3 pos = transform.position;
             sound?.PlayAt(BarrelRules.ExplodeSound, pos);
 
+            // A_Explode runs on frame D (tic 15 after death), so a chain of
+            // barrels ripples instead of detonating in one frame and the player
+            // who shot one has the vanilla moment to step back.
+            blastSource = source;
+            idx = 0;
+            left = BarrelRules.ExplodeTics[0] / 35f;
+            enabled = true;
+            if (BarrelRules.ExplodeFrameIndex == 0) Explode();
+        }
+
+        DamageSource blastSource;
+        bool exploded;
+
+        void Explode()
+        {
+            if (exploded) return;
+            exploded = true;
             // Blast origin at mid-height (vanilla mobj z + height/2 approx).
             float midY = capsule != null ? capsule.height * 0.5f : 20f * worldScale;
-            Vector3 blastOrigin = pos + Vector3.up * midY;
+            Vector3 blastOrigin = transform.position + Vector3.up * midY;
             RadiusDamageExecutor.ApplyBarrelBlast(
-                blastOrigin, worldScale, transform, source);
+                blastOrigin, worldScale, transform, blastSource);
 
             // Presentation only — after damage so timing/rules stay unchanged.
             EnhancedLightSystem.Instance?.PulseExplosion(blastOrigin, worldScale);
             ParticleEffectPool.Instance?.Pulse(EffectKind.Explosion, blastOrigin, worldScale);
-
-            idx = 0;
-            left = BarrelRules.ExplodeTics[0] / 35f;
-            enabled = true;
         }
 
         void Update()
@@ -80,11 +93,13 @@ namespace Doom.MapBuild
             idx++;
             if (idx >= BarrelRules.ExplodeFrames.Length)
             {
+                Explode(); // never lose the blast if the sequence is cut short
                 Destroy(gameObject);
                 return;
             }
             billboard?.SetStaticFrame(BarrelRules.ExplodeFrames[idx]);
             left = BarrelRules.ExplodeTics[idx] / 35f;
+            if (idx == BarrelRules.ExplodeFrameIndex) Explode();
         }
     }
 }

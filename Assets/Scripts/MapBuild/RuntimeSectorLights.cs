@@ -9,6 +9,14 @@ namespace Doom.MapBuild
 {
     /// Mutable per-sector light levels + thinkers. Independent of Classic/Enhanced;
     /// Enhanced presentation reads via MaterialPropertyBlock.
+    ///
+    /// Binding is per-sector and dirty-tracked: a glow / flicker sector changes
+    /// its level every tic, and the old "any change → rebind the whole map"
+    /// pass walked every renderer of every sector 35 times a second (with a
+    /// GetComponentsInChildren allocation per sector, in Classic too). Now a
+    /// tic touches only the sectors whose level moved, through cached renderer
+    /// lists; the lamp-flicker eligibility (profile-dependent, level-independent)
+    /// is applied on profile changes and wall rebuilds only.
     public sealed class RuntimeSectorLights : MonoBehaviour
     {
         public const string SectorAmbientProperty = "_SectorAmbient";
@@ -30,9 +38,16 @@ namespace Doom.MapBuild
         WorldRenderContext renderContext;
         GraphicsModeController gfx;
         DoomRandom rng;
+        Func<int> nextRandom;
         float ticAccum;
         MaterialPropertyBlock mpb;
-        bool visualsDirty = true;
+
+        // Dirty tracking + per-sector renderer cache (refreshed on rebuild).
+        bool[] sectorDirty;
+        bool anyDirty;
+        bool allDirty = true;
+        MeshRenderer[][] sectorRenderers;
+        bool lastEnhanced;
 
         public int SectorCount => states?.Length ?? 0;
 
@@ -46,10 +61,13 @@ namespace Doom.MapBuild
             geometry = sectorGeometry;
             renderContext = context;
             rng = random ?? new DoomRandom();
+            nextRandom = () => rng.Next();
             mpb = new MaterialPropertyBlock();
             gfx = GraphicsModeController.Ensure();
 
             states = new SectorLightState[map.Sectors.Length];
+            sectorDirty = new bool[map.Sectors.Length];
+            sectorRenderers = new MeshRenderer[map.Sectors.Length][];
             for (int s = 0; s < map.Sectors.Length; s++)
             {
                 int light = map.Sectors[s].LightLevel;
@@ -59,7 +77,7 @@ namespace Doom.MapBuild
                 states[s] = RuntimeLightRules.InitFromSector(light, special, neighbor);
             }
 
-            visualsDirty = true;
+            MarkAllDirty();
             ApplyVisualsIfNeeded(force: true);
         }
 
@@ -83,7 +101,7 @@ namespace Doom.MapBuild
                 st.Light = light;
                 states[sector] = st;
             }
-            visualsDirty = true;
+            MarkDirty(sector);
         }
 
         public void SetState(int sector, SectorLightState state)
@@ -91,7 +109,7 @@ namespace Doom.MapBuild
             if (states == null || sector < 0 || sector >= states.Length) return;
             state.Light = SectorLightState.ClampLight(state.Light);
             states[sector] = state;
-            visualsDirty = true;
+            MarkDirty(sector);
         }
 
         public void RestoreFromSnapshot(int sector, int lightLevel, int lightCount)
@@ -110,7 +128,7 @@ namespace Doom.MapBuild
             else
                 state.Light = SectorLightState.ClampLight(lightLevel);
             states[sector] = state;
-            visualsDirty = true;
+            MarkDirty(sector);
         }
 
         /// Linedef light special application for tagged / manual targets.
@@ -134,17 +152,21 @@ namespace Doom.MapBuild
                 }
                 else if (bright == -2)
                 {
-                    int target = RuntimeLightRules.LowestNeighborLight(map, s, GetLight);
+                    // EV_TurnTagLightsOff: min over the sector's OWN level and
+                    // its neighbours (a sector already darker than all of them
+                    // stays put).
+                    int target = Math.Min(
+                        GetLight(s), RuntimeLightRules.LowestNeighborLight(map, s, GetLight));
                     states[s] = SectorLightState.Static(target);
                 }
                 else
                 {
                     states[s] = SectorLightState.Static(bright);
                 }
+                MarkDirty(s);
             }
 
-            visualsDirty = true;
-            ApplyVisualsIfNeeded(force: true);
+            ApplyVisualsIfNeeded(force: false);
         }
 
         void Update()
@@ -167,20 +189,18 @@ namespace Doom.MapBuild
 
         void TickAll()
         {
-            bool changed = false;
             for (int i = 0; i < states.Length; i++)
             {
                 if (states[i].Kind == SectorLightKind.None) continue;
                 int before = states[i].Light;
-                states[i] = RuntimeLightRules.Tick(states[i], () => rng.Next());
-                if (states[i].Light != before) changed = true;
+                states[i] = RuntimeLightRules.Tick(states[i], nextRandom);
+                if (states[i].Light != before) MarkDirty(i);
             }
-            if (changed) visualsDirty = true;
         }
 
         public void NotifyProfileChanged()
         {
-            visualsDirty = true;
+            MarkAllDirty();
             ApplyVisualsIfNeeded(force: true);
         }
 
@@ -189,38 +209,39 @@ namespace Doom.MapBuild
         {
             if (states == null || sector < 0 || sector >= states.Length) return;
             if (geometry == null) return;
-
-            bool enhanced = IsEnhancedAmbient();
-
-            var root = geometry.GetSectorRoot(sector);
-            if (root == null) return;
-            float level = states[sector].Light / 255f;
-            var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
-            for (int r = 0; r < renderers.Length; r++)
-            {
-                var renderer = renderers[r];
-                if (renderer == null) continue;
-                if (!enhanced)
-                {
-                    renderer.SetPropertyBlock(null);
-                    continue;
-                }
-                // Merge ambient into the existing block — Clear() would drop
-                // AnimatedSurfaceSystem / WallScrollController _MainTex overrides
-                // and leave Fluid/Enhanced sampling Unity's missing-texture checker
-                // until the next animation tick (or forever on non-animated walls
-                // that inherited a stale block after a lift rebuild).
-                ApplyAmbientBlock(renderer, level);
-            }
-
-            if (enhanced)
-                ApplyLampFlickerForSector(sector, root);
+            sectorRenderers[sector] = null; // wall renderers were recreated
+            BindSector(sector, IsEnhancedAmbient(), withLampFlicker: true);
+            sectorDirty[sector] = false;
         }
 
         bool IsEnhancedAmbient() =>
             gfx != null
             && gfx.ActiveProfile.Mode == GraphicsMode.Enhanced
             && gfx.ActiveProfile.SectorAmbientBinding;
+
+        void MarkDirty(int sector)
+        {
+            sectorDirty[sector] = true;
+            anyDirty = true;
+        }
+
+        void MarkAllDirty()
+        {
+            allDirty = true;
+            anyDirty = true;
+        }
+
+        MeshRenderer[] RenderersOf(int sector)
+        {
+            var cached = sectorRenderers[sector];
+            if (cached != null) return cached;
+            var root = geometry.GetSectorRoot(sector);
+            cached = root != null
+                ? root.GetComponentsInChildren<MeshRenderer>(true)
+                : Array.Empty<MeshRenderer>();
+            sectorRenderers[sector] = cached;
+            return cached;
+        }
 
         void ApplyAmbientBlock(MeshRenderer renderer, float level)
         {
@@ -246,11 +267,10 @@ namespace Doom.MapBuild
             ceiling.SetPropertyBlock(mpb);
         }
 
-        void ApplyLampFlickerForSector(int sector, Transform root)
+        void ApplyLampFlickerForSector(int sector, MeshRenderer[] renderers)
         {
             int special = map.Sectors[sector].Special;
             string ceilingFlat = map.Sectors[sector].CeilingFlat;
-            var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
             for (int r = 0; r < renderers.Length; r++)
             {
                 var renderer = renderers[r];
@@ -327,37 +347,67 @@ namespace Doom.MapBuild
             return false;
         }
 
+        /// Bind one sector: ambient level always (Enhanced) or clear blocks
+        /// (Classic); lamp flicker only when asked (profile change / rebuild).
+        void BindSector(int sector, bool enhanced, bool withLampFlicker)
+        {
+            var renderers = RenderersOf(sector);
+            if (renderers.Length == 0) return;
+            float level = states[sector].Light / 255f;
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                var renderer = renderers[r];
+                if (renderer == null) continue;
+                if (!enhanced)
+                {
+                    renderer.SetPropertyBlock(null);
+                    continue;
+                }
+                // Merge ambient into the existing block — Clear() would drop
+                // AnimatedSurfaceSystem / WallScrollController _MainTex overrides.
+                ApplyAmbientBlock(renderer, level);
+            }
+            if (enhanced && withLampFlicker)
+                ApplyLampFlickerForSector(sector, renderers);
+        }
+
         void ApplyVisualsIfNeeded(bool force)
         {
-            if (!force && !visualsDirty) return;
-            visualsDirty = false;
-
-            bool enhanced = IsEnhancedAmbient();
-
             if (geometry == null || states == null) return;
+            bool enhanced = IsEnhancedAmbient();
+            bool profileFlip = enhanced != lastEnhanced;
+            if (!force && !anyDirty && !profileFlip) return;
 
-            for (int s = 0; s < states.Length; s++)
+            bool everything = force || allDirty || profileFlip;
+            if (everything)
             {
-                var root = geometry.GetSectorRoot(s);
-                if (root == null) continue;
-                float level = states[s].Light / 255f;
-                var renderers = root.GetComponentsInChildren<MeshRenderer>(true);
-                for (int r = 0; r < renderers.Length; r++)
+                // Full pass: ambient + lamp flicker for every sector (in Classic
+                // this clears every block once, then nothing runs per tic).
+                for (int s = 0; s < states.Length; s++)
                 {
-                    var renderer = renderers[r];
-                    if (renderer == null) continue;
-                    if (!enhanced)
-                    {
-                        renderer.SetPropertyBlock(null);
-                        continue;
-                    }
-
-                    ApplyAmbientBlock(renderer, level);
+                    BindSector(s, enhanced, withLampFlicker: true);
+                    sectorDirty[s] = false;
                 }
-
-                if (enhanced)
-                    ApplyLampFlickerForSector(s, root);
             }
+            else if (enhanced)
+            {
+                for (int s = 0; s < states.Length; s++)
+                {
+                    if (!sectorDirty[s]) continue;
+                    BindSector(s, enhanced: true, withLampFlicker: false);
+                    sectorDirty[s] = false;
+                }
+            }
+            else
+            {
+                // Classic: blocks are already clear; a level change has no
+                // presentation to refresh.
+                Array.Clear(sectorDirty, 0, sectorDirty.Length);
+            }
+
+            anyDirty = false;
+            allDirty = false;
+            lastEnhanced = enhanced;
         }
     }
 }

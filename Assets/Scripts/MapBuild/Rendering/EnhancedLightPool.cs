@@ -13,6 +13,7 @@ namespace Doom.MapBuild.Rendering
         readonly Transform root;
         readonly Light[] lights;
         bool disposed;
+        static int[] orderScratch;
 
         public int Capacity => MaxLights;
         public int ShadowCapacity => MaxShadows;
@@ -66,7 +67,11 @@ namespace Doom.MapBuild.Rendering
             int n = Math.Min(candidateCount, Math.Min(scores.Length, wantsShadow.Length));
             if (n <= 0) return;
 
-            var order = new int[n];
+            // Called every frame from EnhancedLightSystem.LateUpdate: reuse the
+            // index scratch instead of allocating per frame.
+            if (orderScratch == null || orderScratch.Length < n)
+                orderScratch = new int[Math.Max(n, MaxLights * 4)];
+            var order = orderScratch;
             for (int i = 0; i < n; i++) order[i] = i;
             for (int i = 0; i < n - 1; i++)
             {

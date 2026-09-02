@@ -222,6 +222,10 @@ namespace Doom.MapBuild.Rendering
             }
 
             disk?.ScheduleFlush();
+            // The jobs are done with the redraw PNG decodes; the store / pack
+            // own the results from here on.
+            WorldRedrawCatalog.ReleaseDecoded();
+            HudRedrawCatalog.ReleaseDecoded();
 
             LastCompletedComputeJobs += LastJobsStarted;
             LastCompletedStoreHits += LastStoreHits;

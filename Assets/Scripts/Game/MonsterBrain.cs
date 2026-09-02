@@ -47,7 +47,10 @@ namespace Doom.Game
 
         public void NotifyNoise()
         {
-            if (State != MonsterState.Sleep || ambush) return;
+            if (State != MonsterState.Sleep) return;
+            // A_Look: an MF_AMBUSH monster ignores the sound target unless it
+            // can see it (`if (actor->flags & MF_AMBUSH) { if (P_CheckSight) goto seeyou; }`).
+            if (ambush && !world.CanSeeTarget(false)) return;
             Wake();
         }
 
@@ -55,7 +58,6 @@ namespace Doom.Game
         public void NotifyDamaged()
         {
             if (State == MonsterState.Die || State == MonsterState.Dead) return;
-            justHit = true;
             // Бросок боли — ДО Wake: P_DamageMobj бросает PainChance на каждом уроне,
             // включая будящий; а Wake() тратит rng на выбор направления, что сломало бы
             // детерминизм тестов.
@@ -67,6 +69,10 @@ namespace Doom.Game
             reaction = 0;
             if (pained)
             {
+                // MF_JUSTHIT is set only when the pain roll succeeds
+                // (P_DamageMobj); before, every hit forced an instant
+                // counter-attack on the next chase turn.
+                justHit = true;
                 State = MonsterState.Pain;
                 StartSeq(def.Pain, loop: false);
                 Emit(MonsterSoundCue.Pain, 0);
@@ -260,11 +266,15 @@ namespace Doom.Game
             NewDir();
         }
 
+        // Cached: a fresh closure per direction change × every monster × 35 Hz
+        // was measurable garbage.
+        ChaseDir.TryStepFn tryStepMoved;
+
         void NewDir()
         {
             world.TargetDelta(out float dx, out float dy);
-            moveDir = ChaseDir.NewChaseDir(dx, dy, moveDir, rng,
-                d => world.TryStep(d) == StepResult.Moved, out moveCount);
+            tryStepMoved ??= d => world.TryStep(d) == StepResult.Moved;
+            moveDir = ChaseDir.NewChaseDir(dx, dy, moveDir, rng, tryStepMoved, out moveCount);
         }
 
         public void Capture(
@@ -288,9 +298,10 @@ namespace Doom.Game
         public void RestoreChaseBookkeeping(
             MonsterState state, int seqIndex, int tics,
             Dir8 dir, int moves, int reactionTime,
-            bool attacked, bool hit)
+            bool attacked, bool hit, bool extreme = false)
         {
             State = state;
+            extremeDeath = extreme && def.XDeath != null;
             seqIdx = seqIndex < 0 ? 0 : seqIndex;
             ticsLeft = tics < 0 ? 0 : tics;
             moveDir = dir;

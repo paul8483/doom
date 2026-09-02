@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Doom.Game;
 using Doom.MapBuild.Rendering;
@@ -43,6 +44,9 @@ namespace Doom.MapBuild
         float crossFadeLeft;
         Texture crossPrevTex;
         MaterialPropertyBlock mpb;
+        Material lastRetargetedMaterial;
+        int lastRetargetGeneration = -1;
+        bool lastRetargetSpectre;
 
         public void Init(SpriteCache cache, string sprite, int frame, float worldScale,
                          float doomAngleDeg, bool spawnCeiling, float ceilingY)
@@ -120,6 +124,17 @@ namespace Doom.MapBuild
             currPos = pos;
             currAngleDeg = doomAngleDegrees;
             poseAlpha = 0f;
+        }
+
+        /// Re-seed pose interpolation at the current transform (save restore
+        /// moves the thing without a gameplay tick; without this the first
+        /// frame after load lerps from the spawn point to the saved one).
+        public void ReseedPose(float doomAngleDegrees)
+        {
+            prevPos = currPos = transform.position;
+            prevAngleDeg = currAngleDeg = doomAngleDegrees;
+            poseAlpha = 1f;
+            poseSeeded = true;
         }
 
         /// Switch the billboard to a static frame with no rotation selection (corpse:
@@ -228,7 +243,19 @@ namespace Doom.MapBuild
             }
             meshRenderer.enabled = true;
 
-            cache.Materials.RetargetSpriteMaterial(sm.Material, useSpectre);
+            // Shared per-lump material: reconfigure it only when this billboard
+            // switched material / spectre flag or the graphics profile changed,
+            // not every frame for every billboard on screen.
+            int generation = cache.Materials.ProfileGeneration;
+            if (!ReferenceEquals(sm.Material, lastRetargetedMaterial) ||
+                lastRetargetGeneration != generation ||
+                lastRetargetSpectre != useSpectre)
+            {
+                cache.Materials.RetargetSpriteMaterial(sm.Material, useSpectre);
+                lastRetargetedMaterial = sm.Material;
+                lastRetargetGeneration = generation;
+                lastRetargetSpectre = useSpectre;
+            }
             meshRenderer.sharedMaterial = sm.Material;
 
             ApplyPresentationProps(profile, sm.Material);
@@ -242,26 +269,49 @@ namespace Doom.MapBuild
                     ? cache.GetEnemy(sprite, resolvedFrame, rotationIndex, useSpectre)
                     : cache.Get(sprite, resolvedFrame, rotationIndex, useSpectre);
 
+        // HasProperty answers depend on the shader only; cache them per shader
+        // instead of asking the material four times per billboard per frame.
+        struct ShaderProps
+        {
+            public bool SoftFloor, Emission, CrossFade, CrossTex;
+        }
+        static readonly Dictionary<Shader, ShaderProps> shaderProps = new();
+
+        static ShaderProps PropsOf(Material mat)
+        {
+            var shader = mat.shader;
+            if (shader != null && shaderProps.TryGetValue(shader, out var p)) return p;
+            p = new ShaderProps
+            {
+                SoftFloor = mat.HasProperty(DoomMaterialFactory.SoftFloorFadeProperty),
+                Emission = mat.HasProperty(DoomMaterialFactory.EmissionProperty),
+                CrossFade = mat.HasProperty(DoomMaterialFactory.CrossFadeProperty),
+                CrossTex = mat.HasProperty(DoomMaterialFactory.CrossTexProperty),
+            };
+            if (shader != null) shaderProps[shader] = p;
+            return p;
+        }
+
         void ApplyPresentationProps(GraphicsProfile profile, Material mat)
         {
             if (mpb == null) mpb = new MaterialPropertyBlock();
+            var props = PropsOf(mat);
             meshRenderer.GetPropertyBlock(mpb);
 
             float soft = profile.SoftFloorIntersection
                 ? DoomMaterialFactory.SoftFloorFadeAmount : 0f;
-            if (mat.HasProperty(DoomMaterialFactory.SoftFloorFadeProperty))
+            if (props.SoftFloor)
                 mpb.SetFloat(DoomMaterialFactory.SoftFloorFadeProperty, soft);
 
-            if (mat.HasProperty(DoomMaterialFactory.EmissionProperty))
+            if (props.Emission)
                 mpb.SetFloat(DoomMaterialFactory.EmissionProperty, emissionStrength);
 
             float cross = 0f;
-            if (crossFadeLeft > 0f && crossPrevTex != null &&
-                mat.HasProperty(DoomMaterialFactory.CrossFadeProperty))
+            if (crossFadeLeft > 0f && crossPrevTex != null && props.CrossFade)
             {
                 crossFadeLeft -= Time.deltaTime;
                 cross = Mathf.Clamp01(crossFadeLeft / CrossFadeSeconds);
-                if (mat.HasProperty(DoomMaterialFactory.CrossTexProperty))
+                if (props.CrossTex)
                     mpb.SetTexture(DoomMaterialFactory.CrossTexProperty, crossPrevTex);
             }
             else
@@ -270,7 +320,7 @@ namespace Doom.MapBuild
                 crossPrevTex = null;
             }
 
-            if (mat.HasProperty(DoomMaterialFactory.CrossFadeProperty))
+            if (props.CrossFade)
                 mpb.SetFloat(DoomMaterialFactory.CrossFadeProperty, cross);
 
             meshRenderer.SetPropertyBlock(mpb);

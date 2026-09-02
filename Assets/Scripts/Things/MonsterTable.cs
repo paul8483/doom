@@ -129,7 +129,8 @@ namespace Doom.Things
             [3003] = new MonsterDef // BOSS, baron of hell
             {
                 Speed = 8, PainChance = 50, ReactionMoves = 8,
-                MeleeMod = 10, MeleeMult = 10, HitscanCount = 0, HasMissile = true,
+                // A_BruisAttack: (P_Random()%8+1)*10 → 10..80
+                MeleeMod = 8, MeleeMult = 10, HitscanCount = 0, HasMissile = true,
                 MissileSpeed = 15, MissileImpactMod = 8, MissileImpactMult = 8,
                 MissileRadius = 6, MissileSpawnHeight = 32, MissileSprite = "BAL7",
                 MissileFlyFrames = new[] { 0, 1 }, MissileFlyTics = new[] { 4, 4 },

@@ -155,6 +155,12 @@ namespace Doom.Stage3.PlayTests
             yield return null;
 
             Assert.That(beh.IsDead, Is.True);
+            // A_Explode runs on BEXP frame D, 15 tics after death (info.c) —
+            // not on the death tic, so barrel chains ripple.
+            Assert.That(veh.Health, Is.EqualTo(20),
+                "no splash on the death frame itself");
+            for (int i = 0; i < 90 && veh.Health == 20; i++)
+                yield return null;
             Assert.That(veh.IsDead || veh.Health < 20, Is.True,
                 "nearby enemy took splash damage from barrel");
         }

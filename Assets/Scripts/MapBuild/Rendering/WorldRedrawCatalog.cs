@@ -31,6 +31,12 @@ namespace Doom.MapBuild.Rendering
             overrides.Clear();
         }
 
+        /// Drop the decoded level-0 images once a warm has consumed them. The
+        /// session store / disk pack hold the finished results, so keeping
+        /// ~240 MB of RGBA for the whole process bought nothing; a later warm
+        /// that really needs a decode simply reloads the PNG.
+        public static void ReleaseDecoded() => cache.Clear();
+
         /// True when a valid redraw exists for the name at its authoring scale
         /// (WorldRedrawAllowlist.ScaleFor: 4×, SKY1 8×) times the native size.
         /// Returns the decoded top-down RGBA image ready for the job.
@@ -61,6 +67,9 @@ namespace Doom.MapBuild.Rendering
             }
 
             var decoded = ToDecodedTopDown(resource);
+            // The importer keeps a readable CPU copy + GPU copy of the PNG;
+            // the job only needs the decoded bytes, so release the asset now.
+            Resources.UnloadAsset(resource);
             if (!SizeValid(name, decoded, native))
             {
                 Debug.LogWarning(

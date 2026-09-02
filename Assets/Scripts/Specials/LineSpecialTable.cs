@@ -87,25 +87,27 @@ namespace Doom.Specials
             Add(87, TriggerKind.Walk,   true,  false, SpecialCategory.Plat, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.LowestNeighborFloor, KeyKind.None); // WR perpetual raise/lower
             Add(54, TriggerKind.Walk,   false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 stop perpetual plat
             Add(89, TriggerKind.Walk,   true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR stop perpetual plat
-            Add(66, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // SR raise floor 24 + change texture
-            Add(15, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // S1 raise floor 24 + change texture
-            Add(67, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // SR raise floor 32 + change texture
-            Add(14, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // S1 raise floor 32 + change texture
-            Add(68, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor, KeyKind.None); // SR raise plat to next higher + change texture
-            Add(20, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor, KeyKind.None); // S1 raise plat to next higher + change texture
-            Add(95, TriggerKind.Walk,   true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor, KeyKind.None); // WR raise plat to next higher + change texture
-            Add(22, TriggerKind.Walk,   false, true,  SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor, KeyKind.None); // W1 raise plat to next higher + change texture
-            Add(47, TriggerKind.Gun,    false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor, KeyKind.None); // G1 raise plat to next higher + change texture
+            // raiseAndChange / raiseToNearestAndChange: EV_DoPlat PLATSPEED/2, floor moves up once and stays.
+            Add(66, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.FloorPlus24, KeyKind.None); // SR raise floor 24 + change texture
+            Add(15, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.FloorPlus24, KeyKind.None); // S1 raise floor 24 + change texture
+            Add(67, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.FloorPlus32, KeyKind.None); // SR raise floor 32 + change texture
+            Add(14, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.FloorPlus32, KeyKind.None); // S1 raise floor 32 + change texture
+            Add(68, TriggerKind.Switch, true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.NextHigherFloor, KeyKind.None); // SR raise plat to next higher + change texture
+            Add(20, TriggerKind.Switch, false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.NextHigherFloor, KeyKind.None); // S1 raise plat to next higher + change texture
+            Add(95, TriggerKind.Walk,   true,  false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.NextHigherFloor, KeyKind.None); // WR raise plat to next higher + change texture
+            Add(22, TriggerKind.Walk,   false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.NextHigherFloor, KeyKind.None); // W1 raise plat to next higher + change texture (P_CrossSpecialLine: not monster-activatable)
+            Add(47, TriggerKind.Gun,    false, false, SpecialCategory.Plat, MoveDirection.Up,   MoveSpeed.Half, TargetSpec.NextHigherFloor, KeyKind.None); // G1 raise plat to next higher + change texture
 
             // ── Floor movers ──────────────────────────────────────────────────
             Add(18, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor,      KeyKind.None); // S1 floor up to next higher
             Add(69, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor,      KeyKind.None); // SR floor up to next higher
             Add(119,TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor,      KeyKind.None); // W1 floor up to next higher
             Add(128,TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.NextHigherFloor,      KeyKind.None); // WR floor up to next higher
-            Add(131,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Turbo,TargetSpec.NextHigherFloor,      KeyKind.None); // S1 floor up to next higher (turbo)
-            Add(132,TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Turbo,TargetSpec.NextHigherFloor,      KeyKind.None); // SR floor up to next higher (turbo)
-            Add(129,TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Turbo,TargetSpec.NextHigherFloor,      KeyKind.None); // WR floor up to next higher (turbo)
-            Add(130,TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Turbo,TargetSpec.NextHigherFloor,      KeyKind.None); // W1 floor up to next higher (turbo)
+            // raiseFloorTurbo: FLOORSPEED*4 = 4 u/tic (Fast), not blaze 8.
+            Add(131,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Fast, TargetSpec.NextHigherFloor,      KeyKind.None); // S1 floor up to next higher (turbo)
+            Add(132,TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Fast, TargetSpec.NextHigherFloor,      KeyKind.None); // SR floor up to next higher (turbo)
+            Add(129,TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Fast, TargetSpec.NextHigherFloor,      KeyKind.None); // WR floor up to next higher (turbo)
+            Add(130,TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Fast, TargetSpec.NextHigherFloor,      KeyKind.None); // W1 floor up to next higher (turbo)
 
             Add(101,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // S1 floor up to lowest ceiling
             Add(64, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // SR floor up to lowest ceiling
@@ -113,21 +115,21 @@ namespace Doom.Specials
             Add(91, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // WR floor up to lowest ceiling
             Add(24, TriggerKind.Gun,    false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // G1 floor up to lowest ceiling
 
-            Add(55, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // S1 floor up to 8 below lowest ceiling (crush)
-            Add(65, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // SR floor up to 8 below lowest ceiling (crush)
-            Add(56, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // W1 floor up to 8 below lowest ceiling (crush)
-            Add(94, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeiling, KeyKind.None); // WR floor up to 8 below lowest ceiling (crush)
+            Add(55, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeilingMinus8, KeyKind.None); // S1 floor up to 8 below lowest ceiling (crush)
+            Add(65, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeilingMinus8, KeyKind.None); // SR floor up to 8 below lowest ceiling (crush)
+            Add(56, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeilingMinus8, KeyKind.None); // W1 floor up to 8 below lowest ceiling (crush)
+            Add(94, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.LowestNeighborCeilingMinus8, KeyKind.None); // WR floor up to 8 below lowest ceiling (crush)
 
-            Add(58, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 floor up 24
-            Add(92, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR floor up 24
-            Add(59, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 floor up 24 + change texture
-            Add(93, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR floor up 24 + change texture
+            Add(58, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.FloorPlus24, KeyKind.None); // W1 floor up 24
+            Add(92, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.FloorPlus24, KeyKind.None); // WR floor up 24
+            Add(59, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.FloorPlus24, KeyKind.None); // W1 floor up 24 + change texture
+            Add(93, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.FloorPlus24, KeyKind.None); // WR floor up 24 + change texture
 
-            Add(140,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // S1 floor up 512
+            Add(140,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.FloorPlus512, KeyKind.None); // S1 floor up 512
 
             Add(23, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.LowestNeighborFloor,  KeyKind.None); // S1 floor down to lowest
-            Add(70, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloor, KeyKind.None); // SR floor down to 8 above highest (turbo)
-            Add(71, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloor, KeyKind.None); // S1 floor down to 8 above highest (turbo)
+            Add(70, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloorPlus8, KeyKind.None); // SR floor down to 8 above highest (turbo)
+            Add(71, TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloorPlus8, KeyKind.None); // S1 floor down to 8 above highest (turbo)
             Add(45, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.HighestNeighborFloor, KeyKind.None); // SR floor down to highest
             Add(60, TriggerKind.Switch, true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.LowestNeighborFloor,  KeyKind.None); // SR floor down to lowest
             Add(82, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.LowestNeighborFloor,  KeyKind.None); // WR floor down to lowest
@@ -137,8 +139,8 @@ namespace Doom.Specials
             Add(83, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.HighestNeighborFloor, KeyKind.None); // WR floor down to highest
             Add(19, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.HighestNeighborFloor, KeyKind.None); // W1 floor down to highest
             Add(102,TriggerKind.Switch, false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.HighestNeighborFloor, KeyKind.None); // S1 floor down to highest
-            Add(36, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloor, KeyKind.None); // W1 floor down to 8 above highest (turbo)
-            Add(98, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloor, KeyKind.None); // WR floor down to 8 above highest (turbo)
+            Add(36, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloorPlus8, KeyKind.None); // W1 floor down to 8 above highest (turbo)
+            Add(98, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Down, MoveSpeed.Fast, TargetSpec.HighestNeighborFloorPlus8, KeyKind.None); // WR floor down to 8 above highest (turbo)
             Add(30, TriggerKind.Walk,   false, false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 floor up by shortest lower texture
             Add(96, TriggerKind.Walk,   true,  false, SpecialCategory.Floor, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR floor up by shortest lower texture
 
@@ -146,11 +148,11 @@ namespace Doom.Specials
             Add(9,  TriggerKind.Switch, false, false, SpecialCategory.Donut, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // S1 donut (raise inner, lower outer)
 
             // ── Ceilings ──────────────────────────────────────────────────────
-            Add(40, TriggerKind.Walk,   false, false, SpecialCategory.Ceiling, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.HighestNeighborFloor, KeyKind.None); // W1 ceiling up to highest ceiling
+            Add(40, TriggerKind.Walk,   false, false, SpecialCategory.Ceiling, MoveDirection.Up,   MoveSpeed.Slow, TargetSpec.HighestNeighborCeiling, KeyKind.None); // W1 ceiling up to highest ceiling
             Add(41, TriggerKind.Switch, false, false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.ToFloor, KeyKind.None); // S1 ceiling down to floor
             Add(43, TriggerKind.Switch, true,  false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.ToFloor, KeyKind.None); // SR ceiling down to floor
-            Add(44, TriggerKind.Walk,   false, false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // W1 ceiling down to 8 above floor (crush)
-            Add(72, TriggerKind.Walk,   true,  false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.None, KeyKind.None); // WR ceiling down to 8 above floor (crush)
+            Add(44, TriggerKind.Walk,   false, false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.FloorPlus8, KeyKind.None); // W1 ceiling down to 8 above floor (crush)
+            Add(72, TriggerKind.Walk,   true,  false, SpecialCategory.Ceiling, MoveDirection.Down, MoveSpeed.Slow, TargetSpec.FloorPlus8, KeyKind.None); // WR ceiling down to 8 above floor (crush)
 
             // ── Crushers ──────────────────────────────────────────────────────
             Add(6,  TriggerKind.Walk,   false, false, SpecialCategory.Crusher, MoveDirection.Down, MoveSpeed.Normal, TargetSpec.None, KeyKind.None); // W1 fast crusher
@@ -163,8 +165,9 @@ namespace Doom.Specials
             Add(141,TriggerKind.Walk,   false, false, SpecialCategory.Crusher, MoveDirection.Down, MoveSpeed.Slow,   TargetSpec.None, KeyKind.None); // W1 silent crusher
 
             // ── Stairs ────────────────────────────────────────────────────────
-            Add(8,  TriggerKind.Walk,   false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.StairStep, KeyKind.None); // W1 stairs 8
-            Add(7,  TriggerKind.Switch, false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Slow, TargetSpec.StairStep, KeyKind.None); // S1 stairs 8
+            // EV_BuildStairs build8: FLOORSPEED/4 (0.25 u/tic); turbo16: FLOORSPEED*4.
+            Add(8,  TriggerKind.Walk,   false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Crawl, TargetSpec.StairStep, KeyKind.None); // W1 stairs 8
+            Add(7,  TriggerKind.Switch, false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Crawl, TargetSpec.StairStep, KeyKind.None); // S1 stairs 8
             Add(100,TriggerKind.Walk,   false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Fast, TargetSpec.StairStep, KeyKind.None); // W1 stairs 16 (turbo, crush)
             Add(127,TriggerKind.Switch, false, false, SpecialCategory.Stair, MoveDirection.Up, MoveSpeed.Fast, TargetSpec.StairStep, KeyKind.None); // S1 stairs 16 (turbo, crush)
 

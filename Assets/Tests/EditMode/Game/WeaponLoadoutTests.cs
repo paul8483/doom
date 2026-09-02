@@ -36,7 +36,9 @@ namespace Doom.Game.Tests
         [Test]
         public void BestAvailable_follows_p_checkammo_order()
         {
-            // Порядок P_CheckAmmo: BFG → plasma → rocket → chaingun → shotgun → pistol → fist.
+            // Порядок P_CheckAmmo (p_pspr.c): plasma → chaingun → shotgun → pistol
+            // → chainsaw → rocket → BFG (> 40 cells) → fist. Ракетница и BFG стоят
+            // ПОСЛЕ бензопилы: с дробью в руках ванилла берёт дробовик, не ракеты.
             var l = new WeaponLoadout();
             var ammo = new AmmoModel();          // 50 пуль, 0 дроби
             l.Give(WeaponId.Shotgun); l.Give(WeaponId.Chaingun);
@@ -48,11 +50,15 @@ namespace Doom.Game.Tests
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Shotgun));
             l.Give(WeaponId.RocketLauncher);
             ammo.Add(AmmoType.Rockets, 1);
-            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.RocketLauncher));
-            while (ammo.TryConsume(AmmoType.Rockets, 1)) { }
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Shotgun),
+                "дробовик стоит раньше ракетницы в P_CheckAmmo");
             while (ammo.TryConsume(AmmoType.Shells, 1)) { }
-            while (ammo.TryConsume(AmmoType.Bullets, 1)) { }
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.RocketLauncher));
             l.Give(WeaponId.Chainsaw);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Chainsaw),
+                "бензопила стоит раньше ракетницы");
+            while (ammo.TryConsume(AmmoType.Rockets, 1)) { }
+            while (ammo.TryConsume(AmmoType.Bullets, 1)) { }
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Chainsaw));
         }
 
@@ -66,7 +72,16 @@ namespace Doom.Game.Tests
             l.Give(WeaponId.Bfg9000);
             ammo.Add(AmmoType.Cells, 39);
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.PlasmaRifle),
-                "BFG needs 40 cells");
+                "plasma comes first in P_CheckAmmo while it has cells");
+            // BFG is auto-selected only with MORE than 40 cells (`ammo[am_cell] > 40`)
+            // and only once plasma is out of the running.
+            l.Reset();
+            l.Give(WeaponId.Bfg9000);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Fist),
+                "39 cells: BFG not offered");
+            ammo.Add(AmmoType.Cells, 1);
+            Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Fist),
+                "40 cells: still not offered (strictly more than 40)");
             ammo.Add(AmmoType.Cells, 1);
             Assert.That(l.BestAvailable(ammo), Is.EqualTo(WeaponId.Bfg9000));
             while (ammo.TryConsume(AmmoType.Cells, 1)) { }

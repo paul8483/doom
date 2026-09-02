@@ -238,6 +238,10 @@ namespace Doom.MapBuild
         void ApplyPresentation(bool useMesh)
         {
             lastUseMesh = useMesh;
+            // Undo the billboard's camera-facing yaw on the shared root (see
+            // ExperimentalPickupModel.ApplyPresentation).
+            if (useMesh)
+                transform.rotation = Quaternion.identity;
             if (pivot != null)
                 pivot.gameObject.SetActive(useMesh);
             if (billboardRenderer != null)

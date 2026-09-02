@@ -42,8 +42,22 @@ namespace Doom.MapBuild
         float radiusM, heightM;
         int doomEdNum;
         bool dropSpawned;
+        // P_DamageMobj retarget threshold (BASETHRESHOLD = 100 tics): while it
+        // runs, a monster keeps its current target instead of flip-flopping
+        // between every attacker.
+        const int BaseThresholdTics = 100;
+        int thresholdTics;
+        EnemyHealth targetHealth;         // cached for the dead-target check
+
+        /// Every enabled controller in the scene (noise alerts) — saves a
+        /// FindObjectsByType scan per gunshot.
+        public static readonly System.Collections.Generic.List<MonsterController> Active = new();
+
+        void OnEnable() => Active.Add(this);
+        void OnDisable() => Active.Remove(this);
 
         public MonsterBrain Brain => brain;
+        public int DoomEdNum => doomEdNum;
         public bool IsAmbush => ambush;
         public bool SupportsExtremeDeath => def?.XDeath != null;
 
@@ -67,7 +81,26 @@ namespace Doom.MapBuild
         /// Optional stop-motion 3D presentation (attached by ThingSpawner after Init).
         public void SetExperimentalModel(ExperimentalMonsterModel m) => model = m;
 
-        public void SetTarget(Transform t) => target = t != null ? t : player;
+        public void SetTarget(Transform t)
+        {
+            target = t != null ? t : player;
+            targetHealth = target != null && target != player
+                ? target.GetComponent<EnemyHealth>()
+                : null;
+        }
+
+        /// Damage landed from <paramref name="attacker"/> (null = the player).
+        /// P_DamageMobj: `if (source && source != target && !target->threshold)`
+        /// → new target, threshold = BASETHRESHOLD. Player hits count too, so a
+        /// monster busy infighting can be pulled back onto the player.
+        public void NotifyDamagedBy(Transform attacker)
+        {
+            Transform t = attacker != null ? attacker : player;
+            if (t == null || t == transform || t == target) return;
+            if (thresholdTics > 0) return;
+            SetTarget(t);
+            thresholdTics = BaseThresholdTics;
+        }
         public Transform TargetForTest => target;
         public void NotifyNoise() => brain.NotifyNoise();
         public void NotifyDamaged() => brain.NotifyDamaged();
@@ -76,36 +109,101 @@ namespace Doom.MapBuild
         /// Apply transform/health/frame from a save. Dead monsters become corpses
         /// without re-spawning death drops (those live in SpawnedPickups).
         public void ApplySnapshotRestore(int healthValue, int frame, float angleDegrees, bool dead)
+            => ApplySnapshotRestore(healthValue, frame, angleDegrees, dead, MonsterAiSnapshot.None);
+
+        public void ApplySnapshotRestore(
+            int healthValue, int frame, float angleDegrees, bool dead, MonsterAiSnapshot ai)
         {
             if (bb != null)
                 bb.SetDoomAngle(angleDegrees);
+
+            // v7: a monster caught mid-death keeps falling after the load —
+            // the brain resumes its death sequence where the save left it.
+            if (ai.Present && ai.State == MonsterState.Die && brain != null)
+            {
+                if (bb != null) bb.ReseedPose(angleDegrees);
+                if (model != null) model.ReseedPose(angleDegrees);
+                dropSpawned = true;
+                if (health != null) health.RestoreHealth(0);
+                if (capsule != null) capsule.enabled = false;
+                if (model != null) model.NotifyDeathStarted(ai.Extreme);
+                brain.RestoreChaseBookkeeping(
+                    MonsterState.Die, ai.SeqIndex, ai.Tics, ai.Dir, ai.Moves, ai.Reaction,
+                    ai.Attacked, ai.Hit, ai.Extreme);
+                return;
+            }
+
+            // The transform was moved by the restore without a gameplay tick;
+            // re-seed the pose interpolation so the first frame does not lerp
+            // from the spawn point to the saved one.
+            if (bb != null) bb.ReseedPose(angleDegrees);
+            if (model != null) model.ReseedPose(angleDegrees);
 
             if (dead || healthValue <= 0)
             {
                 dropSpawned = true;
                 if (health != null) health.RestoreHealth(0);
                 if (capsule != null) capsule.enabled = false;
+                // A save taken mid-death-animation (health already 0, frame
+                // somewhere in the fall) would otherwise freeze the monster
+                // half-fallen forever: land it on the corpse frame.
+                int restoredCorpse = SnapToCorpseFrame(frame);
                 if (brain != null)
                 {
+                    // A sequence index past the end clamps to the LAST death
+                    // frame, so the brain re-emits the corpse instead of the
+                    // first fall frame (which would build an unused death mesh
+                    // and start the corpse sliding on load).
                     brain.RestoreChaseBookkeeping(
-                        MonsterState.Dead, 0, 0, Dir8.None, 0, 0, false, false);
+                        MonsterState.Dead, int.MaxValue, 0, Dir8.None, 0, 0, false, false);
                 }
-                int restoredCorpse = frame >= 0 ? frame : corpseFrame;
                 if (bb != null && restoredCorpse >= 0)
                     bb.SetStaticFrame(restoredCorpse);
                 if (model != null)
                 {
                     // A saved corpse restores onto its death mesh when covered;
                     // gib corpses and uncovered sets fall back to the billboard.
-                    if (restoredCorpse >= 0) model.NotifyFrame(restoredCorpse);
+                    if (restoredCorpse >= 0) model.NotifyRestoredFrame(restoredCorpse);
                     else model.RevertToBillboard();
                 }
                 return;
             }
 
             if (health != null) health.RestoreHealth(healthValue);
+            if (ai.Present && brain != null &&
+                ai.State != MonsterState.Die && ai.State != MonsterState.Dead)
+            {
+                // v7: resume chase / attack / pain exactly where the save left
+                // it (the brain re-emits the sequence frame itself). Pre-v7
+                // saves keep the old behaviour: awake monsters restart asleep.
+                brain.RestoreChaseBookkeeping(
+                    ai.State, ai.SeqIndex, ai.Tics, ai.Dir, ai.Moves, ai.Reaction,
+                    ai.Attacked, ai.Hit);
+                return;
+            }
             if (bb != null && frame >= 0) bb.SetFrame(frame);
             if (model != null && frame >= 0) model.NotifyFrame(frame);
+        }
+
+        /// Map a saved frame of a dead monster onto its resting corpse frame:
+        /// a frame inside the death (or xdeath) sequence that is not the last
+        /// one means the save caught the fall mid-way.
+        int SnapToCorpseFrame(int frame)
+        {
+            if (frame < 0) return corpseFrame;
+            if (IsNonFinalFrameOf(def.Death, frame)) return corpseFrame;
+            if (def.XDeath != null && IsNonFinalFrameOf(def.XDeath, frame))
+                return def.XDeathCorpseFrame >= 0 ? def.XDeathCorpseFrame : frame;
+            return frame;
+        }
+
+        static bool IsNonFinalFrameOf(MonsterSeq seq, int frame)
+        {
+            var frames = seq?.Frames;
+            if (frames == null || frames.Length == 0) return false;
+            for (int i = 0; i < frames.Length - 1; i++)
+                if (frames[i] == frame) return true;
+            return false;
         }
 
         static float NormAngle(float deg)
@@ -117,12 +215,22 @@ namespace Doom.MapBuild
         void Update()
         {
             if (brain == null) return;
-            // Цель умерла (монстр): назад на игрока.
-            if (target != player && target == null) target = player;
             tickAccum += Time.deltaTime;
             while (tickAccum >= TicSeconds)
             {
                 tickAccum -= TicSeconds;
+                // A_Chase: a dead (or gone) infight target hands the monster
+                // back to the player — corpses are never destroyed, so the
+                // Transform alone cannot tell. The threshold decays per tic
+                // and clears at once when the target is dead.
+                if (target != player &&
+                    (target == null || targetHealth == null || targetHealth.IsDead))
+                {
+                    SetTarget(null);
+                    thresholdTics = 0;
+                }
+                else if (thresholdTics > 0)
+                    thresholdTics--;
                 using (BrainTickMarker.Auto())
                     brain.Tick();
                 if (bb != null)
@@ -268,7 +376,8 @@ namespace Doom.MapBuild
             else facing.Normalize();
             Vector3 dropPos = transform.position + facing * (DeathDropOffsetDoom * worldScale);
 
-            PickupFactory.Spawn(cache, worldScale, dropNum, dropPos, transform.parent);
+            PickupFactory.Spawn(cache, worldScale, dropNum, dropPos, transform.parent,
+                                dropped: true);
         }
 
         Vector3 EyePos() => transform.position + Vector3.up * (heightM * 0.75f);
@@ -372,7 +481,7 @@ namespace Doom.MapBuild
                                     out var hit, stepM, ~0, QueryTriggerInteraction.Ignore))
             {
                 var lineRef = hit.collider.GetComponentInParent<LineRef>();
-                if (lineRef != null && LineActivator.IsUsableDoor(lineRef))
+                if (lineRef != null && LineActivator.IsUsableDoor(lineRef, hit.point))
                     return StepResult.BlockedByDoor;
                 return StepResult.Blocked;
             }

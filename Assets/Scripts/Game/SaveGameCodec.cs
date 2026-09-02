@@ -517,7 +517,7 @@ namespace Doom.Game
             var things = new ThingSnapshot[thingCount];
             for (int i = 0; i < thingCount; i++)
             {
-                if (!TryReadThing(r, out things[i], out error))
+                if (!TryReadThing(r, version, out things[i], out error))
                     return false;
             }
 
@@ -535,7 +535,7 @@ namespace Doom.Game
                 return false;
             var pickups = new SpawnedPickupSnapshot[pickupCount];
             for (int i = 0; i < pickupCount; i++)
-                pickups[i] = ReadPickup(r);
+                pickups[i] = ReadPickup(r, version);
 
             return WorldSnapshot.TryCreate(
                 gameTic, nextSpawnId, stats,
@@ -630,9 +630,25 @@ namespace Doom.Game
             w.Write(t.Frame);
             w.Write(t.Flags);
             WriteEntityId(w, t.Target);
+            // v7: monster brain bookkeeping.
+            var ai = t.Ai;
+            WriteBool(w, ai.Present);
+            if (ai.Present)
+            {
+                w.Write((byte)ai.State);
+                w.Write(ai.SeqIndex);
+                w.Write(ai.Tics);
+                w.Write((byte)ai.Dir);
+                w.Write(ai.Moves);
+                w.Write(ai.Reaction);
+                WriteBool(w, ai.Attacked);
+                WriteBool(w, ai.Hit);
+                WriteBool(w, ai.Extreme);
+            }
         }
 
-        static bool TryReadThing(BinaryReader r, out ThingSnapshot thing, out string error)
+        static bool TryReadThing(
+            BinaryReader r, int version, out ThingSnapshot thing, out string error)
         {
             thing = null;
             error = null;
@@ -647,7 +663,30 @@ namespace Doom.Game
             int flags = r.ReadInt32();
             if (!TryReadEntityId(r, out SaveEntityId target, out error))
                 return false;
-            thing = new ThingSnapshot(index, present, x, y, z, angle, health, frame, flags, target);
+            var ai = MonsterAiSnapshot.None;
+            if (version >= 7 && ReadBool(r))
+            {
+                int stateRaw = r.ReadByte();
+                int seqIndex = r.ReadInt32();
+                int tics = r.ReadInt32();
+                int dirRaw = r.ReadByte();
+                int moves = r.ReadInt32();
+                int reaction = r.ReadInt32();
+                bool attacked = ReadBool(r);
+                bool hit = ReadBool(r);
+                bool extreme = ReadBool(r);
+                if (!Enum.IsDefined(typeof(MonsterState), stateRaw) ||
+                    !Enum.IsDefined(typeof(Dir8), dirRaw))
+                {
+                    error = "Invalid monster AI state in save.";
+                    return false;
+                }
+                ai = new MonsterAiSnapshot(
+                    (MonsterState)stateRaw, seqIndex, tics, (Dir8)dirRaw, moves,
+                    reaction, attacked, hit, extreme);
+            }
+            thing = new ThingSnapshot(
+                index, present, x, y, z, angle, health, frame, flags, target, ai);
             return true;
         }
 
@@ -723,12 +762,19 @@ namespace Doom.Game
             w.Write(p.X);
             w.Write(p.Y);
             w.Write(p.Z);
+            WriteBool(w, p.Dropped); // v7
         }
 
-        static SpawnedPickupSnapshot ReadPickup(BinaryReader r) =>
-            new SpawnedPickupSnapshot(
-                r.ReadInt32(), r.ReadInt32(),
-                r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+        static SpawnedPickupSnapshot ReadPickup(BinaryReader r, int version)
+        {
+            int spawnId = r.ReadInt32();
+            int doomedNum = r.ReadInt32();
+            float x = r.ReadSingle();
+            float y = r.ReadSingle();
+            float z = r.ReadSingle();
+            bool dropped = version >= 7 && ReadBool(r);
+            return new SpawnedPickupSnapshot(spawnId, doomedNum, x, y, z, dropped);
+        }
 
         static void WriteEntityId(BinaryWriter w, SaveEntityId id)
         {

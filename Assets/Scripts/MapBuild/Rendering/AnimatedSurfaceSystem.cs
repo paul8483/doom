@@ -23,6 +23,9 @@ namespace Doom.MapBuild.Rendering
             public int TicDuration;
             public bool IsFluid;
             public MaterialPropertyBlock Block;
+            /// Frame index last written to the block; hard-cut sequences skip
+            /// the MPB rewrite while it is unchanged (fluids blend every frame).
+            public int LastIndex;
         }
 
         TextureAnimationCatalog catalog;
@@ -88,6 +91,7 @@ namespace Doom.MapBuild.Rendering
                     TicDuration = Mathf.Max(1, seq.TicDuration),
                     IsFluid = fluid,
                     Block = new MaterialPropertyBlock(),
+                    LastIndex = -1,
                 });
             }
 
@@ -126,6 +130,7 @@ namespace Doom.MapBuild.Rendering
                 if (!string.IsNullOrEmpty(t.OriginalName))
                     t.Original = textures.GetTexture(t.OriginalName, WorldTextureVariant.Native);
 
+                t.LastIndex = -1; // textures may have changed variant: rewrite once
                 tracked[i] = t;
             }
         }
@@ -171,6 +176,8 @@ namespace Doom.MapBuild.Rendering
 
                 var tex = t.Frames[idx];
                 if (tex == null) continue;
+                if (!t.IsFluid && idx == t.LastIndex) continue;
+                t.LastIndex = idx;
 
                 t.Renderer.GetPropertyBlock(t.Block);
                 t.Block.SetTexture(MainTexId, tex);

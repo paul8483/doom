@@ -23,6 +23,12 @@ namespace Doom.MapBuild
         private readonly ITextureSizeSource sizes;
         private readonly Transform[] sectorRoots;
         private readonly int[] lastFloor, lastCeil;
+        // Resolved once (was a scene scan per rebuilt sector per height step).
+        private RuntimeSectorLights lights;
+
+        public void BindLights(RuntimeSectorLights sectorLights) => lights = sectorLights;
+
+        public float WorldScale => worldScale;
 
         public SectorGeometry(MapData map, SectorPolygon[] polys, RuntimeSectorHeights heights,
                               float worldScale, TextureCache textures, ITextureSizeSource sizes,
@@ -93,8 +99,10 @@ namespace Doom.MapBuild
                     MapLoader.RebuildSectorWalls(root, sm, textures, worldScale);
 
                 // Wall MeshRenderers are new — re-bind Enhanced ambient for this sector.
-                var lights = Object.FindFirstObjectByType<RuntimeSectorLights>();
-                lights?.RefreshSectorVisual(s);
+                if (lights == null)
+                    lights = Object.FindFirstObjectByType<RuntimeSectorLights>();
+                if (lights != null)
+                    lights.RefreshSectorVisual(s);
             }
         }
     }

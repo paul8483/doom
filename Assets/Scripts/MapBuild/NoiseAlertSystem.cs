@@ -30,8 +30,11 @@ namespace Doom.MapBuild
             int source = SectorUnder(player.position);
             if (source < 0) return;
             var heard = NoiseAlert.Compute(map, heights, source);
-            foreach (var mc in FindObjectsByType<MonsterController>(FindObjectsSortMode.None))
+            var monsters = MonsterController.Active;
+            for (int i = 0; i < monsters.Count; i++)
             {
+                var mc = monsters[i];
+                if (mc == null) continue;
                 int s = SectorUnder(mc.transform.position);
                 if (s >= 0 && heard.Contains(s)) mc.NotifyNoise();
             }

@@ -190,19 +190,53 @@ namespace Doom.Game.Tests
             const int V6SectorExtraBytes = 6;
             int firstSectorOffset = sectorCountOffset + sizeof(int);
 
-            var v5 = new byte[current.Length - sectorCount * V6SectorExtraBytes];
-            Array.Copy(current, 0, v5, 0, firstSectorOffset);
-            int src = firstSectorOffset;
-            int dst = firstSectorOffset;
+            // Byte ranges of `current` that a v5 writer would not have emitted:
+            // the v6 sector tail and the v7 thing-AI / pickup-dropped fields.
+            var skip = new System.Collections.Generic.List<(int offset, int length)>();
+            int pos = firstSectorOffset;
             for (int i = 0; i < sectorCount; i++)
             {
-                Array.Copy(current, src, v5, dst, V5SectorBytes);
-                src += V5SectorBytes + V6SectorExtraBytes;
-                dst += V5SectorBytes;
+                skip.Add((pos + V5SectorBytes, V6SectorExtraBytes));
+                pos += V5SectorBytes + V6SectorExtraBytes;
+            }
+            int lineCount = BitConverter.ToInt32(current, pos); pos += 4;
+            pos += lineCount * 6;
+            int thingCount = BitConverter.ToInt32(current, pos); pos += 4;
+            const int ThingBaseBytes = 38;
+            const int ThingAiBytes = 21;
+            for (int i = 0; i < thingCount; i++)
+            {
+                pos += ThingBaseBytes;
+                int aiLen = current[pos] != 0 ? 1 + ThingAiBytes : 1;
+                skip.Add((pos, aiLen));
+                pos += aiLen;
+            }
+            int projCount = BitConverter.ToInt32(current, pos); pos += 4;
+            pos += projCount * 62;
+            int pickupCount = BitConverter.ToInt32(current, pos); pos += 4;
+            const int PickupBaseBytes = 20;
+            for (int i = 0; i < pickupCount; i++)
+            {
+                pos += PickupBaseBytes;
+                skip.Add((pos, 1));
+                pos += 1;
+            }
+            Assert.That(pos, Is.EqualTo(payloadOffset + payloadLength),
+                "test walker must land exactly on the payload end");
+
+            int skipped = 0;
+            foreach (var s in skip) skipped += s.length;
+            var v5 = new byte[current.Length - skipped];
+            int src = 0, dst = 0;
+            foreach (var s in skip)
+            {
+                Array.Copy(current, src, v5, dst, s.offset - src);
+                dst += s.offset - src;
+                src = s.offset + s.length;
             }
             Array.Copy(current, src, v5, dst, current.Length - src);
 
-            int legacyPayloadLength = payloadLength - sectorCount * V6SectorExtraBytes;
+            int legacyPayloadLength = payloadLength - skipped;
             BitConverter.GetBytes(5).CopyTo(v5, 4);
             BitConverter.GetBytes(legacyPayloadLength).CopyTo(v5, payloadOffset - 8);
             RecomputeChecksum(
@@ -412,7 +446,10 @@ namespace Doom.Game.Tests
             var lines = new[] { new LineSnapshot(0, true, true) };
             var things = new[]
             {
-                new ThingSnapshot(0, true, 1f, 2f, 0f, 90f, 30, 1, 0, SaveEntityId.None),
+                // v7: a chasing monster carries its brain bookkeeping.
+                new ThingSnapshot(0, true, 1f, 2f, 0f, 90f, 30, 1, 0, SaveEntityId.None,
+                    new MonsterAiSnapshot(MonsterState.Chase, 3, 2, Dir8.NorthEast, 7, 0,
+                        attacked: true, hit: false, extreme: false)),
                 new ThingSnapshot(5, false, 0f, 0f, 0f, 0f, 0, 0, 0, SaveEntityId.None),
             };
             var projectiles = new[]
@@ -423,7 +460,8 @@ namespace Doom.Game.Tests
             };
             var pickups = new[]
             {
-                new SpawnedPickupSnapshot(2, 2007, 3f, 4f, 0f),
+                // v7: a death drop remembers MF_DROPPED (half ammo).
+                new SpawnedPickupSnapshot(2, 2007, 3f, 4f, 0f, dropped: true),
             };
 
             Assert.That(WorldSnapshot.TryCreate(
@@ -648,6 +686,20 @@ namespace Doom.Game.Tests
             r.ReadInt32();
             r.ReadByte();
             r.ReadInt32();
+            // v7 monster AI block: present flag + (state, seqIdx, tics, dir,
+            // moves, reaction, attacked, hit, extreme).
+            if (r.ReadByte() != 0)
+            {
+                r.ReadByte();
+                r.ReadInt32();
+                r.ReadInt32();
+                r.ReadByte();
+                r.ReadInt32();
+                r.ReadInt32();
+                r.ReadByte();
+                r.ReadByte();
+                r.ReadByte();
+            }
         }
     }
 }

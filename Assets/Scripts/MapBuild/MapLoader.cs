@@ -78,11 +78,39 @@ namespace Doom.MapBuild
         /// teardown mid-warm stops the worker pool instead of letting it run dry.
         EnhancedWarmScheduler activeWarmScheduler;
 
+        /// WAD held open by the running Build coroutine. Unity does not run an
+        /// iterator's Dispose when the MonoBehaviour is destroyed mid-yield, so
+        /// `using var` alone would leak the FileStream on a teardown mid-build.
+        WadFile activeWad;
+
         void OnDestroy()
         {
             activeWarmScheduler?.Dispose();
             activeWarmScheduler = null;
+            activeWad?.Dispose();
+            activeWad = null;
+            MapLog.WarningHandler -= OnWarning;
+            MapLog.ErrorHandler   -= OnError;
+            // Anything the level built lazily after its warm (first-touch
+            // effects, late HUD faces) reaches the disk pack at teardown; the
+            // scheduler flushes only at the end of its own warm.
+            if (EnhancedDiskCache.Enabled)
+                EnhancedDiskCache.Instance.ScheduleFlush();
         }
+
+        /// Open the WAD for a Build and remember it for OnDestroy. The returned
+        /// handle disposes itself (idempotently) at the end of the coroutine.
+        WadFile OpenWad(string path)
+        {
+            activeWad?.Dispose();
+            activeWad = WadFile.Open(path);
+            return activeWad;
+        }
+
+        /// The UI-only HudTextureCache of the main menu owns its textures
+        /// itself (no WorldRenderContext); released once its successor is
+        /// bound so the loading plate never draws destroyed textures.
+        static HudTextureCache ownerlessHudTextures;
 
         // ── Auto-bootstrap ────────────────────────────────────────────────────
         // Creates a MapLoader if none exists in the scene, so "hit Play" works
@@ -232,6 +260,8 @@ namespace Doom.MapBuild
             var palette = new Palette(wad.ReadLump("PLAYPAL"));
             var uiCatalog = UiPatchCatalog.LoadStandard(wad, palette);
             HudTextures = new HudTextureCache(uiCatalog);
+            ownerlessHudTextures?.DestroyOwnerless();
+            ownerlessHudTextures = HudTextures;
             LoadedMapName = null;
             Debug.Log("MapLoader: UI-only load for main menu");
         }
@@ -254,7 +284,7 @@ namespace Doom.MapBuild
             yield return null;
             if (!StillValid(flow)) yield break;
 
-            using var wad = WadFile.Open(path);
+            using var wad = OpenWad(path);
             string loadName = ResolveMapName();
             var map = MapData.Load(wad, loadName);
             LoadedMapName = map.Name;
@@ -352,6 +382,7 @@ namespace Doom.MapBuild
             SectorLights = gameObject.GetComponent<RuntimeSectorLights>()
                 ?? gameObject.AddComponent<RuntimeSectorLights>();
             SectorLights.Init(map, Geometry, renderContext);
+            Geometry.BindLights(SectorLights);
 
             var lightSystem = gameObject.GetComponent<EnhancedLightSystem>()
                 ?? gameObject.AddComponent<EnhancedLightSystem>();

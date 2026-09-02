@@ -13,6 +13,9 @@ namespace Doom.MapBuild
         Collider floorCollider;
         float fallbackTics;
         int nextDamageTic = -1;
+        PlayerHealth[] players;
+        EnemyHealth[] enemies;
+        float nextActorRefresh;
 
         public bool IsObstructed { get; private set; }
 
@@ -67,7 +70,16 @@ namespace Doom.MapBuild
             float clearance = (heights.CeilRaw(sector) - heights.FloorRaw(sector)) * worldScale;
             bool crushed = false;
 
-            foreach (var player in FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None))
+            // Refresh the actor lists on a slow cadence instead of scanning the
+            // scene every frame per active crusher.
+            if (players == null || enemies == null || Time.unscaledTime >= nextActorRefresh)
+            {
+                players = FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+                enemies = FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
+                nextActorRefresh = Time.unscaledTime + 0.5f;
+            }
+
+            foreach (var player in players)
             {
                 if (player == null || player.IsDead) continue;
                 if (!TryGetBounds(player.gameObject, out var bounds)
@@ -77,7 +89,7 @@ namespace Doom.MapBuild
                 if (applyDamage) player.TakeDamage(CrusherRules.Damage);
             }
 
-            foreach (var enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
+            foreach (var enemy in enemies)
             {
                 if (enemy == null || enemy.IsDead) continue;
                 if (!TryGetBounds(enemy.gameObject, out var bounds)

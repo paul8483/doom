@@ -411,20 +411,11 @@ namespace Doom.MapBuild
             pivotGo.transform.rotation = Quaternion.identity;
             yawPivot = pivotGo.transform;
 
-            // Only the live frames are instantiated up front. Death meshes
-            // are needed once, by the monsters that actually die, so they
-            // are built on demand (a level's whole population would otherwise
-            // carry ~1.7× the GameObjects for frames most of them never show).
+            // Frame instances are built on demand: the live set the first
+            // time mesh presentation turns on (Classic never pays the ~8
+            // clones + material copies per monster it will not show), death
+            // meshes when the monster actually dies with the mesh visible.
             frameModels = new GameObject[prefabs.Length];
-            for (int i = 0; i < set.LiveFrameCount; i++)
-            {
-                if (!EnsureFrameInstance(i))
-                {
-                    Destroy(pivotGo);
-                    yawPivot = null;
-                    return;
-                }
-            }
 
             currentFrame = 0;
             currPos = prevPos = transform.position;
@@ -667,20 +658,64 @@ namespace Doom.MapBuild
                 return;
             }
             if (frame == currentFrame) return;
-            if (!EnsureFrameInstance(frame))
-            {
-                RevertToBillboard();
-                return;
-            }
-            if (frame >= set.LiveFrameCount)
-                AdvanceRestOffset(frame);
             if (ModelVisible)
             {
+                if (!EnsureFrameInstance(frame))
+                {
+                    RevertToBillboard();
+                    return;
+                }
+                if (frame >= set.LiveFrameCount)
+                    AdvanceRestOffset(frame);
                 if (frameModels[currentFrame] != null)
                     frameModels[currentFrame].SetActive(false);
                 frameModels[frame].SetActive(true);
             }
+            // Hidden (Classic / 3D Off): only track the frame. The instance and
+            // the rest offset resolve when the mesh comes back (ApplyPresentation).
             currentFrame = frame;
+        }
+
+        /// A saved corpse lands on its final frame directly: no fall to slide
+        /// through, so the rest offset applies at once instead of animating
+        /// while the player watches the freshly loaded level.
+        public void NotifyRestoredFrame(int frame)
+        {
+            NotifyFrame(frame);
+            restFractionShown = restFractionTarget;
+        }
+
+        /// Re-seed the pose interpolation at the current transform (save
+        /// restore moves the thing without a gameplay tick in between).
+        public void ReseedPose(float doomAngleDegrees)
+        {
+            prevPos = currPos = transform.position;
+            prevAngleDeg = currAngleDeg = doomAngleDegrees;
+            poseAlpha = 1f;
+            poseSeeded = true;
+        }
+
+        /// Build everything the visible presentation needs for the current
+        /// state: the live set, the current death frame, or the gib corpse.
+        /// False when a prefab has no renderers (caller reverts).
+        bool EnsureVisibleFrames()
+        {
+            if (frameModels == null || yawPivot == null) return false;
+            for (int i = 0; i < set.LiveFrameCount; i++)
+                if (!EnsureFrameInstance(i)) return false;
+            if (xdeathShown)
+                return EnsureXdeathInstance();
+            if (currentFrame >= set.LiveFrameCount)
+            {
+                if (!EnsureFrameInstance(currentFrame)) return false;
+                if (!restOffsetResolved)
+                {
+                    AdvanceRestOffset(currentFrame);
+                    // Died on the billboard side of a hot-switch: settle at once.
+                    restFractionShown = restFractionTarget;
+                }
+            }
+            return true;
         }
 
         /// The monster just started dying. A covered death tail keeps the mesh
@@ -827,35 +862,42 @@ namespace Doom.MapBuild
         void ShowXdeathCorpse()
         {
             if (xdeathShown) return;
-            if (xdeathInstance == null)
-            {
-                var instance = Instantiate(xdeathPrefab, yawPivot);
-                instance.name = set.Sprite + set.XdeathLump;
-                instance.transform.localPosition = Vector3.zero;
-                instance.transform.localRotation = Quaternion.identity;
-                instance.transform.localScale = Vector3.one;
-                var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
-                if (renderers.Length == 0)
-                {
-                    Destroy(instance);
-                    RevertToBillboard();
-                    return;
-                }
-                NormalizeFrame(instance, renderers,
-                               set.XdeathWidthPx * worldScale, byWidth: true);
-                ConfigureMaterials(renderers, null);
-                xdeathInstance = instance;
-            }
-            // The gib spray hid the body, so the pool appears already in place.
-            ResolveRestOffset(xdeathInstance);
-            restFractionTarget = restFractionShown = 1f;
             xdeathShown = true;
             gibInterlude = false;
             if (frameModels != null)
                 foreach (var m in frameModels)
                     if (m != null) m.SetActive(false);
-            xdeathInstance.SetActive(true);
+            // ApplyPresentation builds the pool mesh if the mesh is showing;
+            // a hidden (Classic) corpse builds it on a later hot-switch.
             RefreshVisibility(force: true);
+        }
+
+        /// The gib-corpse mesh, built on first use (a level's population
+        /// rarely gets gibbed). The gib spray hid the body, so the pool
+        /// appears already in place: the rest offset resolves at once.
+        bool EnsureXdeathInstance()
+        {
+            if (xdeathInstance != null) return true;
+            if (xdeathPrefab == null || yawPivot == null) return false;
+            var instance = Instantiate(xdeathPrefab, yawPivot);
+            instance.name = set.Sprite + set.XdeathLump;
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            var renderers = instance.GetComponentsInChildren<Renderer>(includeInactive: true);
+            if (renderers.Length == 0)
+            {
+                Destroy(instance);
+                return false;
+            }
+            NormalizeFrame(instance, renderers,
+                           set.XdeathWidthPx * worldScale, byWidth: true);
+            ConfigureMaterials(renderers, null);
+            instance.SetActive(false);
+            xdeathInstance = instance;
+            ResolveRestOffset(xdeathInstance);
+            restFractionTarget = restFractionShown = 1f;
+            return true;
         }
 
         public bool XdeathCorpseShownForTest => xdeathShown;
@@ -898,6 +940,11 @@ namespace Doom.MapBuild
             lastUseMesh = useMesh;
             if (yawPivot != null)
             {
+                if (useMesh && !EnsureVisibleFrames())
+                {
+                    RevertToBillboard();
+                    return;
+                }
                 yawPivot.gameObject.SetActive(useMesh);
                 if (useMesh && frameModels != null)
                     for (int i = 0; i < frameModels.Length; i++)

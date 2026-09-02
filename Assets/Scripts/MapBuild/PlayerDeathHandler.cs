@@ -67,17 +67,22 @@ namespace Doom.MapBuild
             Respawned?.Invoke();
         }
 
+        GUIStyle deathStyle; // built once — OnGUI runs per IMGUI event
+
         void OnGUI()
         {
             if (!dead) return;
-            var style = new GUIStyle(GUI.skin.label)
+            if (deathStyle == null)
             {
-                fontSize = 32,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            style.normal.textColor = Color.red;
+                deathStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 32,
+                    alignment = TextAnchor.MiddleCenter,
+                };
+                deathStyle.normal.textColor = Color.red;
+            }
             GUI.Label(new Rect(0, Screen.height / 2f - 40f, Screen.width, 80f),
-                      "You died — press R", style);
+                      "You died — press R", deathStyle);
         }
     }
 }

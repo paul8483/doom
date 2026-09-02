@@ -196,12 +196,24 @@ namespace Doom.MapBuild
 
         void Commit(GameSettingsData next)
         {
+            // Every options nudge (a 0.05 volume step included) used to raise
+            // SettingsApplied, and every 3D presentation model re-ran its
+            // cascade on it; only the graphics-side fields matter to them.
+            bool presentationChanged = current == null || PresentationDiffers(current, next);
             current = next;
-            ApplyRuntime(current);
+            ApplyRuntime(current, raiseApplied: presentationChanged);
             store.Save(current);
         }
 
-        void ApplyRuntime(GameSettingsData data)
+        static bool PresentationDiffers(GameSettingsData a, GameSettingsData b) =>
+            a.GraphicsMode != b.GraphicsMode
+            || a.Fullscreen != b.Fullscreen
+            || a.ResolutionWidth != b.ResolutionWidth
+            || a.ResolutionHeight != b.ResolutionHeight;
+
+        void ApplyRuntime(GameSettingsData data) => ApplyRuntime(data, raiseApplied: true);
+
+        void ApplyRuntime(GameSettingsData data, bool raiseApplied)
         {
             if (data == null) return;
 
@@ -221,7 +233,8 @@ namespace Doom.MapBuild
 
             display?.Apply(data.Fullscreen, data.ResolutionWidth, data.ResolutionHeight);
             graphics?.Apply(data.GraphicsMode);
-            SettingsApplied?.Invoke(data);
+            if (raiseApplied)
+                SettingsApplied?.Invoke(data);
         }
 
         static HudTextureCache ResolveTextures()

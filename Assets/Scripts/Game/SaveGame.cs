@@ -8,7 +8,9 @@ namespace Doom.Game
     public sealed class SaveGame : IEquatable<SaveGame>
     {
         public const int FirstSupportedSchemaVersion = 1;
-        public const int SchemaVersion = 6;
+        /// v7 (2.1.0): live monster AI state (brain bookkeeping) and the
+        /// MF_DROPPED flag on spawned pickups.
+        public const int SchemaVersion = 7;
         /// ASCII 'D','S','A','V' — little-endian uint 0x56415344.
         public const uint Magic = 0x56415344;
 

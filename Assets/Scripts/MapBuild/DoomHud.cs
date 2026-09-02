@@ -178,8 +178,21 @@ namespace Doom.MapBuild
             int row = slot / 3;
             float x = ArmsX + col * ArmsXSpace;
             float y = ArmsY + row * ArmsYSpace;
-            string name = (owned ? "STYSNUM" : "STGNUM") + digit;
-            DrawPatch(t, name, x, y);
+            DrawPatch(t, (owned ? SmallDigitNames : GrayDigitNames)[digit], x, y);
+        }
+
+        // Patch names are looked up every Repaint; building them by string
+        // concatenation allocated ~40 strings per frame (digits, arms, keys).
+        static readonly string[] TallDigitNames = MakeNames("STTNUM");
+        static readonly string[] SmallDigitNames = MakeNames("STYSNUM");
+        static readonly string[] GrayDigitNames = MakeNames("STGNUM");
+        static readonly string[] KeyNames = MakeNames("STKEYS");
+
+        static string[] MakeNames(string prefix)
+        {
+            var names = new string[10];
+            for (int i = 0; i < 10; i++) names[i] = prefix + i;
+            return names;
         }
 
         void DrawKeys(in VirtualScreenRenderer.Transform t)
@@ -200,7 +213,7 @@ namespace Doom.MapBuild
             else if (skull) idx = skullIdx;
             else if (card) idx = cardIdx;
             if (idx < 0) return;
-            DrawPatch(t, "STKEYS" + idx, x, y);
+            DrawPatch(t, KeyNames[idx], x, y);
         }
 
         void DrawAmmoCounters(in VirtualScreenRenderer.Transform t)
@@ -228,17 +241,17 @@ namespace Doom.MapBuild
             in VirtualScreenRenderer.Transform t, int value, float rightX, float y, int digits)
         {
             if (value < 0) value = 0;
-            var s = value.ToString();
-            if (s.Length > digits) s = s.Substring(s.Length - digits);
-
             float x = rightX;
-            for (int i = s.Length - 1; i >= 0; i--)
+            // Right-to-left by modulo — no ToString/Substring per frame.
+            int drawn = 0;
+            do
             {
-                string name = "STTNUM" + s[i];
-                if (!textures.TryGet(name, out var e)) break;
+                if (!textures.TryGet(TallDigitNames[value % 10], out var e)) break;
                 x -= e.Width;
                 DrawEntry(t, e, x, y);
-            }
+                value /= 10;
+                drawn++;
+            } while (value > 0 && drawn < digits);
 
             return x;
         }
@@ -247,17 +260,16 @@ namespace Doom.MapBuild
             in VirtualScreenRenderer.Transform t, int value, float rightX, float y, int digits)
         {
             if (value < 0) value = 0;
-            var s = value.ToString();
-            if (s.Length > digits) s = s.Substring(s.Length - digits);
-
             float x = rightX;
-            for (int i = s.Length - 1; i >= 0; i--)
+            int drawn = 0;
+            do
             {
-                string name = "STYSNUM" + s[i];
-                if (!textures.TryGet(name, out var e)) break;
+                if (!textures.TryGet(SmallDigitNames[value % 10], out var e)) break;
                 x -= e.Width;
                 DrawEntry(t, e, x, y);
-            }
+                value /= 10;
+                drawn++;
+            } while (value > 0 && drawn < digits);
         }
 
         void DrawPatch(in VirtualScreenRenderer.Transform t, string name, float vx, float vy)

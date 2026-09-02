@@ -42,19 +42,31 @@ namespace Doom.Game
 
         public void ClearPending() => pending = null;
 
+        // P_CheckAmmo order: plasma → chaingun → shotgun → pistol → chainsaw →
+        // rocket launcher → BFG (only with MORE than 40 cells) → fist.
+        static readonly WeaponId[] CheckAmmoOrder =
+        {
+            WeaponId.PlasmaRifle, WeaponId.Chaingun, WeaponId.Shotgun, WeaponId.Pistol,
+            WeaponId.Chainsaw, WeaponId.RocketLauncher, WeaponId.Bfg9000,
+        };
+        const int BfgAutoSelectCells = 40;
+
         /// Лучшее оружие, на которое хватает патронов (порядок P_CheckAmmo).
         public WeaponId BestAvailable(AmmoModel ammo)
         {
-            foreach (var id in new[]
+            foreach (var id in CheckAmmoOrder)
             {
-                WeaponId.Bfg9000, WeaponId.PlasmaRifle, WeaponId.RocketLauncher,
-                WeaponId.Chaingun, WeaponId.Shotgun, WeaponId.Pistol,
-            })
-            {
+                if (!owned[(int)id]) continue;
                 var def = WeaponTable.Get(id);
-                if (owned[(int)id] && ammo.Get(def.Ammo) >= def.AmmoPerShot) return id;
+                if (id == WeaponId.Chainsaw) return id;
+                if (id == WeaponId.Bfg9000)
+                {
+                    if (ammo.Get(def.Ammo) > BfgAutoSelectCells) return id;
+                    continue;
+                }
+                if (ammo.Get(def.Ammo) >= def.AmmoPerShot) return id;
             }
-            return owned[(int)WeaponId.Chainsaw] ? WeaponId.Chainsaw : WeaponId.Fist;
+            return WeaponId.Fist;
         }
 
         public void Reset()

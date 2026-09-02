@@ -91,8 +91,10 @@ namespace Doom.Game
                 return new SoundCueMetadata(SoundPriority.Critical, SoundPitchVariation.DoomWide);
 
             bool monster = context == SoundCueContext.Monster || IsMonsterCue(name);
+            // Loops (door / lift motors) acquire a channel at World priority:
+            // at Ambient they lose the fight against every one-shot when all
+            // channels are busy and the mover runs silent.
             SoundPriority priority = monster ? SoundPriority.Monster
-                : loop ? SoundPriority.Ambient
                 : SoundPriority.World;
             bool variable = !loop && !StableWorldCues.Contains(name)
                 && (monster || VariableWorldCues.Contains(name));

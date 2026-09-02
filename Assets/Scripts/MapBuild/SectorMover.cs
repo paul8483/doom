@@ -39,6 +39,8 @@ namespace Doom.MapBuild
             MoveSpeed.Normal => 70f,  // ~2 u/tic
             MoveSpeed.Fast => 140f,   // ~4 u/tic
             MoveSpeed.Turbo => 280f,  // ~8 u/tic
+            MoveSpeed.Crawl => 8.75f, // FLOORSPEED/4 — build8 stairs
+            MoveSpeed.Half => 17.5f,  // PLATSPEED/2 — raise-and-change plats
             _ => 70f
         };
 
@@ -126,6 +128,30 @@ namespace Doom.MapBuild
 
         public int SectorIndex => sector;
         public bool IsCrusher => behavior == MoverBehavior.Crusher;
+        /// A door that opens, waits and closes (ceiling cycle mover).
+        public bool IsCycleDoor => surface == Surface.Ceiling && cycle && !IsCrusher;
+        public bool IsClosing => IsCycleDoor && phase == Phase.Returning;
+
+        /// EV_VerticalDoor on a closing DR door (or T_VerticalDoor blocked while
+        /// closing): head back up to the open height, then wait again.
+        public void Reopen()
+        {
+            if (!IsCycleDoor || phase != Phase.Returning) return;
+            phase = Phase.MovingToTarget;
+            PlayStartOrLoop();
+        }
+
+        /// EV_VerticalDoor by a player on an open / opening DR door: close now.
+        public void CloseEarly()
+        {
+            if (!IsCycleDoor) return;
+            if (phase != Phase.Waiting && phase != Phase.MovingToTarget) return;
+            phase = Phase.Returning;
+            if (!string.IsNullOrEmpty(sfx.ReturnLump))
+                sound?.PlayAt(sfx.ReturnLump, soundOrigin);
+            else if (!string.IsNullOrEmpty(sfx.LoopLump))
+                sound?.PlayLoop(sfx.LoopLump, loopKey, soundOrigin);
+        }
         public bool IsCrusherDescending =>
             IsCrusher && phase == Phase.MovingToTarget;
         public bool IsStopped => phase == Phase.Stopped;
@@ -177,6 +203,25 @@ namespace Doom.MapBuild
                 actualSpeed *= CrusherRules.CrushingSlowdown;
             float step = actualSpeed * Time.deltaTime;
             float next = Mathf.MoveTowards(cur, goal, step);
+
+            // T_MovePlane without crush: a plane closing on an actor cannot
+            // pass through it. A cycling door reverses (T_VerticalDoor: crushed
+            // while closing → direction = 1, i.e. reopen); any other closing
+            // ceiling or rising floor holds until the actor leaves. Crushers
+            // keep their own damage path.
+            if (behavior != MoverBehavior.Crusher &&
+                (surface == Surface.Ceiling ? next < cur : next > cur))
+            {
+                float floorAfter = surface == Surface.Floor ? next : heights.FloorRaw(sector);
+                float ceilAfter = surface == Surface.Ceiling ? next : heights.CeilRaw(sector);
+                if (SectorOccupancy.HasActorTallerThan(geometry, sector, ceilAfter - floorAfter))
+                {
+                    if (surface == Surface.Ceiling && cycle && phase == Phase.Returning)
+                        Reopen();
+                    return;
+                }
+            }
+
             Set(next);
 
             if (Mathf.RoundToInt(next) != before)

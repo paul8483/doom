@@ -87,7 +87,7 @@ namespace Doom.MapBuild
                 {
                     var p = identity.transform.position;
                     pickups.Add(new SpawnedPickupSnapshot(
-                        spawnId, pickup.DoomedNum, p.x, p.y, p.z));
+                        spawnId, pickup.DoomedNum, p.x, p.y, p.z, pickup.Dropped));
                 }
             }
 
@@ -206,14 +206,25 @@ namespace Doom.MapBuild
                 health = eh.Health;
 
             var mc = go.GetComponent<MonsterController>();
+            var ai = MonsterAiSnapshot.None;
             if (mc != null)
+            {
                 target = registry.ResolveEntity(mc.TargetForTest);
+                if (mc.Brain != null)
+                {
+                    mc.Brain.Capture(out var state, out int seqIndex, out int tics,
+                        out var dir, out int moves, out int reaction,
+                        out bool attacked, out bool hit);
+                    ai = new MonsterAiSnapshot(state, seqIndex, tics, dir, moves, reaction,
+                        attacked, hit, mc.Brain.IsExtremeDeath);
+                }
+            }
 
             return new ThingSnapshot(
                 identity.MapThingIndex,
                 present: true,
                 pos.x, pos.y, pos.z, angle,
-                health, frame, identity.MapFlags, target);
+                health, frame, identity.MapFlags, target, ai);
         }
     }
 }

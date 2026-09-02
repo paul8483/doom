@@ -65,11 +65,10 @@ namespace Doom.MapBuild
         void PollSecret()
         {
             if (floor == null || map == null) return;
-            int special = floor.SectorSpecialUnderPlayer();
-            if (special != 9) return;
-
+            // One floor probe per frame; the special is read from the sector.
             int sector = floor.SectorIndexUnderPlayer();
             if (sector < 0) return;
+            if (map.Sectors[sector].Special != 9) return;
             if (visitedSecrets.Add(sector))
                 Stats.TryRegisterSecret(sector);
         }
@@ -81,6 +80,8 @@ namespace Doom.MapBuild
             for (int i = 0; i < map.Things.Length; i++)
             {
                 int type = map.Things[i].Type;
+                // Totals count what actually spawns (skill / MTF_NOTSINGLE filter).
+                if (!ThingSpawnRules.ShouldSpawnSinglePlayer(map.Things[i].Flags)) continue;
                 if (ThingTable.TryGet(type, out var def) && def.Has(ThingFlags.CountKill))
                     kills++;
                 if (LevelStats.IsCountItem(type))

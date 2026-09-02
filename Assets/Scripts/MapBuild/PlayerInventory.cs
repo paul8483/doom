@@ -24,7 +24,9 @@ namespace Doom.MapBuild
             this.weapons = weapons;
         }
 
-        public bool TryPickup(int doomedNum)
+        public bool TryPickup(int doomedNum) => TryPickup(doomedNum, dropped: false);
+
+        public bool TryPickup(int doomedNum, bool dropped)
         {
             if (health == null || weapons == null) return false;
             var ctx = new PickupContext
@@ -35,7 +37,7 @@ namespace Doom.MapBuild
                 Keys = Keys,
                 Powers = Powers,
             };
-            bool ok = ItemRules.TryPickup(doomedNum, ctx);
+            bool ok = ItemRules.TryPickup(doomedNum, ctx, dropped);
             if (ok && ctx.PreferFist)
                 weapons.Loadout.TrySelect(WeaponId.Fist);
             if (ok)

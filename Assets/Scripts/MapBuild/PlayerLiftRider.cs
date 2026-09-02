@@ -53,11 +53,13 @@ namespace Doom.MapBuild
             sector = -1; floorY = 0f;
             Vector3 origin = transform.position + Vector3.up * (16f * worldScale);
             float range = 48f * worldScale;
-            var hits = Physics.RaycastAll(origin, Vector3.down, range, ~0, QueryTriggerInteraction.Ignore);
+            int count = Physics.RaycastNonAlloc(origin, Vector3.down, RaycastScratch.Hits,
+                                                range, ~0, QueryTriggerInteraction.Ignore);
             float bestDist = float.MaxValue;
             bool found = false;
-            foreach (var h in hits)
+            for (int i = 0; i < count; i++)
             {
+                var h = RaycastScratch.Hits[i];
                 if (h.collider == (Collider)(object)cc) continue;   // skip the player capsule
                 var sref = h.collider.GetComponentInParent<SectorRef>();
                 if (sref == null || sref.SectorIndex < 0) continue;

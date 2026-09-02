@@ -13,7 +13,10 @@ namespace Doom.Specials
 
     public enum MoveDirection { Up, Down }
 
-    public enum MoveSpeed { Slow, Normal, Fast, Turbo }
+    /// Crawl = FLOORSPEED/4 (stairs build8), Half = PLATSPEED/2 (raise-and-
+    /// change plats), Slow = FLOORSPEED (1 u/tic), Normal = VDOORSPEED (2),
+    /// Fast = PLATSPEED*4 / FLOORSPEED*4 (4), Turbo = blaze (8).
+    public enum MoveSpeed { Slow, Normal, Fast, Turbo, Crawl, Half }
 
     public enum KeyKind { None, RedCard, BlueCard, YellowCard, RedSkull, BlueSkull, YellowSkull, Any }
 
@@ -26,9 +29,16 @@ namespace Doom.Specials
         HighestNeighborFloor,
         NextHigherFloor,
         NextLowerFloor,
-        LowestNeighborCeiling,
+        LowestNeighborCeiling,       // raiseFloor: clamped to own ceiling
         ToFloor,                     // close to own floor (door close)
-        StairStep                    // handled by stair builder
+        StairStep,                   // handled by stair builder
+        HighestNeighborFloorPlus8,   // turboLower: +8 unless already there
+        LowestNeighborCeilingMinus8, // raiseFloorCrush: clamped to own ceiling, −8
+        FloorPlus24,                 // raiseFloor24 / raiseAndChange 24
+        FloorPlus32,                 // raiseAndChange 32
+        FloorPlus512,                // raiseFloor512
+        HighestNeighborCeiling,      // ceiling raiseToHighest
+        FloorPlus8,                  // lowerAndCrush ceiling target
     }
 
     /// One ported DOOM linedef type. Repeatable = "R" trigger; once = "1".

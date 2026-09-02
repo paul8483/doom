@@ -138,6 +138,43 @@ namespace Doom.Game
         public override int GetHashCode() => HashCode.Combine(Index, Fired, SwitchOn);
     }
 
+    /// Live monster brain bookkeeping (schema v7). Vanilla saves the whole
+    /// mobj state; before v7 every awake monster fell asleep on load.
+    public readonly struct MonsterAiSnapshot : IEquatable<MonsterAiSnapshot>
+    {
+        public readonly bool Present;
+        public readonly MonsterState State;
+        public readonly int SeqIndex;
+        public readonly int Tics;
+        public readonly Dir8 Dir;
+        public readonly int Moves;
+        public readonly int Reaction;
+        public readonly bool Attacked;
+        public readonly bool Hit;
+        public readonly bool Extreme;
+
+        public MonsterAiSnapshot(
+            MonsterState state, int seqIndex, int tics, Dir8 dir, int moves,
+            int reaction, bool attacked, bool hit, bool extreme)
+        {
+            Present = true;
+            State = state; SeqIndex = seqIndex; Tics = tics; Dir = dir; Moves = moves;
+            Reaction = reaction; Attacked = attacked; Hit = hit; Extreme = extreme;
+        }
+
+        public static MonsterAiSnapshot None => default;
+
+        public bool Equals(MonsterAiSnapshot o) =>
+            Present == o.Present && State == o.State && SeqIndex == o.SeqIndex
+            && Tics == o.Tics && Dir == o.Dir && Moves == o.Moves && Reaction == o.Reaction
+            && Attacked == o.Attacked && Hit == o.Hit && Extreme == o.Extreme;
+
+        public override bool Equals(object obj) => obj is MonsterAiSnapshot o && Equals(o);
+        public override int GetHashCode() =>
+            HashCode.Combine(Present, (int)State, SeqIndex, Tics, (int)Dir, Moves, Reaction,
+                HashCode.Combine(Attacked, Hit, Extreme));
+    }
+
     public sealed class ThingSnapshot : IEquatable<ThingSnapshot>
     {
         public int MapThingIndex { get; }
@@ -150,11 +187,23 @@ namespace Doom.Game
         public int Frame { get; }
         public int Flags { get; }
         public SaveEntityId Target { get; }
+        /// Brain state of a live monster (v7); None for decorations and pre-v7 saves.
+        public MonsterAiSnapshot Ai { get; }
 
         public ThingSnapshot(
             int mapThingIndex, bool present,
             float x, float y, float z, float angleDegrees,
             int health, int frame, int flags, SaveEntityId target)
+            : this(mapThingIndex, present, x, y, z, angleDegrees, health, frame, flags, target,
+                   MonsterAiSnapshot.None)
+        {
+        }
+
+        public ThingSnapshot(
+            int mapThingIndex, bool present,
+            float x, float y, float z, float angleDegrees,
+            int health, int frame, int flags, SaveEntityId target,
+            MonsterAiSnapshot ai)
         {
             MapThingIndex = mapThingIndex;
             Present = present;
@@ -166,6 +215,7 @@ namespace Doom.Game
             Frame = frame;
             Flags = flags;
             Target = target;
+            Ai = ai;
         }
 
         public bool Equals(ThingSnapshot other)
@@ -176,7 +226,8 @@ namespace Doom.Game
                    && X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z)
                    && AngleDegrees.Equals(other.AngleDegrees)
                    && Health == other.Health && Frame == other.Frame && Flags == other.Flags
-                   && Target.Equals(other.Target);
+                   && Target.Equals(other.Target)
+                   && Ai.Equals(other.Ai);
         }
 
         public override bool Equals(object obj) => Equals(obj as ThingSnapshot);
@@ -277,25 +328,35 @@ namespace Doom.Game
         public float X { get; }
         public float Y { get; }
         public float Z { get; }
+        /// MF_DROPPED (v7): a death drop gives half the ammo of a placed item.
+        public bool Dropped { get; }
 
         public SpawnedPickupSnapshot(int spawnId, int doomedNum, float x, float y, float z)
+            : this(spawnId, doomedNum, x, y, z, dropped: false)
+        {
+        }
+
+        public SpawnedPickupSnapshot(
+            int spawnId, int doomedNum, float x, float y, float z, bool dropped)
         {
             SpawnId = spawnId;
             DoomedNum = doomedNum;
             X = x;
             Y = y;
             Z = z;
+            Dropped = dropped;
         }
 
         public bool Equals(SpawnedPickupSnapshot other)
         {
             if (other is null) return false;
             return SpawnId == other.SpawnId && DoomedNum == other.DoomedNum
-                   && X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
+                   && X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z)
+                   && Dropped == other.Dropped;
         }
 
         public override bool Equals(object obj) => Equals(obj as SpawnedPickupSnapshot);
-        public override int GetHashCode() => HashCode.Combine(SpawnId, DoomedNum, X, Y, Z);
+        public override int GetHashCode() => HashCode.Combine(SpawnId, DoomedNum, X, Y, Z, Dropped);
     }
 
     /// Full mutable world state for a single map, excluding the player singleton.

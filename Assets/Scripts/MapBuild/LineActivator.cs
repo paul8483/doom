@@ -45,7 +45,9 @@ namespace Doom.MapBuild
         readonly List<ActiveButton> buttons = new List<ActiveButton>();
         readonly List<int> walkQuery = new List<int>(32);
         readonly List<int> monsterDoorLines = new List<int>();
-        readonly Dictionary<LineRef, int> resolvedLineRefs = new Dictionary<LineRef, int>();
+        // True while a monster's door use runs through Activate (vanilla
+        // EV_VerticalDoor lets only players slam an open door shut).
+        bool monsterDoorUse;
 
         public void Init(MapData map, RuntimeSectorHeights heights, SectorGeometry geometry,
                          float worldScale, Transform cam, SoundSystem sound = null,
@@ -61,7 +63,6 @@ namespace Doom.MapBuild
             playerLook = GetComponent<PlayerController>();
             walkIndex = new WalkLineIndex(map, worldScale);
             BuildMonsterDoorLines();
-            resolvedLineRefs.Clear();
             instance = this;
         }
 
@@ -73,12 +74,17 @@ namespace Doom.MapBuild
         }
 
         /// True when the wall belongs to a push-activated door a monster can open.
-        public static bool IsUsableDoor(LineRef lineRef)
+        /// Monster step blocked by a wall collider: is the linedef at the sweep
+        /// hit point a manual door? Wall GameObjects sit at the sector origin
+        /// and group several linedefs, so the hit point (not the transform)
+        /// picks the segment — the old transform-based cache resolved every
+        /// wall to whichever line lay nearest the map origin.
+        public static bool IsUsableDoor(LineRef lineRef, Vector3 hitPoint)
         {
             if (instance == null || lineRef == null || instance.map == null) return false;
             int lineIndex = lineRef.LineIndex;
             if (lineIndex < 0)
-                lineIndex = instance.ResolveLineCached(lineRef);
+                lineIndex = instance.ResolveLine(lineRef, hitPoint);
             if (lineIndex < 0) return false;
             return IsMonsterUsableDoorSpecial(instance.map.LineDefs[lineIndex].Special);
         }
@@ -131,8 +137,10 @@ namespace Doom.MapBuild
                 bestLine = lineIndex;
             }
 
-            if (bestLine >= 0)
-                Activate(bestLine, TriggerKind.Push, alsoSwitch: true);
+            if (bestLine < 0) return;
+            monsterDoorUse = true;
+            try { Activate(bestLine, TriggerKind.Push, alsoSwitch: true); }
+            finally { monsterDoorUse = false; }
         }
 
         void BuildMonsterDoorLines()
@@ -155,15 +163,6 @@ namespace Doom.MapBuild
                    sp.Category == SpecialCategory.LockedDoor;
         }
 
-        int ResolveLineCached(LineRef lineRef)
-        {
-            if (resolvedLineRefs.TryGetValue(lineRef, out int lineIndex))
-                return lineIndex;
-
-            lineIndex = ResolveLine(lineRef, lineRef.transform.position);
-            resolvedLineRefs[lineRef] = lineIndex;
-            return lineIndex;
-        }
 
         void Update()
         {
@@ -701,7 +700,11 @@ namespace Doom.MapBuild
                 if (sp.Trigger != TriggerKind.Walk) continue;
                 if (actor == TeleportActorKind.Monster && !sp.MonsterActivatable) continue;
                 if (!CrossesLine(from, to, ld)) continue;
-                if (!CrossedFromFrontSide(from, ld)) continue;
+                // P_CrossSpecialLine ignores the crossing side for every walk
+                // special except teleports (EV_Teleport: `if (side == 1) return`),
+                // so W1/WR doors, lifts and floors fire from either side.
+                if (sp.Category == SpecialCategory.Teleport &&
+                    !CrossedFromFrontSide(from, ld)) continue;
                 Activate(i, TriggerKind.Walk, alsoSwitch: false, actor);
             }
         }
@@ -938,24 +941,60 @@ namespace Doom.MapBuild
                 return;
             }
 
-            if (moving[sector]) return; // one mover per sector at a time; cleared on mover completion
+            bool isDoor = sp.Category == SpecialCategory.Door ||
+                          sp.Category == SpecialCategory.LockedDoor;
+            if (moving[sector])
+            {
+                // EV_VerticalDoor on a manual (DR) door that already has a
+                // thinker: closing → reopen; open/waiting → a PLAYER closes it
+                // now (monsters only ever push doors open).
+                if (isDoor && sp.Trigger == TriggerKind.Push)
+                {
+                    var door = FindDoorMover(sector);
+                    if (door != null)
+                    {
+                        if (door.IsClosing) door.Reopen();
+                        else if (!monsterDoorUse) door.CloseEarly();
+                    }
+                }
+                return; // one mover per sector at a time; cleared on mover completion
+            }
 
             float speed = SectorMover.SpeedUnitsPerSec(sp.Speed);
             var mover = gameObject.AddComponent<SectorMover>();
 
-            if (sp.Category == SpecialCategory.Door || sp.Category == SpecialCategory.LockedDoor)
+            if (isDoor)
             {
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
-                bool cycle = sp.Repeatable || sp.Type == 1 || sp.Type == 4 || sp.Type == 90 || sp.Type == 63;
+                bool cycle = DoorCycles(sp.Type);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Ceiling,
                             targetH, speed, cycle, waitSeconds: 4.3f, onDone: () => moving[sector] = false,
                             sound, MoverSoundProfile.Door, SectorSoundOrigin(sector));
+            }
+            else if (sp.Category == SpecialCategory.Plat && sp.Direction == MoveDirection.Up)
+            {
+                // raiseAndChange / raiseToNearestAndChange: the floor rises once
+                // and stays (the flat change is not modelled). These used to run
+                // as down-wait-up lifts.
+                int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
+                mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
+                            targetH, speed, cycle: false, waitSeconds: 0f, onDone: () => moving[sector] = false,
+                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Plat)
             {
                 int down = SectorActions.ComputeTargetHeight(map, heights, sector, TargetSpec.LowestNeighborFloor);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
                             down, speed, cycle: true, waitSeconds: 3f, onDone: () => moving[sector] = false,
+                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
+            }
+            else if (sp.Category == SpecialCategory.Ceiling)
+            {
+                // EV_DoCeiling one-shots: to floor (41/43), 8 above floor (44/72),
+                // to the highest neighbouring ceiling (40). Not crushers.
+                int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
+                mover.Begin(heights, geometry, sector, SectorMover.Surface.Ceiling,
+                            targetH, speed, cycle: false, waitSeconds: 0f, onDone: () => moving[sector] = false,
                             sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Floor)
@@ -967,7 +1006,9 @@ namespace Doom.MapBuild
             }
             else if (sp.Category == SpecialCategory.Stair)
             {
-                var chain = SectorActions.BuildStairChain(map, heights, sector, stepUnits: 8);
+                // build8 (7/8) climbs 8 units per step, turbo16 (100/127) 16.
+                int stepUnits = sp.Type == 100 || sp.Type == 127 ? 16 : 8;
+                var chain = SectorActions.BuildStairChain(map, heights, sector, stepUnits);
                 foreach (var (sec, tgt) in chain)
                 {
                     if (sec < 0 || sec >= map.Sectors.Length || moving[sec]) continue;
@@ -982,6 +1023,25 @@ namespace Doom.MapBuild
             }
             moving[sector] = true;
             // Cleared when the mover finishes (onDone), so the line can be re-triggered.
+        }
+
+        /// p_doors.c door kinds that wait and close again (normal / blazeRaise,
+        /// keyed DR included). Everything else — open-stay, close, close30 —
+        /// is a one-shot move. `Repeatable` alone was wrong both ways: SR/WR
+        /// open-stay doors (61, 86, 106, 113, 99, 134, 136) closed after the
+        /// wait, while S1/W1 normal doors (29, 108, 111) never did.
+        static bool DoorCycles(int type) => type switch
+        {
+            1 or 4 or 26 or 27 or 28 or 29 or 63 or 90 or 105 or 108 or 111 or 114 or 117 => true,
+            _ => false,
+        };
+
+        SectorMover FindDoorMover(int sector)
+        {
+            foreach (var mover in GetComponents<SectorMover>())
+                if (mover != null && mover.IsCycleDoor && mover.SectorIndex == sector)
+                    return mover;
+            return null;
         }
 
         SectorMover FindCrusher(int sector)

@@ -159,7 +159,7 @@ namespace Doom.MapBuild
                 if (mc != null)
                 {
                     mc.ApplySnapshotRestore(thing.Health, thing.Frame, thing.AngleDegrees,
-                        dead: thing.Health <= 0);
+                        dead: thing.Health <= 0, ai: thing.Ai);
                     continue;
                 }
 
@@ -192,7 +192,7 @@ namespace Doom.MapBuild
                 PickupFactory.Spawn(
                     spriteCache, worldScale, pickup.DoomedNum,
                     new Vector3(pickup.X, pickup.Y, pickup.Z),
-                    parent, forcedSpawnId: pickup.SpawnId);
+                    parent, forcedSpawnId: pickup.SpawnId, dropped: pickup.Dropped);
             }
         }
 

@@ -94,7 +94,16 @@ namespace Doom.MapBuild.Rendering
             return fluid;
         }
 
-        public void SetActiveProfile(GraphicsProfile profile) => active = profile;
+        /// Bumped on every profile change so consumers that configure shared
+        /// materials lazily (SpriteBillboard) can tell "already configured for
+        /// this profile" apart from "profile changed under me".
+        public int ProfileGeneration { get; private set; }
+
+        public void SetActiveProfile(GraphicsProfile profile)
+        {
+            active = profile;
+            ProfileGeneration++;
+        }
 
         public Shader OpaqueShader()
         {

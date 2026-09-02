@@ -19,17 +19,24 @@ namespace Doom.Game
     {
         public const int IronFeetDurationTics = 60 * 35; // 2100
 
-        public static bool TryPickup(int doomedNum, PickupContext ctx)
+        public static bool TryPickup(int doomedNum, PickupContext ctx) =>
+            TryPickup(doomedNum, ctx, dropped: false);
+
+        /// <paramref name="dropped"/> = MF_DROPPED (P_TouchSpecialThing): a
+        /// dropped clip gives clipammo/2, a dropped weapon one clip instead of two.
+        public static bool TryPickup(int doomedNum, PickupContext ctx, bool dropped)
         {
             switch (doomedNum)
             {
                 case 2011: return ctx.Health.GiveHealth(10, 100);
                 case 2012: return ctx.Health.GiveHealth(25, 100);
-                case 2014: return ctx.Health.GiveHealth(1, 200);
-                case 2013: return ctx.Health.GiveHealth(100, 200);
+                // P_TouchSpecialThing: bonuses and the soulsphere are always
+                // consumed (only stim/medikit/armor refuse at the cap).
+                case 2014: ctx.Health.GiveHealth(1, 200); return true;
+                case 2013: ctx.Health.GiveHealth(100, 200); return true;
                 case 2018: return ctx.Health.GiveArmor(ArmorKind.Green);
                 case 2019: return ctx.Health.GiveArmor(ArmorKind.Blue);
-                case 2015: return ctx.Health.GiveArmorBonus(1);
+                case 2015: ctx.Health.GiveArmorBonus(1); return true;
 
                 case 5:  ctx.Keys.Give(PlayerKey.BlueCard); return true;
                 case 40: ctx.Keys.Give(PlayerKey.BlueSkull); return true;
@@ -51,13 +58,13 @@ namespace Doom.Game
                     ctx.Powers.GiveIronFeet(IronFeetDurationTics);
                     return true;
 
-                case 2001: return PickWeapon(ctx, WeaponId.Shotgun, AmmoType.Shells, 8);
-                case 2002: return PickWeapon(ctx, WeaponId.Chaingun, AmmoType.Bullets, 20);
-                case 2003: return PickWeapon(ctx, WeaponId.RocketLauncher, AmmoType.Rockets, 2);
-                case 2004: return PickWeapon(ctx, WeaponId.PlasmaRifle, AmmoType.Cells, 40);
+                case 2001: return PickWeapon(ctx, WeaponId.Shotgun, AmmoType.Shells, Clips(8, dropped));
+                case 2002: return PickWeapon(ctx, WeaponId.Chaingun, AmmoType.Bullets, Clips(20, dropped));
+                case 2003: return PickWeapon(ctx, WeaponId.RocketLauncher, AmmoType.Rockets, Clips(2, dropped));
+                case 2004: return PickWeapon(ctx, WeaponId.PlasmaRifle, AmmoType.Cells, Clips(40, dropped));
                 case 2005: return ctx.Loadout.Give(WeaponId.Chainsaw);
-                case 2006: return PickWeapon(ctx, WeaponId.Bfg9000, AmmoType.Cells, 40);
-                case 2007: return ctx.Ammo.Add(AmmoType.Bullets, 10);
+                case 2006: return PickWeapon(ctx, WeaponId.Bfg9000, AmmoType.Cells, Clips(40, dropped));
+                case 2007: return ctx.Ammo.Add(AmmoType.Bullets, Clips(10, dropped));
                 case 2048: return ctx.Ammo.Add(AmmoType.Bullets, 50);
                 case 2008: return ctx.Ammo.Add(AmmoType.Shells, 4);
                 case 2049: return ctx.Ammo.Add(AmmoType.Shells, 20);
@@ -69,6 +76,10 @@ namespace Doom.Game
                 default: return false;
             }
         }
+
+        /// Placed items carry two clips (or one full clip of ammo); MF_DROPPED
+        /// halves that (P_GiveWeapon dropped → P_GiveAmmo(…, 1); dropped clip → clipammo/2).
+        static int Clips(int placed, bool dropped) => dropped ? placed / 2 : placed;
 
         static bool PickWeapon(PickupContext ctx, WeaponId id, AmmoType ammo, int give)
         {

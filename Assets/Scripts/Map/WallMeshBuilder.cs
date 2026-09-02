@@ -44,7 +44,6 @@ namespace Doom.Map
             var maskedBlocking = new Dictionary<string, Bucket>();
             var maskedPassable = new Dictionary<string, Bucket>();
             var sec = map.Sectors[sectorIdx];
-            float light = sec.LightLevel / 255f;
             int secFloor = h.FloorHeight(sectorIdx);
             int secCeil = h.CeilingHeight(sectorIdx);
 
@@ -63,12 +62,13 @@ namespace Doom.Map
                 var side = map.SideDefs[sideIdx];
                 var v1 = map.Vertexes[ld.V1];
                 var v2 = map.Vertexes[ld.V2];
+                float wallLight = FakeContrast(sec.LightLevel, v1, v2);
 
                 if (!ld.IsTwoSided)
                 {
                     // One-sided: middle texture spans floor..ceiling.
                     if (onFront)
-                        EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
+                        EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, wallLight, worldScale,
                                  v1, v2, secFloor, secCeil,
                                  side.MiddleTexture, WallPart.OneSidedMiddle,
                                  secFloor, secCeil, facingFront: true, isMasked: false);
@@ -87,14 +87,14 @@ namespace Doom.Map
 
                 // Lower step: neighbour floor higher than ours.
                 if (otherFloor > secFloor && HasTex(side.LowerTexture))
-                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, wallLight, worldScale,
                              v1, v2, secFloor, otherFloor,
                              side.LowerTexture, WallPart.Lower,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
 
                 // Upper step: neighbour ceiling lower than ours.
                 if (otherCeil < secCeil && HasTex(side.UpperTexture))
-                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, light, worldScale,
+                    EmitQuad(opaque, null, sizes, ld.Special, ld.Flags, side, wallLight, worldScale,
                              v1, v2, otherCeil, secCeil,
                              side.UpperTexture, WallPart.Upper,
                              secFloor, secCeil, facingFront: onFront, isMasked: false);
@@ -108,7 +108,7 @@ namespace Doom.Map
                     {
                         bool blocks = (ld.Flags & WallSection.FlagBlocking) != 0;
                         var maskedBucket = blocks ? maskedBlocking : maskedPassable;
-                        EmitQuad(opaque, maskedBucket, sizes, ld.Special, ld.Flags, side, light, worldScale,
+                        EmitQuad(opaque, maskedBucket, sizes, ld.Special, ld.Flags, side, wallLight, worldScale,
                                  v1, v2, gapLow, gapHigh,
                                  side.MiddleTexture, WallPart.TwoSidedMiddle,
                                  gapLow, gapHigh, facingFront: onFront, isMasked: true);
@@ -127,6 +127,21 @@ namespace Doom.Map
         }
 
         private enum WallPart { OneSidedMiddle, Upper, Lower, TwoSidedMiddle }
+
+        /// R_StoreWallRange "fake contrast": walls on exactly horizontal lines
+        /// take one light step (LIGHTSEGSHIFT = 4 → 16 units) darker, exactly
+        /// vertical ones one step brighter; diagonals keep the sector level.
+        /// Classic reads this vertex light directly; Enhanced overrides it with
+        /// the sector ambient block, so only the bit-faithful mode changes.
+        public static float FakeContrast(int lightLevel, Vertex a, Vertex b)
+        {
+            int level = lightLevel;
+            if (a.Y == b.Y) level -= 16;
+            else if (a.X == b.X) level += 16;
+            if (level < 0) level = 0;
+            if (level > 255) level = 255;
+            return level / 255f;
+        }
 
         private static WallSection ToSection(bool masked, bool blocks, Bucket b)
             => new WallSection(b.Texture, masked,
@@ -227,8 +242,10 @@ namespace Doom.Map
                     return lowerUnpegged ? regionHigh : yHigh;
                 case WallPart.TwoSidedMiddle:
                 default:
-                    // not tiled: texture top at the gap top.
-                    return yHigh;
+                    // R_RenderMaskedSegRange: ML_DONTPEGBOTTOM hangs the texture
+                    // from the gap BOTTOM (max floor + texture height), else its
+                    // top sits at the gap top (min ceiling).
+                    return lowerUnpegged ? (yLow + texH) : yHigh;
             }
         }
 

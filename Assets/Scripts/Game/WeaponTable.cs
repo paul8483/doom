@@ -42,7 +42,8 @@ namespace Doom.Game
         static readonly WeaponDef Chaingun = new WeaponDef
         {
             Id = WeaponId.Chaingun, Slot = 4, Ammo = AmmoType.Bullets, AmmoPerShot = 1,
-            Pellets = 1, Melee = false, FirstShotAccurate = false,
+            // A_FireCGun: P_GunShot(mo, !player->refire) — first shot exact, like the pistol.
+            Pellets = 1, Melee = false, FirstShotAccurate = true,
             Sprite = "CHGG", IdleFrame = 0,
             FireFrames = new[] { 1 }, FireTics = new[] { 4 },
             FlashSprite = "CHGF", FlashFrames = new[] { 0 }, FlashTics = new[] { 5 },

@@ -32,17 +32,39 @@ namespace Doom.Specials
                 case TargetSpec.LowestNeighborCeilingMinus4:
                     return LowestNeighborCeiling(map, h, sectorIdx) - 4;
                 case TargetSpec.LowestNeighborCeiling:
-                    return LowestNeighborCeiling(map, h, sectorIdx);
+                    // EV_DoFloor raiseFloor: `if (dest > sec->ceilingheight) dest = ceilingheight`
+                    return System.Math.Min(LowestNeighborCeiling(map, h, sectorIdx),
+                                           h.CeilingHeight(sectorIdx));
+                case TargetSpec.LowestNeighborCeilingMinus8:
+                    // raiseFloorCrush: same clamp, then −8
+                    return System.Math.Min(LowestNeighborCeiling(map, h, sectorIdx),
+                                           h.CeilingHeight(sectorIdx)) - 8;
                 case TargetSpec.LowestNeighborFloor:
                     return LowestNeighborFloor(map, h, sectorIdx);
                 case TargetSpec.HighestNeighborFloor:
                     return HighestNeighborFloor(map, h, sectorIdx);
+                case TargetSpec.HighestNeighborFloorPlus8:
+                {
+                    // turboLower: `if (dest != sec->floorheight) dest += 8*FRACUNIT`
+                    int dest = HighestNeighborFloor(map, h, sectorIdx);
+                    return dest != h.FloorHeight(sectorIdx) ? dest + 8 : dest;
+                }
                 case TargetSpec.NextHigherFloor:
                     return NextHigherFloor(map, h, sectorIdx);
                 case TargetSpec.NextLowerFloor:
                     return NextLowerFloor(map, h, sectorIdx);
                 case TargetSpec.ToFloor:
                     return h.FloorHeight(sectorIdx);
+                case TargetSpec.FloorPlus8:
+                    return h.FloorHeight(sectorIdx) + 8;
+                case TargetSpec.FloorPlus24:
+                    return h.FloorHeight(sectorIdx) + 24;
+                case TargetSpec.FloorPlus32:
+                    return h.FloorHeight(sectorIdx) + 32;
+                case TargetSpec.FloorPlus512:
+                    return h.FloorHeight(sectorIdx) + 512;
+                case TargetSpec.HighestNeighborCeiling:
+                    return HighestNeighborCeiling(map, h, sectorIdx);
                 default:
                     return h.FloorHeight(sectorIdx);
             }
@@ -54,11 +76,21 @@ namespace Doom.Specials
             foreach (var n in Neighbors.OfSector(map, s)) { any = true; best = System.Math.Min(best, h.CeilingHeight(n)); }
             return any ? best : h.CeilingHeight(s);
         }
+        /// P_FindHighestCeilingSurrounding (starts at 0, neighbours only).
+        private static int HighestNeighborCeiling(MapData map, ISectorHeights h, int s)
+        {
+            int best = int.MinValue; bool any = false;
+            foreach (var n in Neighbors.OfSector(map, s)) { any = true; best = System.Math.Max(best, h.CeilingHeight(n)); }
+            return any ? best : h.CeilingHeight(s);
+        }
+        /// P_FindLowestFloorSurrounding starts at the sector's OWN floor, so a
+        /// floor that is already the lowest stays put (plats clamp `low` to
+        /// the current floor the same way) instead of "lowering" upward.
         private static int LowestNeighborFloor(MapData map, ISectorHeights h, int s)
         {
-            int best = int.MaxValue; bool any = false;
-            foreach (var n in Neighbors.OfSector(map, s)) { any = true; best = System.Math.Min(best, h.FloorHeight(n)); }
-            return any ? best : h.FloorHeight(s);
+            int best = h.FloorHeight(s);
+            foreach (var n in Neighbors.OfSector(map, s)) best = System.Math.Min(best, h.FloorHeight(n));
+            return best;
         }
         private static int HighestNeighborFloor(MapData map, ISectorHeights h, int s)
         {

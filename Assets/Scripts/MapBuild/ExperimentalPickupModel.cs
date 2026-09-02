@@ -597,6 +597,12 @@ namespace Doom.MapBuild
         void ApplyPresentation(bool useMesh)
         {
             lastUseMesh = useMesh;
+            // The billboard yaws the shared ROOT toward the camera; the mesh
+            // hangs under that root unrotated. Coming from the billboard side
+            // (Classic в†’ Enhanced, 3D Off в†’ On) the root keeps its last
+            // camera-facing yaw, so pin it back to the spawn orientation.
+            if (useMesh)
+                transform.rotation = Quaternion.identity;
             if (modelRoot != null)
                 modelRoot.SetActive(useMesh);
             if (billboardRenderer != null)

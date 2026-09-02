@@ -82,8 +82,10 @@ namespace Doom.Specials
             }
         }
 
+        /// P_SpawnSpecials: 2 = FASTDARK, 3 = SLOWDARK, 12 = SLOWDARK sync,
+        /// 13 = FASTDARK sync (the port had 12/13 swapped).
         public static int StrobeDarkTime(int sectorSpecial) =>
-            sectorSpecial == 3 || sectorSpecial == 13 ? SlowDark : FastDark;
+            sectorSpecial == 3 || sectorSpecial == 12 ? SlowDark : FastDark;
 
         /// Build initial thinker from SECTORS light + special + neighbor lights.
         public static SectorLightState InitFromSector(
@@ -93,8 +95,21 @@ namespace Doom.Specials
             if (!TryKindFromSectorSpecial(sectorSpecial, out var kind))
                 return SectorLightState.Static(lightLevel);
 
-            int min = SectorLightState.ClampLight(lowestNeighborLight);
-            if (min == lightLevel) min = 0;
+            // P_FindMinSurroundingLight(sector, max) starts at the sector's OWN
+            // level and only goes down, so min <= max always. The "min == max →
+            // 0" rule belongs to P_SpawnStrobeFlash alone; glow / flash keep
+            // the raw minimum (a glow whose neighbours are no darker is
+            // static), and fire flicker adds 16.
+            int min = Math.Min(SectorLightState.ClampLight(lowestNeighborLight), lightLevel);
+            switch (kind)
+            {
+                case SectorLightKind.Strobe:
+                    if (min == lightLevel) min = 0;
+                    break;
+                case SectorLightKind.FireFlicker:
+                    min = SectorLightState.ClampLight(min + 16);
+                    break;
+            }
 
             switch (kind)
             {
@@ -151,11 +166,11 @@ namespace Doom.Specials
             }
         }
 
-        /// Linedef 17: start strobing tagged sector (fast dark).
+        /// Linedef 17: EV_StartLightStrobing → P_SpawnStrobeFlash(sec, SLOWDARK, 0).
         public static SectorLightState StartStrobe(int currentLight, int lowestNeighborLight)
         {
             int max = SectorLightState.ClampLight(currentLight);
-            int min = SectorLightState.ClampLight(lowestNeighborLight);
+            int min = Math.Min(SectorLightState.ClampLight(lowestNeighborLight), max);
             if (min == max) min = 0;
             return new SectorLightState
             {
@@ -166,7 +181,7 @@ namespace Doom.Specials
                 Count = StrobeBright,
                 Direction = 1,
                 BrightTime = StrobeBright,
-                DarkTime = FastDark,
+                DarkTime = SlowDark,
             };
         }
 
@@ -228,18 +243,21 @@ namespace Doom.Specials
 
         static SectorLightState TickFlicker(SectorLightState s, Func<int> random)
         {
+            // T_LightFlash: strictly alternate. Bright lasts (P_Random()&64)+1
+            // tics (1 or 65), dark (P_Random()&7)+1 — "mostly on, short
+            // blackouts", not a 75/25 jitter.
             s.Count--;
             if (s.Count > 0) return s;
             int r = random != null ? random() : 0;
-            if ((r & 3) != 0)
+            if (s.Light == s.MaxLight)
             {
-                s.Light = s.MaxLight;
+                s.Light = s.MinLight;
                 s.Count = (r & 7) + 1;
             }
             else
             {
-                s.Light = s.MinLight;
-                s.Count = (r & 7) + 1;
+                s.Light = s.MaxLight;
+                s.Count = (r & 64) + 1;
             }
             return s;
         }

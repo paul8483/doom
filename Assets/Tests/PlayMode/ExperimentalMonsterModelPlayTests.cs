@@ -212,6 +212,14 @@ namespace Doom.Stage3.PlayTests
         [UnityTest]
         public IEnumerator Spos_fire_frame_carries_the_shader_muzzle_flash()
         {
+            // Frame meshes (and the flash riding one of them) are built the
+            // first time mesh presentation is on, so go Enhanced before attaching.
+            var settings = SettingsController.Ensure();
+            settings.ConfigureForTests(new SettingsStore(memory), display,
+                new NoOpGraphicsModeAdapter());
+            settings.SetGraphicsMode(GraphicsMode.Enhanced);
+            yield return null;
+
             var go = NewMonsterRoot(out var bb);
             var model = ExperimentalMonsterModel.TryAttach(go, "SPOS", 1f / 32f, bb);
             Assert.That(model, Is.Not.Null);
@@ -230,12 +238,6 @@ namespace Doom.Stage3.PlayTests
                 Is.EqualTo("Doom/ExperimentalMuzzleFlash"));
             Assert.That(renderer.sharedMaterial.mainTexture, Is.Not.Null,
                 "the flash samples the native-baked radial LUT");
-
-            var settings = SettingsController.Ensure();
-            settings.ConfigureForTests(new SettingsStore(memory), display,
-                new NoOpGraphicsModeAdapter());
-            settings.SetGraphicsMode(GraphicsMode.Enhanced);
-            yield return null;
 
             Assert.That(flash.gameObject.activeInHierarchy, Is.False,
                 "no flash outside the fire frame");

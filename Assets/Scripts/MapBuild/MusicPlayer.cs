@@ -10,8 +10,15 @@ namespace Doom.MapBuild
     [RequireComponent(typeof(AudioSource))]
     public sealed class MusicPlayer : MonoBehaviour
     {
-        const int SampleRate = 44100;
+        // OnAudioFilterRead delivers buffers at the mixer's OUTPUT rate; the
+        // OPL core must resample to that rate or the score plays fast/sharp
+        // (44100 fixed on a 48 kHz device = +8.8% tempo, +1.5 semitones).
+        static int SampleRate =>
+            AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 44100;
         const int CarrierFrames = 1024;
+        // Serialises the audio-thread Render against main-thread Stop/Init
+        // (both touch the same OPL chip).
+        readonly object synthGate = new object();
 
         MusOplPlayer player;
         AudioClip clip;
@@ -140,7 +147,15 @@ namespace Doom.MapBuild
             int frames = data.Length / channels;
             try
             {
-                synth.Render(data, frames);
+                lock (synthGate)
+                {
+                    if (stopped || !ReferenceEquals(synth, player))
+                    {
+                        Array.Clear(data, 0, data.Length);
+                        return;
+                    }
+                    synth.Render(data, frames);
+                }
                 if (volume < 0.999f)
                 {
                     for (int i = 0; i < data.Length; i++)
@@ -173,8 +188,11 @@ namespace Doom.MapBuild
             }
             if (player != null)
             {
-                try { player.Stop(); } catch { /* ignore */ }
-                player = null;
+                lock (synthGate)
+                {
+                    try { player.Stop(); } catch { /* ignore */ }
+                    player = null;
+                }
             }
         }
     }

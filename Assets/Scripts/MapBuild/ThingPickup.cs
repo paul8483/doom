@@ -30,11 +30,14 @@ namespace Doom.MapBuild
         public int DoomedNum => doomedNum;
         /// Index into MapData.Things, or -1 for runtime drops (not counted as items).
         public int MapThingIndex => mapThingIndex;
+        /// Vanilla MF_DROPPED: a death drop gives half the ammo of a placed item.
+        public bool Dropped { get; private set; }
 
-        public void Init(int doomedNum, float worldScale, int mapThingIndex = -1)
+        public void Init(int doomedNum, float worldScale, int mapThingIndex = -1, bool dropped = false)
         {
             this.doomedNum = doomedNum;
             this.mapThingIndex = mapThingIndex;
+            Dropped = dropped;
 
             float itemRadius = DefaultItemRadiusDoom;
             if (ThingTable.TryGet(doomedNum, out var def) && def.Radius > 0)
@@ -49,6 +52,12 @@ namespace Doom.MapBuild
         void Update()
         {
             if (collected) return;
+            // Items next to the WAD player start were being collected during
+            // the restore frames of a save load (the player stands at the start
+            // until the snapshot moves them): nothing is picked up while the
+            // level is still loading.
+            var flow = GameFlowController.Instance;
+            if (flow != null && flow.State == GameFlowState.Loading) return;
             if (!ResolvePlayer()) return;
 
             Vector3 delta = playerBody.position - transform.position;
@@ -75,7 +84,7 @@ namespace Doom.MapBuild
         void TryCollect(PlayerInventory inv)
         {
             if (collected || inv == null) return;
-            if (!inv.TryPickup(doomedNum)) return;
+            if (!inv.TryPickup(doomedNum, Dropped)) return;
 
             collected = true;
 
