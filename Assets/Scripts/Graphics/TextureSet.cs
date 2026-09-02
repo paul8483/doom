@@ -89,8 +89,16 @@ namespace Doom.Graphics
 
         /// Assemble a composite texture: blank canvas, patches stamped at origins,
         /// opaque source pixels overwrite the canvas (later patch wins).
-        public DecodedImage Build(string name, Palette palette)
+        public DecodedImage Build(string name, Palette palette) =>
+            Build(name, palette, out _);
+
+        /// Same as Build; `placeholder` reports whether the result is the
+        /// magenta checker (unknown texture, or no patch could be stamped —
+        /// typically a WAD stream disposed before the first touch). Callers
+        /// caching sources must not treat such a canvas as real texels.
+        public DecodedImage Build(string name, Palette palette, out bool placeholder)
         {
+            placeholder = true;
             if (!defs.TryGetValue(name.ToUpperInvariant(), out var d))
             {
                 GraphicsLog.Warning($"TextureSet: unknown texture '{name}'");
@@ -128,6 +136,7 @@ namespace Doom.Graphics
                     $"TextureSet: '{name}' stamped 0 opaque texels — using placeholder");
                 return Placeholder.Magenta(d.Width, d.Height);
             }
+            placeholder = false;
             return new DecodedImage(d.Width, d.Height, rgba);
         }
 

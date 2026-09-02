@@ -51,6 +51,18 @@ namespace Doom.MapBuild
         public long EnhancedTextureBytes => enhancedTextureBytes;
         public long NormalTextureBytes => normalTextureBytes;
 
+        /// True when `name` is a composite wall texture of the loaded WAD
+        /// (TEXTURE1/TEXTURE2). Used to guard warm lists against names that
+        /// would only ever decode to a placeholder.
+        public bool HasWallTexture(string name) =>
+            !string.IsNullOrEmpty(name) && textures.Contains(name);
+
+        /// Test seam: true when `name` decoded to the magenta placeholder
+        /// (unknown name, or a first touch after the WAD was closed).
+        public bool IsPlaceholderForTest(string name) =>
+            !string.IsNullOrEmpty(name) &&
+            sourceCache.TryGetValue(name, out var entry) && entry.IsPlaceholder;
+
         /// True when an albedo for (name, variant) is already in the GPU cache
         /// (including Enhanced4X→native fallback aliases).
         public bool HasCachedVariant(string name, WorldTextureVariant variant)
@@ -609,7 +621,10 @@ namespace Doom.MapBuild
             }
 
             if (textures.Contains(name))
-                return (textures.Build(name, palette), isFlat: false, isPlaceholder: false);
+            {
+                var built = textures.Build(name, palette, out bool placeholder);
+                return (built, isFlat: false, isPlaceholder: placeholder);
+            }
 
             int idx = wad.FindLump(name);
             if (idx >= 0 && wad.Directory[idx].Size == 64 * 64)

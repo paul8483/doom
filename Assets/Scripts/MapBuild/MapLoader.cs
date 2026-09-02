@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 using Doom.Wad;
 using Doom.Map;
 using Doom.Graphics;
+using Doom.Specials;
 using Doom.Audio;
 using Doom.Game;
 using Doom.Things;
@@ -908,7 +909,7 @@ namespace Doom.MapBuild
         /// the WAD stream is still open, and register opaque+masked materials so
         /// Enhanced CollectTextureNames / ApplyProfile see mover-only names
         /// (E1M3 closed-door DOORTRAK) before the first rebuild.
-        static void PrewarmMapTextures(MapData map, TextureCache cache)
+        public static void PrewarmMapTextures(MapData map, TextureCache cache)
         {
             if (map == null || cache == null) return;
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -925,6 +926,10 @@ namespace Doom.MapBuild
         /// Unique sidedef/flat names on the map (skips "-" / empty). Sector
         /// flats route through cache.FlatKey so names colliding with wall
         /// textures (STEP1/STEP2) warm the FLAT alias, not the composite.
+        /// Switch textures also bring their SW1/SW2 counterpart: pressing a
+        /// switch swaps the sidedef to a name the map never carried, and the
+        /// WAD is closed by then — an unwarmed counterpart decodes to the
+        /// magenta placeholder (E1M3 SW2COMM → SW1COMM).
         public static void CollectMapTextureNames(MapData map, HashSet<string> dst,
                                                   TextureCache cache = null)
         {
@@ -935,6 +940,9 @@ namespace Doom.MapBuild
                 AddMapTextureName(dst, side.UpperTexture);
                 AddMapTextureName(dst, side.LowerTexture);
                 AddMapTextureName(dst, side.MiddleTexture);
+                AddSwitchCounterpart(dst, side.UpperTexture, cache);
+                AddSwitchCounterpart(dst, side.LowerTexture, cache);
+                AddSwitchCounterpart(dst, side.MiddleTexture, cache);
             }
             for (int i = 0; i < map.Sectors.Length; i++)
             {
@@ -948,6 +956,16 @@ namespace Doom.MapBuild
         {
             if (string.IsNullOrEmpty(name) || name == "-") return;
             names.Add(name);
+        }
+
+        /// The SW1/SW2 partner of a switch texture, when the WAD actually has
+        /// it (a missing partner would only warm a placeholder).
+        static void AddSwitchCounterpart(HashSet<string> names, string name,
+                                         TextureCache cache)
+        {
+            if (!SwitchTextureRules.TryGetCounterpart(name, out string other)) return;
+            if (cache != null && !cache.HasWallTexture(other)) return;
+            names.Add(other);
         }
 
         // ── Shared sector-root population (initial build AND in-place rebuild) ─────

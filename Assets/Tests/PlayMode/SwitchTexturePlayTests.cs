@@ -85,8 +85,21 @@ namespace Doom.Stage3.PlayTests
 
             Assert.AreEqual(to, SlotTexture(activator.GetSideDefForTest(sideIdx), slot),
                 $"line {line}: switch texture should flip {from} -> {to}");
-            Assert.That(FindWallWithTexture(to), Is.Not.Null,
+            var wall = FindWallWithTexture(to);
+            Assert.That(wall, Is.Not.Null,
                 $"a rebuilt wall named after {to} should exist in the scene");
+
+            // The counterpart was never on the map and the WAD is closed by
+            // now: only the prewarm can have decoded it. Before the counterpart
+            // warm the wall came back as the magenta placeholder in game.
+            var loader = Object.FindAnyObjectByType<MapLoader>();
+            Assert.That(loader, Is.Not.Null);
+            Assert.IsFalse(loader.WorldTextures.IsPlaceholderForTest(to),
+                $"{to} must have been decoded while the WAD was open, not as a placeholder");
+            var mat = wall.GetComponent<MeshRenderer>().sharedMaterial;
+            Assert.That(mat, Is.Not.Null);
+            Assert.That(mat.mainTexture, Is.Not.Null,
+                $"the rebuilt {to} wall must carry an albedo");
 
             if (repeatable)
             {
