@@ -155,13 +155,16 @@ namespace Doom.MapBuild
             }
         }
 
-        static bool IsMonsterUsableDoorSpecial(int special)
-        {
-            if (!LineSpecialTable.TryGet(special, out var sp)) return false;
-            if (sp.Trigger != TriggerKind.Push) return false;
-            return sp.Category == SpecialCategory.Door ||
-                   sp.Category == SpecialCategory.LockedDoor;
-        }
+        /// P_UseSpecialLine for a non-player actor: the whitelist is 1 / 32 /
+        /// 33 / 34, and EV_VerticalDoor then rejects 32–34 with `if (!player)
+        /// return 0`, so the only door a monster ever opens is special 1
+        /// (manual raise). Every keyed door — and 31 / 117 / 118, which are
+        /// not on the list at all — is a plain wall to a monster: it picks a
+        /// new direction instead of standing at the door and "using" it.
+        /// The old predicate (any Push door, keyed ones included) parked
+        /// monster packs at locked doors, where each use ran the PLAYER's
+        /// key check and its map-wide grunt (E1M4 blue door, slot 0).
+        public static bool IsMonsterUsableDoorSpecial(int special) => special == 1;
 
 
         void Update()
@@ -823,6 +826,10 @@ namespace Doom.MapBuild
 
             if (sp.Key != KeyKind.None)
             {
+                // EV_VerticalDoor / EV_DoLockedDoor: `if (!player) return 0` —
+                // a monster at a keyed door neither opens it nor grunts. The
+                // key test and its 2D oof belong to the player alone.
+                if (actor != TeleportActorKind.Player || monsterDoorUse) return;
                 if (inventory == null || !KeyMapping.HasRequired(inventory.Keys, sp.Key))
                 {
                     if (inventory != null)
