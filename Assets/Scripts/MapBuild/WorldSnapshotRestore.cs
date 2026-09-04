@@ -107,13 +107,15 @@ namespace Doom.MapBuild
                 // Cue profile follows the mover kind, as StartMover assigns it:
                 // a cycling ceiling that is not a crusher is a door (open /
                 // close one-shots), a cycling floor is a lift (pstart / pstop),
-                // everything else is a floor / ceiling motor (loop + stop). The snapshot does not record a silent crusher
-                // (type 141), so a restored crusher grinds like the others.
+                // everything else is a floor / ceiling motor (loop + stop);
+                // a silent crusher (type 141, v8 MoverSilent) gets no cues.
                 bool isDoor = surface == SectorMover.Surface.Ceiling && cycle
                               && behavior != MoverBehavior.Crusher;
                 bool isLift = surface == SectorMover.Surface.Floor && cycle
                               && behavior != MoverBehavior.Crusher;
-                var profile = isDoor ? MoverSoundProfile.Door
+                bool silentCrusher = behavior == MoverBehavior.Crusher && s.MoverSilent;
+                var profile = silentCrusher ? default
+                    : isDoor ? MoverSoundProfile.Door
                     : isLift ? MoverSoundProfile.Lift
                     : MoverSoundProfile.FloorOrLift;
                 float fullWait = !cycle ? 0f
@@ -130,7 +132,7 @@ namespace Doom.MapBuild
                     onDone: () => lines?.SetSectorMoving(sectorIndex, false),
                     worldScale: worldScale,
                     sound: sound, sfx: profile, soundOrigin: soundOrigin,
-                    fullWaitSeconds: fullWait);
+                    fullWaitSeconds: fullWait, silentCrusher: silentCrusher);
                 lines?.SetSectorMoving(sectorIndex, true);
             }
         }

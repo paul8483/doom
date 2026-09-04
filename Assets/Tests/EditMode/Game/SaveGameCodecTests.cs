@@ -22,6 +22,7 @@ namespace Doom.Game.Tests
             Assert.That(decoded.World.Sectors[1].MoverBehavior, Is.EqualTo(MoverBehavior.Crusher));
             Assert.That(decoded.World.Sectors[1].MoverCycle, Is.True);
             Assert.That(decoded.World.Sectors[1].MoverOrigin, Is.EqualTo(128f));
+            Assert.That(decoded.World.Sectors[1].MoverSilent, Is.True, "v8 silent-crusher flag");
             Assert.That(decoded.World.Projectiles[0].Owner, Is.EqualTo(SaveEntityId.MapThing(0)));
             Assert.That(decoded.World.Projectiles[0].Phase, Is.EqualTo(ProjectilePhase.Exploding));
             Assert.That(decoded.World.Projectiles[0].FrameIndex, Is.EqualTo(2));
@@ -187,11 +188,11 @@ namespace Doom.Game.Tests
             int sectorCountOffset = FindSectorCountOffset(current, payloadOffset);
             int sectorCount = BitConverter.ToInt32(current, sectorCountOffset);
             const int V5SectorBytes = 39;
-            const int V6SectorExtraBytes = 6;
+            const int V6SectorExtraBytes = 7; // v6 behavior/cycle/origin + v8 silent
             int firstSectorOffset = sectorCountOffset + sizeof(int);
 
             // Byte ranges of `current` that a v5 writer would not have emitted:
-            // the v6 sector tail and the v7 thing-AI / pickup-dropped fields.
+            // the v6/v8 sector tail and the v7 thing-AI / pickup-dropped fields.
             var skip = new System.Collections.Generic.List<(int offset, int length)>();
             int pos = firstSectorOffset;
             for (int i = 0; i < sectorCount; i++)
@@ -249,6 +250,7 @@ namespace Doom.Game.Tests
                 Is.EqualTo(MoverBehavior.OneShot));
             Assert.That(decoded.World.Sectors[1].MoverCycle, Is.False);
             Assert.That(decoded.World.Sectors[1].MoverOrigin, Is.Zero);
+            Assert.That(decoded.World.Sectors[1].MoverSilent, Is.False, "pre-v8 crushers read as loud");
         }
 
         [Test]
@@ -441,7 +443,7 @@ namespace Doom.Game.Tests
                 new SectorSnapshot(0, 0f, 128f, 160, false, MoverPlane.Floor, MoverPhase.None,
                     0, 0f, 0f, 0),
                 new SectorSnapshot(2, 16f, 128f, 160, true, MoverPlane.Ceiling, MoverPhase.Waiting,
-                    -1, 64f, 4f, 12, 0, MoverBehavior.Crusher, true, 128f),
+                    -1, 64f, 4f, 12, 0, MoverBehavior.Crusher, true, 128f, moverSilent: true),
             };
             var lines = new[] { new LineSnapshot(0, true, true) };
             var things = new[]
@@ -674,6 +676,7 @@ namespace Doom.Game.Tests
             r.ReadByte();  // v6 moverBehavior
             r.ReadByte();  // v6 moverCycle
             r.ReadSingle();// v6 moverOrigin
+            r.ReadByte();  // v8 moverSilent
         }
 
         static void SkipThing(BinaryReader r)

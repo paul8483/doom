@@ -47,6 +47,9 @@ namespace Doom.Game
         public MoverBehavior MoverBehavior { get; }
         public bool MoverCycle { get; }
         public float MoverOrigin { get; }
+        /// v8: a crusher started by a silent special (141) makes no motor
+        /// noise; the flag survives a save so the restored thinker stays quiet.
+        public bool MoverSilent { get; }
 
         public SectorSnapshot(
             int index,
@@ -57,7 +60,8 @@ namespace Doom.Game
             int lightCount = 0,
             MoverBehavior moverBehavior = MoverBehavior.OneShot,
             bool moverCycle = false,
-            float moverOrigin = 0f)
+            float moverOrigin = 0f,
+            bool moverSilent = false)
         {
             Index = index;
             FloorHeight = floorHeight;
@@ -74,6 +78,7 @@ namespace Doom.Game
             MoverBehavior = moverBehavior;
             MoverCycle = moverCycle;
             MoverOrigin = moverOrigin;
+            MoverSilent = moverSilent;
         }
 
         public bool Equals(SectorSnapshot other)
@@ -93,7 +98,8 @@ namespace Doom.Game
                    && MoverWaitTics == other.MoverWaitTics
                    && MoverBehavior == other.MoverBehavior
                    && MoverCycle == other.MoverCycle
-                   && MoverOrigin.Equals(other.MoverOrigin);
+                   && MoverOrigin.Equals(other.MoverOrigin)
+                   && MoverSilent == other.MoverSilent;
         }
 
         public override bool Equals(object obj) => Equals(obj as SectorSnapshot);

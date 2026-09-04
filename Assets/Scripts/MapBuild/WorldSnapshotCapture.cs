@@ -167,7 +167,7 @@ namespace Doom.MapBuild
             return new SectorSnapshot(
                 index, floor, ceil, light,
                 hasMover: true, plane, phase, dir, target, speed, waitTics, lightCount,
-                behavior, cycle, origin);
+                behavior, cycle, origin, mover.IsSilentCrusher);
         }
 
         static LineSnapshot[] CaptureLines(LineActivator activator, int lineCount)

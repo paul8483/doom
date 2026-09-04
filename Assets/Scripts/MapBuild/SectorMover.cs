@@ -30,6 +30,7 @@ namespace Doom.MapBuild
         bool stopPlayed;
         MoverBehavior behavior;
         bool crusherSlows;
+        bool silentCrusher;
         CrusherDamageSystem crusherDamage;
 
         // DOOM speeds (units/tic × 35 tics/sec). Normal door ≈ 2 u/tic, fast ≈ 8.
@@ -83,7 +84,8 @@ namespace Doom.MapBuild
             MoverBehavior moverBehavior, bool moverCycle,
             System.Action onDone = null, float worldScale = 1f / 32f,
             SoundSystem sound = null, MoverSoundProfile sfx = default,
-            Vector3 soundOrigin = default, float fullWaitSeconds = 0f)
+            Vector3 soundOrigin = default, float fullWaitSeconds = 0f,
+            bool silentCrusher = false)
         {
             this.heights = heights; this.geometry = geometry; this.sector = sector;
             this.surface = surface; this.speedUnitsPerSec = speedUnitsPerSec;
@@ -112,6 +114,7 @@ namespace Doom.MapBuild
                 if (phase != Phase.Stopped && !string.IsNullOrEmpty(sfx.LoopLump))
                     sound?.PlayLoop(sfx.LoopLump, loopKey, soundOrigin);
             }
+            this.silentCrusher = silentCrusher;
             if (behavior == MoverBehavior.Crusher)
             {
                 crusherSlows = speedUnitsPerSec <= 35.01f;
@@ -132,12 +135,15 @@ namespace Doom.MapBuild
                 silent ? default : MoverSoundProfile.FloorOrLift, soundOrigin);
             behavior = MoverBehavior.Crusher;
             crusherSlows = slowsWhenCrushing;
+            silentCrusher = silent;
             crusherDamage = gameObject.AddComponent<CrusherDamageSystem>();
             crusherDamage.Begin(this, heights, geometry, sector, worldScale);
         }
 
         public int SectorIndex => sector;
         public bool IsCrusher => behavior == MoverBehavior.Crusher;
+        /// A crusher started by a silent special (141): no motor cues.
+        public bool IsSilentCrusher => IsCrusher && silentCrusher;
         /// A door that opens, waits and closes (ceiling cycle mover).
         public bool IsCycleDoor => surface == Surface.Ceiling && cycle && !IsCrusher;
         public bool IsClosing => IsCycleDoor && phase == Phase.Returning;

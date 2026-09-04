@@ -579,6 +579,7 @@ namespace Doom.Game
             w.Write((byte)s.MoverBehavior);
             WriteBool(w, s.MoverCycle);
             w.Write(s.MoverOrigin);
+            WriteBool(w, s.MoverSilent);
         }
 
         static SectorSnapshot ReadSector(BinaryReader r, int version)
@@ -598,6 +599,7 @@ namespace Doom.Game
             byte behavior = version >= 6 ? r.ReadByte() : (byte)MoverBehavior.OneShot;
             bool cycle = version >= 6 && ReadBool(r);
             float origin = version >= 6 ? r.ReadSingle() : 0f;
+            bool silent = version >= 8 && ReadBool(r);
             if (!Enum.IsDefined(typeof(MoverPlane), plane)
                 || !Enum.IsDefined(typeof(MoverPhase), phase)
                 || !Enum.IsDefined(typeof(MoverBehavior), behavior))
@@ -605,7 +607,7 @@ namespace Doom.Game
             return new SectorSnapshot(
                 index, floor, ceiling, light, hasMover,
                 (MoverPlane)plane, (MoverPhase)phase, dir, target, speed, wait, lightCount,
-                (MoverBehavior)behavior, cycle, origin);
+                (MoverBehavior)behavior, cycle, origin, silent);
         }
 
         static void WriteLine(BinaryWriter w, LineSnapshot line)

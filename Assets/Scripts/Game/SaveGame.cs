@@ -9,8 +9,9 @@ namespace Doom.Game
     {
         public const int FirstSupportedSchemaVersion = 1;
         /// v7 (2.1.0): live monster AI state (brain bookkeeping) and the
-        /// MF_DROPPED flag on spawned pickups.
-        public const int SchemaVersion = 7;
+        /// MF_DROPPED flag on spawned pickups. v8: MoverSilent on sector
+        /// movers (a silent crusher, type 141, stays silent after a load).
+        public const int SchemaVersion = 8;
         /// ASCII 'D','S','A','V' — little-endian uint 0x56415344.
         public const uint Magic = 0x56415344;
 
