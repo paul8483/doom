@@ -36,6 +36,11 @@ namespace Doom.MapBuild
         }
 
         private readonly HashSet<string> played = new(System.StringComparer.Ordinal);
+        private readonly Dictionary<string, int> playCounts = new(System.StringComparer.Ordinal);
+
+        /// How many times <paramref name="lumpName"/> was started this session (test probe).
+        public int PlayCountForTest(string lumpName) =>
+            !string.IsNullOrEmpty(lumpName) && playCounts.TryGetValue(Normalize(lumpName), out int n) ? n : 0;
 
         public int ActiveLoopCount => loops.Count;
         public SoundCache Cache => cache;
@@ -188,6 +193,7 @@ namespace Doom.MapBuild
             string name = Normalize(lumpName);
             LastPlayedLump = name;
             played.Add(name);
+            playCounts[name] = PlayCountForTest(name) + 1;
         }
 
         private AudioSource AcquireOneShot(SoundCueMetadata metadata)

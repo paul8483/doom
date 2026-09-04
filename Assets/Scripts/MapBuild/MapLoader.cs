@@ -741,7 +741,7 @@ namespace Doom.MapBuild
             foreach (string n in new[]
             {
                 "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSNOWAY", "DSOOF",
-                "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTOP", "DSSWTCHN",
+                "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTART", "DSPSTOP", "DSSWTCHN",
                 "DSFIRSHT", "DSFIRXPL", "DSRXPLOD", "DSCLAW", "DSBAREXP",
                 "DSTELEPT",
             })

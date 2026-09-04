@@ -243,6 +243,8 @@ namespace Doom.MapBuild
         }
         /// Test hook: read the live (raw DOOM-unit) ceiling height of a sector.
         public float GetSectorCeilForTest(int sector) => heights.CeilRaw(sector);
+        /// Test hook: read the live (raw DOOM-unit) floor height of a sector.
+        public float GetSectorFloorForTest(int sector) => heights.FloorRaw(sector);
         /// Test hook: is a mover currently active on this sector?
         public bool IsSectorMovingForTest(int sector) => moving[sector];
 
@@ -999,7 +1001,7 @@ namespace Doom.MapBuild
                 int down = SectorActions.ComputeTargetHeight(map, heights, sector, TargetSpec.LowestNeighborFloor);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
                             down, speed, cycle: true, waitSeconds: LiftWaitSeconds, onDone: () => moving[sector] = false,
-                            sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
+                            sound, MoverSoundProfile.Lift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Ceiling)
             {

@@ -68,7 +68,7 @@ namespace Doom.Game
 
         private static readonly HashSet<string> VariableWorldCues = new(StringComparer.Ordinal)
         {
-            "DSDOROPN", "DSDORCLS", "DSPSTOP", "DSSWTCHN",
+            "DSDOROPN", "DSDORCLS", "DSPSTART", "DSPSTOP", "DSSWTCHN",
             "DSFIRSHT", "DSFIRXPL", "DSRXPLOD", "DSBAREXP",
             "DSPLASMA", "DSBFG", "DSBFGX",
         };

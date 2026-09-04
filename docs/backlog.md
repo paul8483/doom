@@ -79,11 +79,8 @@
   (`BeginFromSnapshot` получает SoundSystem/профиль/origin и ванильную
   паузу цикла; см. CLAUDE.md). Остаток: сейв не хранит «тихий» crusher
   (тип 141) — восстановленная дробилка гремит как обычная.
-- **Звук лифтов не ванильный.** Порт крутит луп DSSTNMOV и бьёт DSPSTOP в
-  конце; `T_PlatRaise` играет DSPSTART на каждом старте (вниз и вверх) и
-  DSPSTOP на каждой остановке, а stnmov — только у raiseAndChange-плит и у
-  полов/потолков (`T_MoveFloor`/`T_MoveCeiling`, каждые 8 тиков). В Freedoom
-  DSSTNMOV — 0.27 с «тук», в лупе слышится как повторяющийся прыжок.
+- ~~**Звук лифтов не ванильный.**~~ ✅ закрыто 2026-09-04 (`MoverSoundProfile.Lift`:
+  DSPSTART на каждом старте, DSPSTOP на каждой остановке, без лупа; см. CLAUDE.md).
 - **Кряхтение при отказе ключа.** Порт играет DSNOWAY; `EV_VerticalDoor`
   играет `sfx_oof` (DSOOF), а `sfx_noway` — это `P_UseLines` «нечего
   использовать».

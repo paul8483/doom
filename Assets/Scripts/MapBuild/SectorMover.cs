@@ -249,7 +249,11 @@ namespace Doom.MapBuild
                 }
                 else if (phase == Phase.MovingToTarget && cycle)
                 {
+                    // T_PlatRaise reaching the bottom: pstop, then wait. A door
+                    // profile carries no stop cue, so doors stay silent here.
                     StopLoopOnly();
+                    if (!string.IsNullOrEmpty(sfx.StopLump))
+                        sound?.PlayAt(sfx.StopLump, soundOrigin);
                     phase = Phase.Waiting;
                     waitTimer = waitSeconds;
                 }
@@ -281,13 +285,15 @@ namespace Doom.MapBuild
         void Finish()
         {
             geometry?.RebuildSectorAndNeighbors(sector);
+            // The stop cue is played explicitly: SoundSystem.StopLoop only
+            // plays it while a loop is registered, and a lift (pstart/pstop,
+            // no motor loop) has none — its top pstop used to vanish here.
+            StopLoopOnly();
             if (!stopPlayed && !string.IsNullOrEmpty(sfx.StopLump))
             {
-                sound?.StopLoop(loopKey, sfx.StopLump);
+                sound?.PlayAt(sfx.StopLump, soundOrigin);
                 stopPlayed = true;
             }
-            else
-                StopLoopOnly();
             phase = Phase.Done;
             onDone?.Invoke();
         }
