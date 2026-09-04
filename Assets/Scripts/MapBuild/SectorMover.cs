@@ -66,41 +66,51 @@ namespace Doom.MapBuild
 
         /// Resume a mover from a save snapshot. Heights must already be applied.
         /// Waiting phase uses <paramref name="returnOrigin"/> as the post-wait goal
-        /// (typically the WAD static height for that plane). Moving phase does a
-        /// one-shot travel to <paramref name="targetHeight"/>.
+        /// (typically the WAD static height for that plane) and keeps the
+        /// remaining <paramref name="waitTics"/>; <paramref name="fullWaitSeconds"/>
+        /// is the dwell a cycle mover re-enters after reaching its target
+        /// (VDOORWAIT / PLATWAIT) — it used to be zero, so a door restored
+        /// mid-open closed the moment it finished opening. Cues resume the way
+        /// vanilla thinkers do after a load: the motor loop of a floor / lift
+        /// in motion starts at once (T_MoveFloor plays stnmov every 8 tics),
+        /// one-shot door cues are not replayed, the next transition plays its
+        /// own (close, stop). Before <paramref name="sound"/> was passed here,
+        /// every restored mover ran silent to the end of its cycle.
         public void BeginFromSnapshot(
             RuntimeSectorHeights heights, SectorGeometry geometry, int sector,
             Surface surface, float targetHeight, float speedUnitsPerSec,
             MoverPhase moverPhase, int waitTics, float returnOrigin,
             MoverBehavior moverBehavior, bool moverCycle,
-            System.Action onDone = null, float worldScale = 1f / 32f)
+            System.Action onDone = null, float worldScale = 1f / 32f,
+            SoundSystem sound = null, MoverSoundProfile sfx = default,
+            Vector3 soundOrigin = default, float fullWaitSeconds = 0f)
         {
             this.heights = heights; this.geometry = geometry; this.sector = sector;
             this.surface = surface; this.speedUnitsPerSec = speedUnitsPerSec;
             this.onDone = onDone;
-            this.sound = null;
-            this.sfx = default;
-            this.soundOrigin = default;
+            this.sound = sound;
+            this.sfx = sfx;
+            this.soundOrigin = soundOrigin;
             loopKey = this;
             stopPlayed = false;
             behavior = moverBehavior;
             cycle = moverCycle;
             origin = returnOrigin;
+            target = targetHeight;
+            waitSeconds = Mathf.Max(0f, fullWaitSeconds);
 
             if (moverPhase == MoverPhase.Waiting)
             {
-                target = targetHeight;
-                waitSeconds = Mathf.Max(0f, waitTics / 35f);
                 phase = Phase.Waiting;
-                waitTimer = waitSeconds;
+                waitTimer = Mathf.Max(0f, waitTics / 35f);
             }
             else
             {
-                target = targetHeight;
-                waitSeconds = 0f;
                 phase = moverPhase == MoverPhase.Returning ? Phase.Returning
                     : moverPhase == MoverPhase.Stopped ? Phase.Stopped
                     : Phase.MovingToTarget;
+                if (phase != Phase.Stopped && !string.IsNullOrEmpty(sfx.LoopLump))
+                    sound?.PlayLoop(sfx.LoopLump, loopKey, soundOrigin);
             }
             if (behavior == MoverBehavior.Crusher)
             {

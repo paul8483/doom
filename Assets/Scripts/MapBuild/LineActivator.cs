@@ -882,7 +882,13 @@ namespace Doom.MapBuild
                 (v1.Y + v2.Y) * 0.5f * worldScale);
         }
 
-        Vector3 SectorSoundOrigin(int sector)
+        /// VDOORWAIT (150 tics) and PLATWAIT (3 × 35 tics) from p_doors.c / p_plats.c;
+        /// shared with the save restore so a resumed cycle keeps the vanilla dwell.
+        public const float DoorWaitSeconds = 4.3f;
+        public const float LiftWaitSeconds = 3f;
+
+        /// World position a mover's cues play from (floor / ceiling mesh centre).
+        public Vector3 SectorSoundOrigin(int sector)
         {
             // Sector_* roots sit at map origin — use floor/ceiling mesh bounds center.
             if (geometry != null)
@@ -975,7 +981,7 @@ namespace Doom.MapBuild
                 int targetH = SectorActions.ComputeTargetHeight(map, heights, sector, sp.Target);
                 bool cycle = DoorCycles(sp.Type);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Ceiling,
-                            targetH, speed, cycle, waitSeconds: 4.3f, onDone: () => moving[sector] = false,
+                            targetH, speed, cycle, waitSeconds: DoorWaitSeconds, onDone: () => moving[sector] = false,
                             sound, MoverSoundProfile.Door, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Plat && sp.Direction == MoveDirection.Up)
@@ -992,7 +998,7 @@ namespace Doom.MapBuild
             {
                 int down = SectorActions.ComputeTargetHeight(map, heights, sector, TargetSpec.LowestNeighborFloor);
                 mover.Begin(heights, geometry, sector, SectorMover.Surface.Floor,
-                            down, speed, cycle: true, waitSeconds: 3f, onDone: () => moving[sector] = false,
+                            down, speed, cycle: true, waitSeconds: LiftWaitSeconds, onDone: () => moving[sector] = false,
                             sound, MoverSoundProfile.FloorOrLift, SectorSoundOrigin(sector));
             }
             else if (sp.Category == SpecialCategory.Ceiling)

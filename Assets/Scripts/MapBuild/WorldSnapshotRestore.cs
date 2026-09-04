@@ -41,7 +41,7 @@ namespace Doom.MapBuild
             {
                 RestoreSectors(
                     world, save.Version, map, heights, geometry, player,
-                    registry.Lines, loader.SectorLights, worldScale);
+                    registry.Lines, loader.SectorLights, worldScale, sound);
                 RestoreLines(world, map, registry.Lines);
                 RestoreMapThings(world, registry);
                 RestoreSpawnedPickups(world, registry, spriteCache, worldScale, player);
@@ -67,7 +67,7 @@ namespace Doom.MapBuild
         static void RestoreSectors(
             WorldSnapshot world, int saveVersion, MapData map, RuntimeSectorHeights heights,
             SectorGeometry geometry, GameObject player, LineActivator lines,
-            RuntimeSectorLights lights, float worldScale)
+            RuntimeSectorLights lights, float worldScale, SoundSystem sound)
         {
             if (world.Sectors == null) return;
 
@@ -104,6 +104,19 @@ namespace Doom.MapBuild
                     ? s.MoverCycle : s.MoverPhase == MoverPhase.Waiting;
 
                 int sectorIndex = s.Index;
+                // Cue profile follows the mover kind, as StartMover assigns it:
+                // a cycling ceiling that is not a crusher is a door (open /
+                // close one-shots), everything else is a floor / lift motor
+                // (loop + stop). The snapshot does not record a silent crusher
+                // (type 141), so a restored crusher grinds like the others.
+                bool isDoor = surface == SectorMover.Surface.Ceiling && cycle
+                              && behavior != MoverBehavior.Crusher;
+                var profile = isDoor ? MoverSoundProfile.Door : MoverSoundProfile.FloorOrLift;
+                float fullWait = !cycle ? 0f
+                    : isDoor ? LineActivator.DoorWaitSeconds : LineActivator.LiftWaitSeconds;
+                Vector3 soundOrigin = lines != null
+                    ? lines.SectorSoundOrigin(sectorIndex) : Vector3.zero;
+
                 var mover = player.AddComponent<SectorMover>();
                 mover.BeginFromSnapshot(
                     heights, geometry, sectorIndex, surface,
@@ -111,7 +124,9 @@ namespace Doom.MapBuild
                     s.MoverPhase, s.MoverWaitTics, returnOrigin,
                     behavior, cycle,
                     onDone: () => lines?.SetSectorMoving(sectorIndex, false),
-                    worldScale: worldScale);
+                    worldScale: worldScale,
+                    sound: sound, sfx: profile, soundOrigin: soundOrigin,
+                    fullWaitSeconds: fullWait);
                 lines?.SetSectorMoving(sectorIndex, true);
             }
         }
