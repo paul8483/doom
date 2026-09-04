@@ -162,6 +162,21 @@ namespace Doom.MapBuild
             else if (!string.IsNullOrEmpty(sfx.LoopLump))
                 sound?.PlayLoop(sfx.LoopLump, loopKey, soundOrigin);
         }
+        /// A down-wait-up plat (floor cycle mover that is not a crusher).
+        public bool IsLift => surface == Surface.Floor && cycle && !IsCrusher;
+
+        /// T_PlatRaise going up, blocked by an actor (`crushed` without
+        /// crush): the plat heads back down with pstart, waits at the bottom
+        /// and tries again. Until 2026-09-04 the port held the plane in place
+        /// until the actor left — with a monster stuck on a raised pillar
+        /// (E1M4 sector 63) that was forever.
+        void ReverseLift()
+        {
+            if (!IsLift || phase != Phase.Returning) return;
+            phase = Phase.MovingToTarget;
+            PlayStartOrLoop();
+        }
+
         public bool IsCrusherDescending =>
             IsCrusher && phase == Phase.MovingToTarget;
         public bool IsStopped => phase == Phase.Stopped;
@@ -228,6 +243,8 @@ namespace Doom.MapBuild
                 {
                     if (surface == Surface.Ceiling && cycle && phase == Phase.Returning)
                         Reopen();
+                    else if (IsLift && phase == Phase.Returning)
+                        ReverseLift();
                     return;
                 }
             }

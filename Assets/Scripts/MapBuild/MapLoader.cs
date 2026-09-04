@@ -740,7 +740,7 @@ namespace Doom.MapBuild
             // Player / sector / projectile fixed set.
             foreach (string n in new[]
             {
-                "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSOOF",
+                "DSPLPAIN", "DSPLDETH", "DSPDIEHI", "DSOOF", "DSNOWAY",
                 "DSDOROPN", "DSDORCLS", "DSSTNMOV", "DSPSTART", "DSPSTOP", "DSSWTCHN",
                 "DSFIRSHT", "DSFIRXPL", "DSRXPLOD", "DSCLAW", "DSBAREXP",
                 "DSTELEPT",

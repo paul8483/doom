@@ -309,10 +309,35 @@ namespace Doom.MapBuild
                         Activate(lineIndex, TriggerKind.Push, alsoSwitch: true);
                         return;
                     }
+                    // PTR_UseTraverse on a line without a special: if it has
+                    // no opening (one-sided, or the gap is closed) the use
+                    // stops there with sfx_noway; an open two-sided line lets
+                    // the trace continue — the nearest-special fallback below.
+                    if (lineIndex >= 0 && map.LineDefs[lineIndex].Special == 0 &&
+                        OpeningRange(map.LineDefs[lineIndex]) <= 0f)
+                    {
+                        sound?.PlayLocal("DSNOWAY");
+                        return;
+                    }
                 }
             }
 
             UseNearestSpecialInFront(range);
+        }
+
+        /// P_LineOpening on live heights: the vertical gap between the two
+        /// sectors of a line (≤ 0 for a one-sided wall or a closed door).
+        float OpeningRange(LineDef ld)
+        {
+            if (!ld.IsTwoSided || heights == null) return 0f;
+            if (ld.FrontSideIdx < 0 || ld.FrontSideIdx >= map.SideDefs.Length ||
+                ld.BackSideIdx >= map.SideDefs.Length) return 0f;
+            int front = map.SideDefs[ld.FrontSideIdx].SectorIdx;
+            int back = map.SideDefs[ld.BackSideIdx].SectorIdx;
+            if (front < 0 || back < 0) return 0f;
+            float top = Mathf.Min(heights.CeilRaw(front), heights.CeilRaw(back));
+            float bottom = Mathf.Max(heights.FloorRaw(front), heights.FloorRaw(back));
+            return top - bottom;
         }
 
         /// Writes a structured snapshot of the player's map location and view.
