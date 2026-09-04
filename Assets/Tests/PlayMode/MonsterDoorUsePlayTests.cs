@@ -93,7 +93,7 @@ namespace Doom.Stage3.PlayTests
             activator.ActivateLineForTest(BlueDoorLine);
             yield return null;
             Assert.That(activator.IsSectorMovingForTest(BlueDoorSector), Is.False);
-            Assert.That(sound.WasPlayed("DSNOWAY") || sound.WasPlayed("DSOOF"), Is.True,
+            Assert.That(sound.WasPlayed("DSOOF"), Is.True,
                 "the player without the key still hears the denial");
         }
 

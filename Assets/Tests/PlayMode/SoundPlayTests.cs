@@ -200,7 +200,9 @@ namespace Doom.Stage3.PlayTests
             Assert.That(doorLine, Is.GreaterThanOrEqualTo(0));
             float ceilBefore = activator.GetSectorCeilForTest(doorSector);
             activator.ActivateLineForTest(doorLine);
-            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSNOWAY").Or.EqualTo("DSOOF"));
+            // EV_VerticalDoor / EV_DoLockedDoor: sfx_oof, never sfx_noway (that is P_UseLines' "nothing usable").
+            Assert.That(sound.LastPlayedLump, Is.EqualTo("DSOOF"));
+            Assert.That(sound.WasPlayed("DSNOWAY"), Is.False);
             Assert.That(activator.IsSectorMovingForTest(doorSector), Is.False);
             Assert.That(activator.GetSectorCeilForTest(doorSector), Is.EqualTo(ceilBefore));
         }

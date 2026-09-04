@@ -861,15 +861,15 @@ namespace Doom.MapBuild
             if (!sp.Repeatable) onceFired[lineIndex] = true;
         }
 
+        /// EV_VerticalDoor / EV_DoLockedDoor without the key:
+        /// `S_StartSound(NULL, sfx_oof)` — the player's grunt, non-positional.
+        /// (sfx_noway is P_UseLines' cue for a use that hit nothing usable and
+        /// was the wrong pick here until 2026-09-04.)
         void PlayKeyDenied()
         {
             if (keyDenyCooldown > 0f) return;
             keyDenyCooldown = 0.25f;
-            if (sound == null) return;
-            if (sound.Cache != null && sound.Cache.Get("DSNOWAY") != null)
-                sound.PlayLocal("DSNOWAY");
-            else
-                sound.PlayLocal("DSOOF");
+            sound?.PlayLocal("DSOOF");
         }
 
         Vector3 LineMidpoint(int lineIndex)
