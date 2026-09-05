@@ -46,7 +46,15 @@ namespace Doom.MapBuild
         {
             if (player == null || stopped || frames <= 0) return 0;
             var buf = new float[frames * 2];
-            player.Render(buf, frames);
+            // Same gate as OnAudioFilterRead: the audio thread renders the
+            // same OPL chip, and two concurrent Render calls race inside
+            // NukedOpl's write queue (NRE in OPL3_Generate4Ch — a rare
+            // PlayMode flake of Audio_bootstrap_and_music, 2026-09-05).
+            lock (synthGate)
+            {
+                if (player == null || stopped) return 0;
+                player.Render(buf, frames);
+            }
             System.Threading.Interlocked.Add(ref renderedFrames, frames);
             return frames;
         }
